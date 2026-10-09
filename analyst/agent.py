@@ -16,7 +16,8 @@ Method:
 2. Form hypotheses, then test them with SQL. For "why did X change" questions, quantify the change, then break it down by every available dimension (time, region, channel, category, ...) to find where it is concentrated, and compare against a baseline period.
 3. Sanity-check results (empty results, implausible totals, row-count/duplicate issues from joins). If a query errors, read the error and fix it.
 4. Revenue = sum(quantity * unit_price) over completed orders unless the question implies otherwise; state any assumption you make.
-5. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats. Do not claim causes the data cannot support; distinguish what the data shows from what you infer."""
+5. For statistics (significance, correlation, anomaly detection) or charts, use run_python. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results. Prefer run_sql for plain aggregation.
+6. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats. Do not claim causes the data cannot support; distinguish what the data shows from what you infer."""
 
 TOOLS = [
     {
@@ -35,6 +36,12 @@ TOOLS = [
     },
 ]
 
+PYTHON_TOOL = {
+    "name": "run_python",
+    "description": "Run Python in an isolated sandbox (no network). `con` = read-only DuckDB connection; pd, np, plt preloaded; save charts to OUT_DIR. print() what you need to see.",
+    "input_schema": {"type": "object", "properties": {"code": {"type": "string"}}, "required": ["code"]},
+}
+
 
 @dataclass
 class Event:
@@ -51,17 +58,21 @@ class RunStats:
     sql_calls: int = 0
     stop_reason: str = ""
     answer: str = ""
+    python_calls: int = 0
+    artifacts: list[str] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
 
 
 class Analyst:
     def __init__(self, db: Database, client=None, model: str = MODEL,
-                 max_steps: int = 15, max_tokens_budget: int = 150_000):
+                 max_steps: int = 15, max_tokens_budget: int = 150_000, sandbox=None):
         self.db = db
         self.client = client or anthropic.Anthropic()
         self.model = model
         self.max_steps = max_steps
         self.max_tokens_budget = max_tokens_budget
+        self.sandbox = sandbox
+        self.tools = TOOLS + ([PYTHON_TOOL] if sandbox else [])
 
     def _execute(self, name: str, args: dict, stats: RunStats) -> tuple[str, bool]:
         if name == "get_schema":
@@ -76,6 +87,11 @@ class Analyst:
             except Exception as e:  # duckdb binder/parser errors etc.
                 stats.sql_errors += 1
                 return f"SQL ERROR: {e}", True
+        if name == "run_python" and self.sandbox:
+            stats.python_calls += 1
+            res = self.sandbox.run(args.get("code", ""))
+            stats.artifacts += [str(f) for f in res.files]
+            return res.to_text(), res.is_error
         return f"Unknown tool {name}", True
 
     def run(self, question: str) -> Iterator[Event]:
@@ -101,7 +117,7 @@ class Analyst:
 
             stats.steps += 1
             resp = self.client.messages.create(
-                model=self.model, max_tokens=4096, system=SYSTEM, tools=TOOLS, messages=messages,
+                model=self.model, max_tokens=4096, system=SYSTEM, tools=self.tools, messages=messages,
             )
             stats.input_tokens += resp.usage.input_tokens
             stats.output_tokens += resp.usage.output_tokens

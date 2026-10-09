@@ -21,6 +21,14 @@ the golden value, diagnosis questions must name the planted cause, and *trap* qu
 the data) must be recognised rather than hallucinated. The report gives accuracy by difficulty, median latency,
 tokens, cost per correct answer, self-correction rate, and a failure taxonomy. Results land in `eval/results/`.
 
+## Python sandbox
+`--sandbox docker` (recommended) runs model-written Python in a locked-down container; `--sandbox local`
+is **dev-only** (env scrubbed, timeout, but no filesystem/network isolation). Charts are saved to `artifacts/`.
+```bash
+docker build -t analyst-sandbox sandbox/
+.venv/bin/python -m analyst.cli --sandbox docker "Is the March drop statistically significant? Show a chart."
+```
+
 ## Design
 - `analyst/db.py` – guardrails: read-only connection, external file access disabled,
   single-statement allowlist, 200-row cap, 10s timeout.
@@ -32,6 +40,6 @@ tokens, cost per correct answer, self-correction rate, and a failure taxonomy. R
 - [x] M1 core loop + guardrails + tests
 - [x] M2 eval harness (22 questions, deterministic grading, cost/latency/failure report)
 - [ ] M2b first real baseline numbers (needs API key) + prompt iteration
-- [ ] M3 sandboxed Python tool (Docker) for charts/stats
+- [x] M3 sandboxed Python tool for charts/stats (`DockerSandbox`: no network, read-only FS, non-root, mem/CPU/pid limits; build with `docker build -t analyst-sandbox sandbox/`)
 - [ ] M5 add BIRD subset for an external, comparable number
 - [ ] M6 streaming UI + demo video
