@@ -11,6 +11,16 @@ export ANTHROPIC_API_KEY=...
 .venv/bin/python -m pytest                       # guardrail + agent-loop tests (no API key needed)
 ```
 
+## Evaluation
+```bash
+.venv/bin/python -m eval.run_eval --price-in <USD/Mtok> --price-out <USD/Mtok>
+```
+22 questions (easy/medium/hard/trap) graded **deterministically**: numeric answers are compared to golden
+SQL re-run against the DB (2% tolerance, handles `$1.42M`-style formats), categorical answers must contain
+the golden value, diagnosis questions must name the planted cause, and *trap* questions (unanswerable from
+the data) must be recognised rather than hallucinated. The report gives accuracy by difficulty, median latency,
+tokens, cost per correct answer, self-correction rate, and a failure taxonomy. Results land in `eval/results/`.
+
 ## Design
 - `analyst/db.py` – guardrails: read-only connection, external file access disabled,
   single-statement allowlist, 200-row cap, 10s timeout.
@@ -20,7 +30,8 @@ export ANTHROPIC_API_KEY=...
 
 ## Roadmap
 - [x] M1 core loop + guardrails + tests
-- [ ] M2 verified self-correction metrics on real runs
+- [x] M2 eval harness (22 questions, deterministic grading, cost/latency/failure report)
+- [ ] M2b first real baseline numbers (needs API key) + prompt iteration
 - [ ] M3 sandboxed Python tool (Docker) for charts/stats
-- [ ] M5 eval harness (BIRD subset + hand-written questions): accuracy, cost, latency, failure taxonomy
+- [ ] M5 add BIRD subset for an external, comparable number
 - [ ] M6 streaming UI + demo video
