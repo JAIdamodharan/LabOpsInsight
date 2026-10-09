@@ -15,8 +15,8 @@ export ANTHROPIC_API_KEY=...
 - `analyst/db.py` – guardrails: read-only connection, external file access disabled,
   single-statement allowlist, 200-row cap, 10s timeout.
 - `analyst/agent.py` – hand-written tool loop with step and token budgets; yields events for live tracing.
-- `scripts/make_data.py` – synthetic data with a known ground truth (mobile_app orders in the West
-  region fell ~65% in March 2025), so answers can be graded automatically.
+- `scripts/make_data.py` – synthetic data with a known ground truth (mobile_app orders in the West/East
+  regions fell ~85% in March 2025, cutting revenue ~18%), so answers can be graded automatically.
 
 ## Roadmap
 - [x] M1 core loop + guardrails + tests

@@ -1,9 +1,9 @@
 """Generate a synthetic e-commerce DuckDB with a planted, known revenue drop.
 
 Ground truth (used by the eval harness):
-  In March 2025 the `mobile_app` channel lost ~65% of its orders in the `West`
-  region (a bad app release), which drags total March revenue down ~15-20%.
-  Other channels/regions are unaffected, apart from normal seasonality noise.
+  In March 2025 the `mobile_app` channel lost ~85% of its orders in the `West`
+  and `East` regions (a bad app release), which drags total March revenue down
+  ~18%. Web/marketplace and the other regions are unaffected (noise only).
 """
 import csv
 import random
@@ -53,8 +53,8 @@ def build(db_path: Path) -> None:
             channel = rnd.choices(CHANNELS, [0.45, 0.35, 0.2])[0]
             region = cust_region[cid]
             # planted incident
-            if (channel == "mobile_app" and region == "West"
-                    and date(2025, 3, 1) <= day <= date(2025, 3, 31) and rnd.random() < 0.65):
+            if (channel == "mobile_app" and region in ("West", "East")
+                    and date(2025, 3, 1) <= day <= date(2025, 3, 31) and rnd.random() < 0.85):
                 continue
             status = rnd.choices(["completed", "cancelled", "returned"], [0.9, 0.06, 0.04])[0]
             orders.append((oid, cid, day.isoformat(), channel, status))

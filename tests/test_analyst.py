@@ -49,10 +49,10 @@ def test_timeout(db, monkeypatch):
 def test_planted_incident_is_visible(db):
     rows = db.run("""
         SELECT strftime(order_date,'%Y-%m') m, count(*) FROM orders
-        WHERE channel='mobile_app' AND customer_id IN (SELECT customer_id FROM customers WHERE region='West')
+        WHERE channel='mobile_app' AND customer_id IN (SELECT customer_id FROM customers WHERE region IN ('West','East'))
         GROUP BY 1 ORDER BY 1""").rows
     by_month = dict(rows)
-    assert by_month["2025-03"] < 0.5 * by_month["2025-02"]
+    assert by_month["2025-03"] < 0.3 * by_month["2025-02"]
 
 
 # ---- agent loop with a scripted fake model ----------------------------------
