@@ -21,6 +21,15 @@ the golden value, diagnosis questions must name the planted cause, and *trap* qu
 the data) must be recognised rather than hallucinated. The report gives accuracy by difficulty, median latency,
 tokens, cost per correct answer, self-correction rate, and a failure taxonomy. Results land in `eval/results/`.
 
+## Web UI
+```bash
+.venv/bin/python -m analyst.server --sandbox local            # real model (needs ANTHROPIC_API_KEY)
+.venv/bin/python -m analyst.server --demo --sandbox local     # scripted model, real queries: no key needed
+```
+Open http://127.0.0.1:8000. Steps stream live over SSE: SQL with result tables, Python with charts, then the
+answer and run stats. Demo mode is labelled in the UI; only the agent's decisions are scripted, the SQL and
+Python really execute.
+
 ## Python sandbox
 `--sandbox docker` (recommended) runs model-written Python in a locked-down container; `--sandbox local`
 is **dev-only** (env scrubbed, timeout, but no filesystem/network isolation). Charts are saved to `artifacts/`.
@@ -42,4 +51,5 @@ docker build -t analyst-sandbox sandbox/
 - [ ] M2b first real baseline numbers (needs API key) + prompt iteration
 - [x] M3 sandboxed Python tool for charts/stats (`DockerSandbox`: no network, read-only FS, non-root, mem/CPU/pid limits; build with `docker build -t analyst-sandbox sandbox/`)
 - [ ] M5 add BIRD subset for an external, comparable number
-- [ ] M6 streaming UI + demo video
+- [x] M6 streaming web UI (FastAPI + SSE)
+- [ ] M6b record demo video with a real model run
