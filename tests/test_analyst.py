@@ -105,3 +105,24 @@ def test_agent_stops_at_token_budget(db):
     agent = Analyst(db, client=client, max_tokens_budget=1500)
     list(agent.run("q"))
     assert agent.last_stats.stop_reason == "token_budget"
+
+
+def test_agent_nudges_instead_of_answering_over_an_error(db):
+    client = FakeClient([
+        msg("tool_use", tool("1", "run_sql", sql="SELECT nope FROM orders")),
+        msg("end_turn", text("here is a fixed query in prose")),       # premature answer -> nudged
+        msg("tool_use", tool("2", "run_sql", sql="SELECT count(*) FROM orders")),
+        msg("end_turn", text("done")),
+    ])
+    agent = Analyst(db, client=client)
+    list(agent.run("q"))
+    s = agent.last_stats
+    assert s.nudges == 1 and s.answer == "done" and s.sql_calls == 2
+
+
+def test_nudges_are_capped(db):
+    client = FakeClient([msg("tool_use", tool("1", "run_sql", sql="SELECT nope FROM orders"))] +
+                        [msg("end_turn", text("prose"))] * 3)
+    agent = Analyst(db, client=client)
+    list(agent.run("q"))
+    assert agent.last_stats.nudges == 2 and agent.last_stats.answer == "prose"

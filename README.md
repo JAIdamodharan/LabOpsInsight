@@ -11,6 +11,30 @@ export ANTHROPIC_API_KEY=...
 .venv/bin/python -m pytest                       # guardrail + agent-loop tests (no API key needed)
 ```
 
+## Running for free
+The agent is model-agnostic: `analyst/llm.py` translates to any OpenAI-compatible endpoint.
+
+| Provider | Cost | Setup |
+|---|---|---|
+| `ollama` | free, local | `ollama pull llama3.2 && ollama serve`, then `--provider ollama` |
+| `groq` | free tier | key at console.groq.com, `export GROQ_API_KEY=...`, `--provider groq` |
+| `gemini` | free tier | key at aistudio.google.com, `export GEMINI_API_KEY=...`, `--provider gemini` |
+| `openrouter` | `:free` models | `export OPENROUTER_API_KEY=...`, `--provider openrouter` |
+| `anthropic` | paid (per token) | `export ANTHROPIC_API_KEY=...` (default) |
+
+```bash
+.venv/bin/python -m analyst.cli --provider ollama "How many customers are in the West region?"
+.venv/bin/python -m analyst.server --provider groq --sandbox local
+.venv/bin/python -m eval.run_eval --provider groq --model llama-3.3-70b-versatile
+```
+Default model names may be retired by providers over time; pass `--model` to override.
+Weak models are handled with a text-tool-call rescue parser and an "unresolved error" nudge guard.
+
+### Baselines (22-question eval; update as runs complete)
+| Model | Questions | Accuracy | Notes |
+|---|---|---|---|
+| ollama/llama3.2 (3B, local, free) | q01-q08 | 3/8 (38%) | fails on joins and multi-step revenue; hits step limit |
+
 ## Evaluation
 ```bash
 .venv/bin/python -m eval.run_eval --price-in <USD/Mtok> --price-out <USD/Mtok>

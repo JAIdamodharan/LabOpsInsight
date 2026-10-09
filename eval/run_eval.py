@@ -10,8 +10,9 @@ import time
 from collections import Counter
 from pathlib import Path
 
-from analyst.agent import MODEL, Analyst
+from analyst.agent import Analyst
 from analyst.db import Database
+from analyst.llm import add_cli_args, make_client
 
 from .grading import grade
 
@@ -64,7 +65,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="data/shop.duckdb")
     ap.add_argument("--questions", default="eval/questions.json")
-    ap.add_argument("--model", default=MODEL)
+    add_cli_args(ap)
     ap.add_argument("--ids", help="comma-separated question ids")
     ap.add_argument("--price-in", type=float, default=0.0, help="USD per million input tokens")
     ap.add_argument("--price-out", type=float, default=0.0, help="USD per million output tokens")
@@ -75,7 +76,8 @@ def main() -> None:
     if args.ids:
         qs = [q for q in qs if q["id"] in args.ids.split(",")]
     db = Database(args.db)
-    agent = Analyst(db, model=args.model)
+    client, model = make_client(args.provider, args.model, args.base_url)
+    agent = Analyst(db, client=client, model=model)
 
     rows = []
     for q in qs:
@@ -87,7 +89,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     (out / f"{stamp}.json").write_text(json.dumps(rows, indent=2, default=str))
-    md = report(rows, args.model, args.price_in, args.price_out)
+    md = report(rows, f"{args.provider}/{model}", args.price_in, args.price_out)
     (out / f"{stamp}.md").write_text(md)
     print("\n" + md)
 

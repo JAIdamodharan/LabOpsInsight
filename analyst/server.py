@@ -12,6 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from .agent import MODEL, Analyst
 from .db import Database
 from .demo import DemoClient
+from .llm import add_cli_args, make_client
 from .sandbox import DockerSandbox, LocalSandbox
 
 STATIC = Path(__file__).parent / "static"
@@ -20,7 +21,7 @@ MAX_CONCURRENT = 2
 
 
 def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
-               artifacts_dir: str = "artifacts", client=None) -> FastAPI:
+               artifacts_dir: str = "artifacts", client=None, model: str | None = None) -> FastAPI:
     app = FastAPI(title="Autonomous Data Analyst")
     db = Database(db_path)
     Path(artifacts_dir).mkdir(exist_ok=True)
@@ -33,7 +34,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
 
     @app.get("/api/config")
     def config():
-        return {"demo": demo, "model": "scripted-demo" if demo else MODEL, "python": bool(make_sb)}
+        return {"demo": demo, "model": "scripted-demo" if demo else (model or MODEL), "python": bool(make_sb)}
 
     @app.get("/api/schema")
     def schema():
@@ -51,7 +52,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
             try:
                 sb = make_sb(db_path, artifacts_dir) if make_sb else None
                 c = client or (DemoClient(db, bool(sb)) if demo else None)
-                agent = Analyst(db, client=c, sandbox=sb)
+                agent = Analyst(db, client=c, model=model or MODEL, sandbox=sb)
                 sent = 0
                 for ev in agent.run(q):
                     d = dict(ev.data)
@@ -82,8 +83,10 @@ def main() -> None:
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--demo", action="store_true", help="scripted model; no API key needed")
     ap.add_argument("--sandbox", choices=["docker", "local", "none"], default="none")
+    add_cli_args(ap)
     a = ap.parse_args()
-    uvicorn.run(create_app(a.db, a.demo, a.sandbox), host="127.0.0.1", port=a.port)
+    client, model = (None, None) if a.demo else make_client(a.provider, a.model, a.base_url)
+    uvicorn.run(create_app(a.db, a.demo, a.sandbox, client=client, model=model), host="127.0.0.1", port=a.port)
 
 
 if __name__ == "__main__":

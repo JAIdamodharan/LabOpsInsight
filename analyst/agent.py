@@ -14,10 +14,15 @@ SYSTEM = """You are an autonomous senior data analyst. Answer the user's busines
 Method:
 1. Call get_schema first. Never guess column or table names.
 2. Form hypotheses, then test them with SQL. For "why did X change" questions, quantify the change, then break it down by every available dimension (time, region, channel, category, ...) to find where it is concentrated, and compare against a baseline period.
-3. Sanity-check results (empty results, implausible totals, row-count/duplicate issues from joins). If a query errors, read the error and fix it.
-4. Revenue = sum(quantity * unit_price) over completed orders unless the question implies otherwise; state any assumption you make.
-5. For statistics (significance, correlation, anomaly detection) or charts, use run_python. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results. Prefer run_sql for plain aggregation.
-6. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats. Do not claim causes the data cannot support; distinguish what the data shows from what you infer."""
+3. DuckDB SQL: string literals use SINGLE quotes ('West'); double quotes denote identifiers. Dates are DATE columns (e.g. order_date BETWEEN '2025-03-01' AND '2025-03-31').
+4. Sanity-check results (empty results, implausible totals, row-count/duplicate issues from joins). If a query errors, read the error and fix it.
+5. Revenue = sum(quantity * unit_price) over completed orders unless the question implies otherwise; state any assumption you make.
+6. For statistics (significance, correlation, anomaly detection) or charts, use run_python. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results. Prefer run_sql for plain aggregation.
+7. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats. Do not claim causes the data cannot support; distinguish what the data shows from what you infer."""
+
+MAX_NUDGES = 2
+NUDGE = ("Your last tool call failed and you have not resolved it. Do not answer yet: call the tool again with a corrected "
+         "query (use the tool-calling interface, not a code block) and get real results first.")
 
 TOOLS = [
     {
@@ -59,6 +64,7 @@ class RunStats:
     stop_reason: str = ""
     answer: str = ""
     python_calls: int = 0
+    nudges: int = 0
     artifacts: list[str] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
 
@@ -105,6 +111,7 @@ class Analyst:
             stats.events.append(ev)
             return ev
 
+        last_failed = False
         while True:
             if stats.steps >= self.max_steps:
                 stats.stop_reason = "max_steps"
@@ -123,6 +130,12 @@ class Analyst:
             stats.output_tokens += resp.usage.output_tokens
             messages.append({"role": "assistant", "content": resp.content})
 
+            if resp.stop_reason != "tool_use" and last_failed and stats.nudges < MAX_NUDGES:
+                # Never accept a final answer on top of an unresolved tool error (weak models do this a lot).
+                stats.nudges += 1
+                messages.append({"role": "user", "content": NUDGE})
+                continue
+
             if resp.stop_reason != "tool_use":
                 stats.answer = "".join(b.text for b in resp.content if b.type == "text")
                 stats.stop_reason = "answered"
@@ -138,4 +151,5 @@ class Analyst:
                 yield emit("tool_result", name=block.name, text=text, is_error=is_err)
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": text, "is_error": is_err})
+            last_failed = any(r["is_error"] for r in results)
             messages.append({"role": "user", "content": results})
