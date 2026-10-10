@@ -5,6 +5,7 @@ from typing import Iterator
 
 import anthropic
 
+from .charts import TYPES as CHART_TYPES, ChartError, build_chart
 from .db import Database, QueryRejected
 
 MODEL = os.environ.get("ANALYST_MODEL", "claude-sonnet-5-5")
@@ -17,8 +18,9 @@ Method:
 3. DuckDB SQL: string literals use SINGLE quotes ('West'); double quotes denote identifiers. Dates are DATE columns (e.g. order_date BETWEEN '2025-03-01' AND '2025-03-31').
 4. Sanity-check results (empty results, implausible totals, row-count/duplicate issues from joins). If a query errors, read the error and fix it.
 5. Revenue = sum(quantity * unit_price) over completed orders unless the question implies otherwise; state any assumption you make.
-6. For statistics (significance, correlation, anomaly detection) or charts, use run_python. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results. Prefer run_sql for plain aggregation.
-7. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats. Do not claim causes the data cannot support; distinguish what the data shows from what you infer."""
+6. When a visual helps, call the chart tool (the user sees an interactive chart; SQL results already show as sortable tables). Pick the type: bar/hbar to compare categories, line/area for trends over time, pie/doughnut only for parts of a whole with at most 6-8 slices, scatter for two numeric variables, kpi for headline numbers (one SQL row, one column per metric). The chart tool runs its own SQL: the x column is the category/time axis, y the numeric column(s), series optionally splits one y into several lines/bars. Do not chart more than 2-3 times per question; the written answer still matters most.
+7. For statistics (significance, correlation, anomaly detection) or custom plots, use run_python if available. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results. Prefer run_sql for plain aggregation.
+8. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats. Do not claim causes the data cannot support; distinguish what the data shows from what you infer."""
 
 MAX_NUDGES = 2
 NUDGE = ("Your last tool call failed and you have not resolved it. Do not answer yet: call the tool again with a corrected "
@@ -40,6 +42,23 @@ TOOLS = [
         },
     },
 ]
+
+CHART_TOOL = {
+    "name": "chart",
+    "description": "Render an interactive chart or KPI cards for the user from a SQL query (at most 200 rows). The user sees it; you only get a confirmation.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "type": {"type": "string", "enum": CHART_TYPES},
+            "title": {"type": "string"},
+            "sql": {"type": "string", "description": "read-only DuckDB query producing the chart data"},
+            "x": {"type": "string", "description": "result column for categories / time / scatter x (not needed for kpi)"},
+            "y": {"type": "string", "description": "numeric result column; comma-separate several columns for multiple series"},
+            "series": {"type": "string", "description": "optional result column that splits y into separate series"},
+        },
+        "required": ["type", "title", "sql"],
+    },
+}
 
 PYTHON_TOOL = {
     "name": "run_python",
@@ -65,6 +84,8 @@ class RunStats:
     answer: str = ""
     python_calls: int = 0
     nudges: int = 0
+    chart_calls: int = 0
+    charts: list[dict] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
 
@@ -78,15 +99,32 @@ class Analyst:
         self.max_steps = max_steps
         self.max_tokens_budget = max_tokens_budget
         self.sandbox = sandbox
-        self.tools = TOOLS + ([PYTHON_TOOL] if sandbox else [])
+        self.tools = TOOLS + [CHART_TOOL] + ([PYTHON_TOOL] if sandbox else [])
+        self._extra: dict = {}
 
     def _execute(self, name: str, args: dict, stats: RunStats) -> tuple[str, bool]:
+        self._extra = {}
         if name == "get_schema":
             return self.db.schema(), False
+        if name == "chart":
+            stats.chart_calls += 1
+            try:
+                res = self.db.run(args.get("sql", ""))
+                spec = build_chart(res, args)
+            except (QueryRejected, ChartError) as e:
+                return f"CHART ERROR: {e}", True
+            except Exception as e:
+                return f"CHART SQL ERROR: {e}", True
+            stats.charts.append(spec)
+            self._extra = {"chart": spec}
+            n = len(spec.get("cards") or spec.get("labels") or spec["datasets"][0]["data"])
+            return f"Rendered {spec['type']} chart '{spec['title']}' ({n} points) for the user.", False
         if name == "run_sql":
             stats.sql_calls += 1
             try:
-                return self.db.run(args.get("sql", "")).to_text(), False
+                res = self.db.run(args.get("sql", ""))
+                self._extra = {"table": {"columns": res.columns, "rows": res.rows, "truncated": res.truncated}}
+                return res.to_text(), False
             except QueryRejected as e:
                 stats.sql_errors += 1
                 return f"REJECTED: {e}", True
@@ -148,7 +186,7 @@ class Analyst:
                     continue
                 yield emit("tool_call", name=block.name, input=block.input)
                 text, is_err = self._execute(block.name, block.input, stats)
-                yield emit("tool_result", name=block.name, text=text, is_error=is_err)
+                yield emit("tool_result", name=block.name, text=text, is_error=is_err, **self._extra)
                 results.append({"type": "tool_result", "tool_use_id": block.id,
                                 "content": text, "is_error": is_err})
             last_failed = any(r["is_error"] for r in results)

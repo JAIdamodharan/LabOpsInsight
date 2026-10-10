@@ -45,6 +45,15 @@ the golden value, diagnosis questions must name the planted cause, and *trap* qu
 the data) must be recognised rather than hallucinated. The report gives accuracy by difficulty, median latency,
 tokens, cost per correct answer, self-correction rate, and a failure taxonomy. Results land in `eval/results/`.
 
+## Visuals (Power BI-style)
+- **`chart` tool**: the agent picks bar / hbar / line / area / pie / doughnut / scatter / KPI cards; the browser renders it
+  interactively (Chart.js, hover tooltips, PNG export). The model passes only SQL + column names, never data, and
+  `analyst/charts.py` validates the request (numeric columns, pie slice limit, no truncated data, duplicate-series checks).
+  Works with any model and needs no sandbox.
+- **Spreadsheet grids**: every SQL result is a sortable, filterable table with CSV export (formula-injection safe).
+- **Data tab**: browse the raw tables with paging and whole-table server-side sorting (identifiers allowlisted from the catalog).
+- **Dashboard tab**: pin charts and KPI cards; saved in the browser.
+
 ## Web UI
 ```bash
 .venv/bin/python -m analyst.server --sandbox local            # real model (needs ANTHROPIC_API_KEY)

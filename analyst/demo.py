@@ -21,23 +21,37 @@ class DemoClient:
         i, self.i = self.i, self.i + 1
         usage = NS(input_tokens=1200 + 900 * i, output_tokens=150)
         run = lambda sql: self.db.run(sql).rows
-        steps = [
-            lambda: [_tu(i, "get_schema")],
-            lambda: [_tu(i, "run_sql", sql="""SELECT strftime(order_date,'%Y-%m') AS month, round(sum(quantity*unit_price)) AS revenue
+        MONTHLY = """SELECT strftime(order_date,'%Y-%m') AS month, round(sum(quantity*unit_price)) AS revenue
 FROM orders JOIN order_items USING(order_id)
 WHERE status='completed' AND order_date BETWEEN '2025-01-01' AND '2025-05-31'
-GROUP BY 1 ORDER BY 1""")],
-            lambda: [_tu(i, "run_sql", sql="""SELECT channel, round(sum(CASE WHEN order_date<'2025-03-01' THEN quantity*unit_price END)/28,0) AS feb_rev_per_day,
-       round(sum(CASE WHEN order_date>='2025-03-01' THEN quantity*unit_price END)/31,0) AS mar_rev_per_day
-FROM orders JOIN order_items USING(order_id)
-WHERE status='completed' AND order_date BETWEEN '2025-02-01' AND '2025-03-31'
-GROUP BY 1 ORDER BY 1""")],
-            lambda: [_tu(i, "run_sql", sql="""SELECT channel, region,
+GROUP BY 1 ORDER BY 1"""
+        BY_CHANNEL = """SELECT channel, p AS period, round(rev/days) AS revenue_per_day FROM (
+  SELECT channel, CASE WHEN order_date<'2025-03-01' THEN 'Feb' ELSE 'Mar' END AS p,
+         sum(quantity*unit_price) AS rev, CASE WHEN order_date<'2025-03-01' THEN 28 ELSE 31 END AS days
+  FROM orders JOIN order_items USING(order_id)
+  WHERE status='completed' AND order_date BETWEEN '2025-02-01' AND '2025-03-31' GROUP BY 1,2,4) ORDER BY 1,2"""
+        DROPS = """SELECT channel, region,
        sum((order_date<'2025-03-01')::int) AS feb_orders, sum((order_date>='2025-03-01')::int) AS mar_orders,
        round(sum((order_date>='2025-03-01')::int)/31.0 - sum((order_date<'2025-03-01')::int)/28.0, 1) AS per_day_change
 FROM orders JOIN customers USING(customer_id)
 WHERE order_date BETWEEN '2025-02-01' AND '2025-03-31'
-GROUP BY 1,2 ORDER BY per_day_change LIMIT 5""")],
+GROUP BY 1,2 ORDER BY per_day_change LIMIT 8"""
+        KPI = """SELECT round(sum(CASE WHEN order_date<'2025-03-01' THEN quantity*unit_price END)) AS feb_revenue,
+       round(sum(CASE WHEN order_date>='2025-03-01' THEN quantity*unit_price END)) AS mar_revenue,
+       round(100.0*(sum(CASE WHEN order_date>='2025-03-01' THEN quantity*unit_price END)/sum(CASE WHEN order_date<'2025-03-01' THEN quantity*unit_price END)-1),1) AS change_pct
+FROM orders JOIN order_items USING(order_id)
+WHERE status='completed' AND order_date BETWEEN '2025-02-01' AND '2025-03-31'"""
+        SHARE = """SELECT category, round(sum(quantity*order_items.unit_price)) AS revenue
+FROM orders JOIN order_items USING(order_id) JOIN products USING(product_id)
+WHERE status='completed' AND order_date BETWEEN '2025-03-01' AND '2025-03-31' GROUP BY 1 ORDER BY 2 DESC"""
+        steps = [
+            lambda: [_tu(i, "get_schema")],
+            lambda: [_tu(i, "run_sql", sql=MONTHLY)],
+            lambda: [_tu(i, "chart", type="line", title="Monthly revenue (completed orders)", sql=MONTHLY, x="month", y="revenue")],
+            lambda: [_tu(i, "chart", type="kpi", title="February vs March 2025", sql=KPI)],
+            lambda: [_tu(i, "chart", type="bar", title="Revenue per day by channel: Feb vs Mar", sql=BY_CHANNEL, x="channel", y="revenue_per_day", series="period")],
+            lambda: [_tu(i, "run_sql", sql=DROPS)],
+            lambda: [_tu(i, "chart", type="doughnut", title="March 2025 revenue share by category", sql=SHARE, x="category", y="revenue")],
         ]
         if self.with_python:
             steps.append(lambda: [_tu(i, "run_python", code="""df = con.sql('''

@@ -18,6 +18,7 @@ from .sandbox import DockerSandbox, LocalSandbox
 STATIC = Path(__file__).parent / "static"
 MAX_QUESTION = 500
 MAX_CONCURRENT = 2
+MAX_PAGE = 200
 
 
 def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
@@ -39,6 +40,29 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
     @app.get("/api/schema")
     def schema():
         return {"schema": db.schema()}
+
+    @app.get("/api/tables")
+    def tables():
+        out = []
+        for (t,) in db.con.execute("SELECT table_name FROM information_schema.tables WHERE table_schema='main' ORDER BY 1").fetchall():
+            n = db.con.execute(f'SELECT count(*) FROM "{t}"').fetchone()[0]
+            cols = [c for (c,) in db.con.execute("SELECT column_name FROM information_schema.columns WHERE table_name=? ORDER BY ordinal_position", [t]).fetchall()]
+            out.append({"name": t, "rows": n, "columns": cols})
+        return out
+
+    @app.get("/api/table/{name}")
+    def table(name: str, limit: int = 100, offset: int = 0, sort: str | None = None, desc: bool = False):
+        meta = {t["name"]: t for t in tables()}
+        if name not in meta:  # identifiers come from the catalog, never from user text
+            raise HTTPException(404, "unknown table")
+        cols = meta[name]["columns"]
+        if sort is not None and sort not in cols:
+            raise HTTPException(400, "unknown sort column")
+        limit, offset = max(1, min(limit, MAX_PAGE)), max(0, offset)
+        order = f' ORDER BY "{sort}" {"DESC" if desc else "ASC"}' if sort else ""
+        res = db.run(f'SELECT * FROM "{name}"{order} LIMIT {limit} OFFSET {offset}')
+        return {"name": name, "total": meta[name]["rows"], "columns": res.columns,
+                "rows": [list(r) for r in res.rows], "offset": offset, "limit": limit}
 
     @app.get("/api/ask")
     def ask(q: str):
@@ -62,7 +86,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
                     yield f"data: {json.dumps({'kind': ev.kind, **d}, default=str)}\n\n"
                 s = agent.last_stats
                 yield "data: " + json.dumps({"kind": "done", "steps": s.steps, "sql_calls": s.sql_calls,
-                                             "sql_errors": s.sql_errors, "python_calls": s.python_calls,
+                                             "sql_errors": s.sql_errors, "python_calls": s.python_calls, "chart_calls": s.chart_calls,
                                              "in_tok": s.input_tokens, "out_tok": s.output_tokens,
                                              "stop": s.stop_reason}) + "\n\n"
             except Exception as e:  # surface to the UI instead of a dropped connection
