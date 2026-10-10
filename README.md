@@ -45,6 +45,15 @@ the golden value, diagnosis questions must name the planted cause, and *trap* qu
 the data) must be recognised rather than hallucinated. The report gives accuracy by difficulty, median latency,
 tokens, cost per correct answer, self-correction rate, and a failure taxonomy. Results land in `eval/results/`.
 
+## BI Dashboard tab (no LLM needed)
+`analyst/dashboard.py` + the Dashboard tab give a Power BI-style executive view driven by slicers (month / region / channel):
+8 KPI cards with previous-period value and good/bad-coloured arrows, 2 gauges, revenue trend with linear projection,
+orders-vs-AOV dual-axis combo chart, category/channel breakdowns, a region table with in-cell data bars, and a
+channel x region heatmap of order change (it makes the planted March incident obvious: mobile_app -83%/-84% in East/West).
+Three switchable themes (Mint / Corporate / Navy); responsive down to phone width. All values come from parameterised SQL;
+slicer values are validated against the catalog. "Ask the analyst why" hands the current view to the agent.
+The projection is an illustrative least-squares line, not a forecast model.
+
 ## Visuals (Power BI-style)
 - **`chart` tool**: the agent picks bar / hbar / line / area / pie / doughnut / scatter / KPI cards; the browser renders it
   interactively (Chart.js, hover tooltips, PNG export). The model passes only SQL + column names, never data, and

@@ -10,6 +10,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .agent import MODEL, Analyst
+from . import dashboard
 from .db import Database
 from .demo import DemoClient
 from .llm import add_cli_args, make_client
@@ -40,6 +41,13 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
     @app.get("/api/schema")
     def schema():
         return {"schema": db.schema()}
+
+    @app.get("/api/dashboard")
+    def dash(month: str | None = None, region: str | None = None, channel: str | None = None):
+        try:
+            return dashboard.build(db, month or None, region or None, channel or None)
+        except ValueError as e:  # slicer values are checked against the catalog, never interpolated
+            raise HTTPException(400, str(e))
 
     @app.get("/api/tables")
     def tables():

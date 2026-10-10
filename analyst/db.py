@@ -48,13 +48,13 @@ class Database:
             raise QueryRejected("Only read-only SELECT/WITH/DESCRIBE/SHOW/SUMMARIZE/EXPLAIN queries are allowed.")
         return stripped
 
-    def run(self, sql: str) -> QueryResult:
+    def run(self, sql: str, params: list | None = None) -> QueryResult:
         sql = self.validate(sql)
         cur = self.con.cursor()
         timer = threading.Timer(TIMEOUT_S, cur.interrupt)
         timer.start()
         try:
-            cur.execute(sql)
+            cur.execute(sql, params or [])
             cols = [d[0] for d in (cur.description or [])]
             rows = cur.fetchmany(MAX_ROWS + 1)
         except duckdb.InterruptException:
