@@ -79,19 +79,32 @@ def main() -> None:
     client, model = make_client(args.provider, args.model, args.base_url)
     agent = Analyst(db, client=client, model=model)
 
-    rows = []
-    for q in qs:
-        r = run_one(agent, q, db)
-        rows.append(r)
-        print(f"{'PASS' if r['passed'] else 'FAIL'} {r['id']} {r['latency_s']:>5}s {r['steps']} steps  {r['reason']}")
-
     out = Path(args.out)
     out.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
+    rows, interrupted = [], False
+    try:
+        for i, q in enumerate(qs, 1):
+            print(f"[{i}/{len(qs)}] running {q['id']} ({q['difficulty']}): {q['question'][:70]}"
+                  f"  (free tiers may pause for rate limits; Ctrl+C stops and still saves a report)", flush=True)
+            r = run_one(agent, q, db)
+            rows.append(r)
+            print(f"      {'PASS' if r['passed'] else 'FAIL'} {r['id']} {r['latency_s']:>6}s {r['steps']} steps  {r['reason']}", flush=True)
+            (out / f"{stamp}.partial.json").write_text(json.dumps(rows, indent=2, default=str))     # nothing is lost if the run is stopped
+    except KeyboardInterrupt:
+        interrupted = True
+        print(f"\nStopped after {len(rows)} of {len(qs)} questions; saving what finished.", flush=True)
+    if not rows:
+        print("No questions finished, so there is nothing to report.")
+        return
     (out / f"{stamp}.json").write_text(json.dumps(rows, indent=2, default=str))
-    md = report(rows, f"{args.provider}/{getattr(client, 'model_used', None) or model}", args.price_in, args.price_out)
+    label = f"{args.provider}/{getattr(client, 'model_used', None) or model}"      # model_used is only known after the first call (automatic fallback)
+    md = report(rows, label, args.price_in, args.price_out)
+    if interrupted:
+        md += f"\n> Partial run: {len(rows)} of {len(qs)} questions finished before it was stopped.\n"
     (out / f"{stamp}.md").write_text(md)
-    print("\n" + md)
+    (out / f"{stamp}.partial.json").unlink(missing_ok=True)
+    print("\n" + md + f"\nSaved: {out / (stamp + '.md')}")
 
 
 if __name__ == "__main__":

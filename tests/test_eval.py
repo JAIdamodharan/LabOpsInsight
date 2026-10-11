@@ -1,4 +1,5 @@
 import json
+from types import SimpleNamespace as NS
 from pathlib import Path
 
 import pytest
@@ -7,6 +8,7 @@ from eval.grading import extract_numbers, grade, number_matches
 from eval.run_eval import report, run_one
 from analyst.agent import Analyst
 from tests.test_analyst import FakeClient, db, msg, text  # noqa: F401  (db is a fixture)
+from tests.test_server import path  # noqa: F401
 
 QS = json.loads(Path("eval/questions.json").read_text())
 
@@ -79,3 +81,44 @@ def test_run_one_survives_api_exception(db):
             def create(**kw): raise RuntimeError("api down")
     row = run_one(Analyst(db, client=Boom()), QS[0], db)
     assert not row["passed"] and row["reason"].startswith("exception")
+
+
+# ---- the benchmark runner: live progress, incremental saving, graceful Ctrl+C ----
+def _run_main(monkeypatch, tmp_path, path, ids, outcomes):
+    import sys
+    from eval import run_eval
+    calls = iter(outcomes)
+
+    def fake_run_one(agent, q, db):
+        r = next(calls)
+        if r == "interrupt":
+            raise KeyboardInterrupt
+        return dict(id=q["id"], difficulty=q["difficulty"], question=q["question"], passed=r, reason="ok" if r else "wrong_number (expected ~1)",
+                    latency_s=1.0, steps=2, in_tok=10, out_tok=5, sql_calls=1, sql_errors=0, stop="answered", answer="x")
+    monkeypatch.setattr(run_eval, "run_one", fake_run_one)
+    monkeypatch.setattr(run_eval, "make_client", lambda *a, **k: (NS(model_used="fallback-model"), "default-model"))
+    monkeypatch.setattr(sys, "argv", ["run_eval", "--db", path, "--ids", ids, "--out", str(tmp_path / "out"), "--provider", "groq"])
+    run_eval.main()
+    return tmp_path / "out"
+
+
+def test_interrupted_benchmark_still_saves_a_report_of_what_finished(monkeypatch, tmp_path, path, capsys):
+    out = _run_main(monkeypatch, tmp_path, path, "q01,q02,q03", [True, "interrupt"])
+    files = sorted(p.name for p in out.iterdir())
+    assert any(f.endswith(".md") for f in files) and any(f.endswith(".json") and "partial" not in f for f in files)
+    assert not any("partial" in f for f in files)                                      # the temporary file is cleaned up
+    md = next(p for p in out.iterdir() if p.suffix == ".md").read_text()
+    assert "Partial run: 1 of 3" in md and "groq/fallback-model" in md and "(1/1)" in md
+    txt = capsys.readouterr().out
+    assert "[1/3] running q01" in txt and "[2/3] running q02" in txt and "Stopped after 1 of 3" in txt
+
+
+def test_a_benchmark_stopped_before_any_question_finishes_does_not_crash(monkeypatch, tmp_path, path, capsys):
+    out = _run_main(monkeypatch, tmp_path, path, "q01", ["interrupt"])
+    assert "nothing to report" in capsys.readouterr().out and not [p for p in out.iterdir() if p.suffix == ".md"]
+
+
+def test_completed_benchmark_reports_the_model_that_was_actually_used(monkeypatch, tmp_path, path):
+    out = _run_main(monkeypatch, tmp_path, path, "q01,q02", [True, False])
+    md = next(p for p in out.iterdir() if p.suffix == ".md").read_text()
+    assert "groq/fallback-model" in md and "50%" in md and "Partial run" not in md
