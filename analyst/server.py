@@ -35,7 +35,7 @@ from .datasets import LAB_ID, DatasetError, Registry
 from .db import Database
 from .demo import DemoClient
 from .example import build_example_workbook
-from .llm import add_cli_args, make_client
+from .llm import add_cli_args, load_dotenv, make_client
 from .ratelimit import RateLimiter
 from .sandbox import DockerSandbox, LocalSandbox
 
@@ -523,6 +523,7 @@ def main() -> None:
     ap.add_argument("--auth-db", default=None, help="path of the users/sessions/audit SQLite file (default: next to --db)")
     add_cli_args(ap)
     a = ap.parse_args()
+    load_dotenv()
     client, model = (None, None) if a.demo else make_client(a.provider, a.model, a.base_url)
     uvicorn.run(create_app(a.db, a.demo, a.sandbox, client=client, model=model, auth=(False if a.no_auth else None), auth_db=a.auth_db), host="127.0.0.1", port=a.port)
 

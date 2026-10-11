@@ -128,6 +128,12 @@ deviations, data quality) and declines anything else. For free-form questions us
 ```
 Default model names can be retired by providers; pass `--model` to override.
 
+**Keeping your API key (do this once).** `export KEY=...` only lasts for the one terminal window it was typed in, which is why a new tab says "not set". Instead:
+```bash
+cp .env.example .env && chmod 600 .env
+```
+then open `.env` in your editor and paste the key after `GROQ_API_KEY=` (no quotes needed). The app reads `.env` from the folder you start it in. Real shell variables still win over the file; only `*_API_KEY` names and a few app settings are loaded (never `PATH`, `LD_PRELOAD` and the like); empty values are ignored; and it warns if the file is readable by other users. `.env` is git-ignored; never paste a key into chat, an issue or a commit. Placeholder text like `paste-your-key-here` is rejected with an explanation.
+
 ## Design decisions worth discussing
 - **GxP-style behaviour.** The agent reports numbers as recorded, never silently drops or "fixes" records, runs the data-review
   check before concluding on result/date metrics, and separates what the data shows from what it infers. The data-review engine

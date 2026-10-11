@@ -3,9 +3,11 @@ any OpenAI-compatible /chat/completions endpoint (Ollama, Groq, Gemini, OpenRout
 agent code is unchanged and benchmarks are comparable across providers."""
 import json
 import os
+import sys
 import time
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from types import SimpleNamespace as NS
 
 import httpx
@@ -126,6 +128,34 @@ class OpenAICompatClient:
             return from_openai_response(r.json(), [t["name"] for t in tools])
 
 
+ENV_ALLOWED = {"ANALYST_PROVIDER", "ANALYST_MODEL", "LABOPS_AUTH"}
+
+
+def load_dotenv(path: str | Path = ".env") -> list[str]:
+    """Load KEY=value lines from a local .env into os.environ (never overriding what the shell already set).
+
+    Only API-key variables and a few app settings are accepted, so a tampered .env cannot set PATH, PYTHONPATH,
+    LD_PRELOAD and the like. Empty values are ignored. Returns the names it set (never the values).
+    """
+    p = Path(path)
+    if not p.is_file():
+        return []
+    if p.stat().st_mode & 0o077:
+        print(f"warning: {p} is readable by other users; run: chmod 600 {p}", file=sys.stderr)
+    loaded = []
+    for line in p.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        k, v = line.split("=", 1)
+        k, v = k.strip(), v.strip().strip('"').strip("'")
+        if not v or k in os.environ or not (k.endswith("_API_KEY") or k in ENV_ALLOWED) or not k.replace("_", "").isalnum():
+            continue
+        os.environ[k] = v
+        loaded.append(k)
+    return loaded
+
+
 def looks_like_placeholder(key: str) -> bool:
     k = key.strip().lower()
     return len(k) < 20 or any(w in k for w in ("paste", "your-", "your_", "<", "here", "xxxx", "changeme", "example", "placeholder"))
@@ -133,6 +163,7 @@ def looks_like_placeholder(key: str) -> bool:
 
 def make_client(provider: str = "anthropic", model: str | None = None, base_url: str | None = None):
     """Return (client, model). provider is 'anthropic', a PRESETS name, or 'openai' with --base-url."""
+    load_dotenv()
     if provider == "anthropic":
         import anthropic
         from .agent import MODEL
@@ -144,7 +175,8 @@ def make_client(provider: str = "anthropic", model: str | None = None, base_url:
     key_env = p.key_env if p else "OPENAI_API_KEY"
     key = os.environ.get(key_env) if key_env else None
     if key_env and not key and (p is None or p.key_env):
-        raise SystemExit(f"set {key_env} for provider '{provider}' (free keys: see README)")
+        raise SystemExit(f"{key_env} is not set for provider '{provider}'. Put it in a .env file in the project folder (copy .env.example to .env) "
+                         f"or run: export {key_env}=\"<your key>\" in this same terminal. Free keys: see the README.")
     if key and looks_like_placeholder(key):
         raise SystemExit(f"{key_env} is set to '{key[:24]}', which is placeholder text, not a real key. Copy the actual key from your provider's console "
                          f"and run: export {key_env}=\"<the real key>\"")
