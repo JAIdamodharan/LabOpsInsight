@@ -14,6 +14,7 @@ const fmtNum = (v, col) => { const n = Number(v); if (/(^|_)id$/i.test(col) || !
 const fnum = v => v == null ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
 const compact = v => Math.abs(v) >= 1e6 ? +(v / 1e6).toFixed(1) + 'M' : Math.abs(v) >= 1e3 ? +(v / 1e3).toFixed(1) + 'K' : v;
 const store = { get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } } };
+const num = (v, d = 0) => (Number(v) || 0).toLocaleString(undefined, { maximumFractionDigits: d, minimumFractionDigits: d });   // coerces to a number, so it can never carry markup
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
 const ICON = {
@@ -58,18 +59,219 @@ function toast(msg, kind = 'info', ms = 5000) {
   const t = el('div', { class: 'toast ' + kind, role: kind === 'err' ? 'alert' : 'status' }, msg);
   $('#toasts').append(t); setTimeout(() => t.remove(), ms);
 }
-async function api(path, { method = 'GET', headers = {} } = {}) {
-  const r = await fetch(path, { method, headers: { ...headers, ...(method !== 'GET' ? { 'X-Requested-With': 'labops' } : {}) } });
-  if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch { } throw new Error(m); }
-  return r.json();
+class ApiError extends Error { constructor(m, status, retry) { super(m); this.status = status; this.retry = retry; } }
+let inflight = 0;
+const bar = d => { inflight = Math.max(0, inflight + d); document.body.classList.toggle('loading', inflight > 0); };
+async function failure(r, path) {
+  let m = r.statusText; try { const d = (await r.json()).detail; m = typeof d === 'string' ? d : 'The request was not valid.'; } catch { }
+  if (r.status === 401 && !path.startsWith('/api/auth/')) sessionExpired();
+  return new ApiError(m, r.status, r.headers.get('retry-after'));
+}
+async function api(path, { method = 'GET', headers = {}, body } = {}) {
+  bar(1);
+  try {
+    const opts = { method, credentials: 'same-origin', headers: { ...headers, ...(method !== 'GET' ? { 'X-Requested-With': 'labops' } : {}) } };
+    if (body !== undefined) { opts.body = JSON.stringify(body); opts.headers['Content-Type'] = 'application/json'; }
+    const r = await fetch(path, opts);
+    if (!r.ok) throw await failure(r, path);
+    return await r.json();
+  } finally { bar(-1); }
 }
 
 /* ===================== state ===================== */
-const S = { config: {}, datasets: [], dataset: 'lab', kind: 'lab', tab: 'bi', cache: {}, es: null, run: null };
+const S = { config: {}, datasets: [], dataset: 'lab', kind: 'lab', tab: 'bi', cache: {}, abort: null, run: null, user: null };
 const C = () => (S.cache[S.dataset] ??= {});
 const meta = () => S.datasets.find(d => d.id === S.dataset) || {};
 const qs = (path, extra = {}) => `${path}?${new URLSearchParams({ dataset: S.dataset, ...extra })}`;
 const LAB_EXAMPLES = ['Why was the OOS rate on HPLC-03 so high in Mar 2025?', 'Why did Related Substances on-time delivery drop in Feb 2025?', 'Why did Documentation deviations increase in Apr 2025, and who raised them?', 'Which records need data review?'];
+
+
+/* ===================== authentication, loading screens, RBAC ===================== */
+const can = perm => !!(S.user && S.user.permissions && S.user.permissions.includes(perm));
+let bootTimer = 0, expiring = false, authMode = 'login', pwForced = false, pwDone = null;
+
+function setState(st, msg) {
+  document.body.dataset.state = st;
+  const boot = $('#boot');
+  if (st === 'boot') { clearTimeout(bootTimer); boot.hidden = false; boot.classList.remove('out'); }
+  else if (!boot.hidden) { boot.classList.add('out'); bootTimer = setTimeout(() => { boot.hidden = true; }, 400); }
+  $('#auth').hidden = st !== 'auth'; $('.top').hidden = st !== 'app'; $('main').hidden = st !== 'app';
+  if (msg) bootMsg(msg);
+}
+function bootMsg(m) { $('#boot-msg').textContent = m; }
+function bootError(m) {
+  bootMsg(m); $('#boot .boot-bar').hidden = true;
+  if (!$('#boot-retry')) $('#boot .boot-card').append(el('button', { class: 'btn', id: 'boot-retry', onclick: () => location.reload() }, 'Try again'));
+}
+function sessionExpired() {
+  if (!S.user || expiring || !S.config.auth) return;
+  expiring = true; clearClientState(); showAuth('Your session has ended. Please sign in again.', 'info', 'login');
+  setTimeout(() => { expiring = false; }, 800);
+}
+function clearClientState() {
+  abortRun(); S.user = null; S.datasets = []; S.cache = {}; S.run = null; curTable = null; dqRule = null;
+  try { if (typeof killCharts === 'function') killCharts(); pins.length = 0; Object.keys(localStorage).filter(k => k.startsWith('recent.') || k === 'dataset' || k === 'dash.v1').forEach(k => localStorage.removeItem(k)); } catch { }
+  $$('dialog[open]').forEach(d => d.close()); $('#log').replaceChildren(); toggleMenu(false);
+}
+
+/* ---- sign-in / first-run screen ---- */
+const authMsg = (msg, kind = 'err') => $('#auth-msg').replaceChildren(msg ? el('div', { class: kind }, msg) : '');
+function setAuthBusy(b) { $('#au-submit').disabled = b; $('#au-submit .spinner').hidden = !b; }
+async function showAuth(msg, kind = 'err', mode) {
+  setState('auth');
+  if (!mode) { try { mode = (await (await fetch('/api/auth/status')).json()).setup_required ? 'setup' : 'login'; } catch { mode = 'login'; } }
+  authMode = mode; const setup = mode === 'setup';
+  $('#auth-title').textContent = setup ? 'Create the admin account' : 'Sign in';
+  $('#auth-sub').textContent = setup ? 'First run: this account becomes the administrator and can add everyone else.' : 'Welcome back. Sign in to LabOps Insight.';
+  $('#au-confirm-wrap').hidden = !setup; $('#au-meter').hidden = !setup;
+  $('#au-pass').autocomplete = setup ? 'new-password' : 'current-password';
+  $('#au-submit .lbl').textContent = setup ? 'Create account' : 'Sign in';
+  $('#auth-foot').textContent = setup ? 'Passwords are stored only as salted scrypt hashes on this computer.' : '';
+  authMsg(msg, kind); $('#au-pass').value = ''; $('#au-pass2').value = ''; paintMeter($('#au-meter'), ''); setAuthBusy(false);
+  setTimeout(() => ($('#au-user').value ? $('#au-pass') : $('#au-user')).focus(), 60);
+}
+function strength(pw) {
+  let n = 0; if (pw.length >= 10) n++; if (pw.length >= 14) n++; if (/[a-z]/.test(pw) && /[A-Z]/.test(pw)) n++; if (/\d/.test(pw)) n++; if (/[^A-Za-z0-9]/.test(pw)) n++;
+  if (new Set(pw).size < 5) n = Math.min(n, 1); return Math.min(n, 4);
+}
+function paintMeter(m, pw) {
+  const s = pw ? strength(pw) : 0; m.querySelector('i').style.width = (s / 4 * 100) + '%';
+  m.querySelector('i').style.background = `var(${['--err', '--err', '--warn', '--ok', '--ok'][s]})`; m.querySelector('span').textContent = pw ? ['', 'Weak', 'Fair', 'Good', 'Strong'][s] : '';
+}
+function lockout(btn, labelEl, seconds) {                      // disable the button with a live countdown after a 429
+  let left = Math.max(1, Math.ceil(seconds)); const label = labelEl.textContent; btn.disabled = true;
+  const tick = () => { labelEl.textContent = `Try again in ${left}s`; if (left-- <= 0) { clearInterval(iv); btn.disabled = false; labelEl.textContent = label; authMsg(''); } };
+  const iv = setInterval(tick, 1000); tick();
+}
+$('#au-show').onclick = () => { const p = $('#au-pass'), show = p.type === 'password'; p.type = show ? 'text' : 'password'; $('#au-pass2').type = p.type; $('#au-show').textContent = show ? 'Hide' : 'Show'; };
+$('#au-pass').oninput = () => { if (authMode === 'setup') paintMeter($('#au-meter'), $('#au-pass').value); };
+$('#auth-form').onsubmit = async e => {
+  e.preventDefault();
+  const username = $('#au-user').value.trim(), password = $('#au-pass').value;
+  if (!username || !password) return authMsg('Enter your username and password.');
+  if (authMode === 'setup' && password !== $('#au-pass2').value) return authMsg('The two passwords do not match.');
+  setAuthBusy(true); authMsg('');
+  try {
+    const r = await api(authMode === 'setup' ? '/api/auth/setup' : '/api/auth/login', { method: 'POST', body: { username, password } });
+    $('#au-pass').value = ''; $('#au-pass2').value = ''; setAuthBusy(false);
+    await afterSignIn(r.user);
+  } catch (err) {
+    setAuthBusy(false); $('#au-pass').value = ''; authMsg(err.message);
+    if (err.status === 429) lockout($('#au-submit'), $('#au-submit .lbl'), Number(err.retry) || 5); else $('#au-pass').focus();
+  }
+};
+async function afterSignIn(user) {
+  S.user = user; setState('boot', 'Signing you in…');
+  try {
+    if (user.must_change) { bootMsg('Choose a new password to continue…'); await openPw(true); S.user = (await api('/api/auth/status')).user; }
+    await initApp();
+  } catch (e) { if (e.message !== 'signed out') bootError('Could not finish signing in: ' + e.message); }
+}
+async function initApp() {
+  setState('boot'); $('#boot .boot-bar').hidden = false; $('#boot-retry')?.remove(); bootMsg('Loading your workspace…');
+  try {
+    S.config = await api('/api/config');
+    $('#model').textContent = S.config.demo ? 'DEMO · scripted model' : S.config.model; $('#model').classList.toggle('demo', !!S.config.demo);
+    $('#py').textContent = S.config.python ? 'python sandbox on' : 'python sandbox off';
+    bootMsg('Loading datasets…'); await refreshDatasets(); paintUser();
+    bootMsg('Preparing your dashboard…'); await applyDataset();
+    setState('app');
+  } catch (e) { if (e.status !== 401) bootError('Could not load the app: ' + e.message); }
+}
+
+/* ---- user menu ---- */
+function paintUser() {
+  const local = !S.config.auth; $('#usermenu').hidden = local; $('#local-badge').hidden = !local; $('#btn-upload').hidden = !can('upload');
+  if (local || !S.user) return;
+  const u = S.user; $('#avatar').textContent = u.username[0]; $('#user-name').textContent = u.username; $('#um-name').textContent = u.username;
+  const rp = $('#um-role'); rp.textContent = u.role; rp.className = 'rolepill ' + u.role; $('#um-users').hidden = !can('users'); $('#um-audit').hidden = !can('audit');
+}
+function toggleMenu(open) {
+  const m = $('#user-menu'); m.hidden = open === undefined ? !m.hidden : !open; $('#btn-user').setAttribute('aria-expanded', String(!m.hidden));
+  if (m.hidden) return;
+  m.style.left = ''; m.style.right = '0'; const r = m.getBoundingClientRect();         // keep the dropdown on screen whichever edge the button sits near
+  if (r.left < 8) { m.style.left = '0'; m.style.right = 'auto'; } else if (r.right > innerWidth - 8) { m.style.right = '0'; }
+  m.querySelector('button')?.focus();
+}
+$('#btn-user').onclick = e => { e.stopPropagation(); toggleMenu(); };
+document.addEventListener('click', e => { if (!e.target.closest('#usermenu')) toggleMenu(false); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') toggleMenu(false); });
+$('#um-pw').onclick = () => { toggleMenu(false); openPw(false).catch(() => { }); };
+$('#um-users').onclick = () => { toggleMenu(false); openUsers(); };
+$('#um-audit').onclick = () => { toggleMenu(false); openAudit(); };
+$('#um-logout').onclick = () => doLogout();
+async function doLogout() { try { await api('/api/auth/logout', { method: 'POST' }); } catch { } clearClientState(); showAuth('You have been signed out.', 'info', 'login'); }
+
+/* ---- change password (can be forced on first sign-in or after an admin reset) ---- */
+const dlgPw = $('#dlg-pw'); const pwMsg = (m, k = 'err') => $('#pw-msg').replaceChildren(m ? el('div', { class: k }, m) : '');
+function openPw(forced) {
+  return new Promise((resolve, reject) => {
+    pwForced = forced; pwDone = { resolve, reject }; pwMsg('');
+    $('#pw-note').textContent = forced ? 'You must choose a new password before continuing.' : ''; $('#pw-x').textContent = forced ? 'Sign out' : '✕';
+    ['#pw-cur', '#pw-new', '#pw-new2'].forEach(s => { $(s).value = ''; }); paintMeter($('#pw-meter'), ''); dlgPw.showModal(); setTimeout(() => $('#pw-cur').focus(), 60);
+  });
+}
+dlgPw.addEventListener('cancel', e => { if (pwForced) e.preventDefault(); });
+$('#pw-x').onclick = async () => { if (pwForced) { dlgPw.close(); await doLogout(); pwDone?.reject(new Error('signed out')); } else { dlgPw.close(); pwDone?.resolve(false); } };
+$('#pw-new').oninput = () => paintMeter($('#pw-meter'), $('#pw-new').value);
+$('#pw-form').onsubmit = async e => {
+  e.preventDefault(); const cur = $('#pw-cur').value, nw = $('#pw-new').value;
+  if (!cur || !nw) return pwMsg('Fill in all the fields.');
+  if (nw !== $('#pw-new2').value) return pwMsg('The new passwords do not match.');
+  $('#pw-submit').disabled = true; $('#pw-submit .spinner').hidden = false; pwMsg('');
+  try { await api('/api/auth/password', { method: 'POST', body: { current: cur, new: nw } }); pwForced = false; dlgPw.close(); toast('Password updated. Other devices were signed out.', 'ok'); pwDone?.resolve(true); }
+  catch (err) { pwMsg(err.message); }
+  finally { $('#pw-submit').disabled = false; $('#pw-submit .spinner').hidden = true; }
+};
+
+/* ---- admin: users + audit log ---- */
+const dlgUsers = $('#dlg-users'), dlgReset = $('#dlg-reset'), dlgAudit = $('#dlg-audit');
+const adminMsg = (id, m, k = 'err') => $(id).replaceChildren(m ? el('div', { class: k }, m) : '');
+const ago = ts => ts ? new Date(ts * 1000).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }) : 'never';
+async function openUsers() { adminMsg('#us-msg', ''); dlgUsers.showModal(); await loadUsers(); }
+async function loadUsers() {
+  try {
+    const d = await api('/api/users'); $('#us-role').replaceChildren(...d.roles.map(r => el('option', { value: r, ...(r === 'viewer' ? { selected: '' } : {}) }, r)));
+    $('#us-body').replaceChildren(...d.users.map(u => {
+      const me = u.id === S.user.id, sel = el('select', { 'aria-label': `Role of ${u.username}`, ...(me ? { disabled: '' } : {}) }, ...d.roles.map(r => el('option', { value: r, ...(r === u.role ? { selected: '' } : {}) }, r)));
+      sel.onchange = async () => { try { await api(`/api/users/${u.id}`, { method: 'PATCH', body: { role: sel.value } }); toast(`${u.username} is now ${sel.value}. They must sign in again.`, 'ok'); } catch (e) { adminMsg('#us-msg', e.message); } loadUsers(); };
+      const del = el('button', { class: 'btn sm danger', type: 'button' }, 'Delete'); let armed = false;
+      del.onclick = async () => { if (!armed) { armed = true; del.textContent = 'Confirm'; setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 3500); return; } try { await api(`/api/users/${u.id}`, { method: 'DELETE' }); toast(`Deleted ${u.username}`, 'ok', 3000); } catch (e) { adminMsg('#us-msg', e.message); } loadUsers(); };
+      const toggle = el('button', { class: 'btn sm', type: 'button', onclick: async () => { try { await api(`/api/users/${u.id}`, { method: 'PATCH', body: { disabled: !u.disabled } }); } catch (e) { adminMsg('#us-msg', e.message); } loadUsers(); } }, u.disabled ? 'Enable' : 'Disable');
+      const reset = el('button', { class: 'btn sm', type: 'button', onclick: () => openReset(u) }, 'Reset password');
+      return el('tr', {}, el('td', {}, u.username + (me ? ' (you)' : ''), u.must_change ? el('span', { class: 'note', style: 'margin-left:6px' }, 'must change password') : null), el('td', {}, sel),
+        el('td', {}, el('span', { class: 'status-dot' + (u.disabled ? ' off' : '') }), u.disabled ? 'disabled' : 'active'), el('td', {}, ago(u.last_login)), el('td', {}, me ? '' : el('div', { class: 'acts' }, reset, toggle, del)));
+    }));
+  } catch (e) { adminMsg('#us-msg', e.message); }
+}
+$('#us-x').onclick = () => dlgUsers.close();
+$('#us-form').onsubmit = async e => {
+  e.preventDefault(); adminMsg('#us-msg', '');
+  try { const u = await api('/api/users', { method: 'POST', body: { username: $('#us-name').value, password: $('#us-pass').value, role: $('#us-role').value, must_change: true } }); $('#us-name').value = ''; $('#us-pass').value = ''; adminMsg('#us-msg', `Created ${u.username} (${u.role}). They will choose their own password at first sign-in.`, 'ok'); loadUsers(); }
+  catch (err) { adminMsg('#us-msg', err.message); }
+};
+let resetTarget = null;
+function openReset(u) { resetTarget = u; adminMsg('#rs-msg', ''); $('#rs-note').textContent = `Set a temporary password for ${u.username}. All their sessions end and they must choose a new password at next sign-in.`; $('#rs-pw').value = ''; dlgReset.showModal(); setTimeout(() => $('#rs-pw').focus(), 60); }
+$('#rs-x').onclick = () => dlgReset.close();
+$('#rs-form').onsubmit = async e => { e.preventDefault(); try { await api(`/api/users/${resetTarget.id}`, { method: 'PATCH', body: { password: $('#rs-pw').value } }); dlgReset.close(); toast(`Password reset for ${resetTarget.username}.`, 'ok'); loadUsers(); } catch (err) { adminMsg('#rs-msg', err.message); } };
+const AUDIT_ACTIONS = ['', 'login_success', 'login_failed', 'login_locked', 'logout', 'setup', 'password_change', 'dataset_upload', 'dataset_delete', 'ask', 'user_create', 'user_update', 'user_delete', 'denied'];
+async function openAudit() { $('#ad-filter').replaceChildren(...AUDIT_ACTIONS.map(a => el('option', { value: a }, a || 'All actions'))); dlgAudit.showModal(); await loadAudit(); }
+async function loadAudit() {
+  try {
+    const f = $('#ad-filter').value, d = await api('/api/audit?' + new URLSearchParams({ limit_: 200, ...(f ? { action: f } : {}) }));
+    $('#ad-body').replaceChildren(...(d.events.length ? d.events.map(e => el('tr', {}, el('td', {}, ago(e.ts)), el('td', {}, e.username || ''), el('td', {}, el('span', { class: 'rolepill ' + (/fail|lock|denied/.test(e.action) ? 'admin' : 'viewer') }, e.action)), el('td', { class: 'wrap' }, e.detail || ''), el('td', {}, e.ip || ''))) : [el('tr', {}, el('td', { colspan: '5', class: 'note' }, 'No events yet.'))]));
+  } catch (e) { toast(e.message, 'err'); }
+}
+$('#ad-x').onclick = () => dlgAudit.close(); $('#ad-refresh').onclick = loadAudit; $('#ad-filter').onchange = loadAudit;
+[dlgUsers, dlgReset, dlgAudit].forEach(d => d.addEventListener('click', e => { if (e.target === d) d.close(); }));
+
+/* ---- loading overlay for slow views ---- */
+let busyCount = 0, busyTimer = 0;
+function trackBusy(p, label = 'Loading…') {
+  if (!p || !p.then) return; busyCount++; clearTimeout(busyTimer);
+  busyTimer = setTimeout(() => { if (busyCount > 0) { $('#busy-msg').textContent = label; $('#busy').hidden = false; } }, 250);
+  p.finally(() => { busyCount = Math.max(0, busyCount - 1); if (!busyCount) { clearTimeout(busyTimer); $('#busy').hidden = true; } }).catch(() => { });
+}
 
 /* ===================== theme ===================== */
 function applyUiTheme(t) {
@@ -108,7 +310,7 @@ function showTab(t) {
   moveInd();
   if (S.shown !== t) { const sec = $('#tab-' + t); sec.classList.remove('tab-in'); void sec.offsetWidth; sec.classList.add('tab-in'); S.shown = t; }
   try { history.replaceState(null, '', '#' + t); } catch { }
-  loaders[t]();
+  const p = loaders[t](); trackBusy(p); return p;
 }
 function refreshTab() { showTab(S.tab); }
 
@@ -228,7 +430,7 @@ function insightRow(i) {
   else if (i.goto) row.append(el('button', { class: 'link', onclick: () => showTab(i.goto) }, 'Open Data Review →'));
   return row;
 }
-function askAgent(q) { $('#q').value = q; showTab('analyze'); $('#f').requestSubmit(); }
+function askAgent(q) { if (!can('ask')) return toast(`Your role (${S.user?.role}) cannot run analyses. Ask an administrator for the analyst role.`, 'warn'); $('#q').value = q; showTab('analyze'); $('#f').requestSubmit(); }
 
 /* ===================== lab dashboard ===================== */
 const cnt = v => v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : Math.round(v).toLocaleString();
@@ -487,31 +689,48 @@ const recentKey = () => 'recent.' + S.dataset;
 function remember(q) { const r = [q, ...store.get(recentKey(), []).filter(x => x !== q)].slice(0, 5); store.set(recentKey(), r); paintChips(); }
 function paintChips() {
   const ex = S.kind === 'lab' ? LAB_EXAMPLES : (meta().examples || []), rec = store.get(recentKey(), []);
-  const mk = t => el('button', { type: 'button', class: 'chip', onclick: () => { $('#q').value = t; $('#f').requestSubmit(); } }, t);
+  const mk = t => el('button', { type: 'button', class: 'chip', onclick: () => { if (!can('ask')) return; $('#q').value = t; $('#f').requestSubmit(); } }, t);
   const fresh = rec.filter(r => !ex.includes(r));
   $('#chips').replaceChildren(...ex.map(mk), ...(fresh.length ? [el('span', { class: 'lbl', style: 'margin-left:8px' }, 'Recent:'), ...fresh.map(mk)] : []));
 }
-function setBusy(b) { $('#go').disabled = b; $('#stop').hidden = !b; $('#go').textContent = b ? 'Working…' : 'Analyze'; }
-function runQuestion(q) {
-  if (S.es) S.es.close();
+function setBusy(b) { $('#go').disabled = b || !can('ask'); $('#stop').hidden = !b; $('#go').textContent = b ? 'Working…' : 'Analyze'; }
+function abortRun() { if (S.abort) { S.abort.abort(); S.abort = null; } }
+async function streamAsk(q, onEvent, signal) {            // fetch-based SSE: unlike EventSource it exposes 401/429 and can really be cancelled
+  bar(1);
+  try {
+    const r = await fetch('/api/ask?' + new URLSearchParams({ q, dataset: S.dataset }), { signal, credentials: 'same-origin', headers: { Accept: 'text/event-stream' } });
+    if (!r.ok) throw await failure(r, '/api/ask');
+    const reader = r.body.getReader(), dec = new TextDecoder(); let buf = '';
+    for (;;) {
+      const { done, value } = await reader.read(); if (done) break;
+      buf += dec.decode(value, { stream: true }); let i;
+      while ((i = buf.indexOf('\n\n')) >= 0) { const chunk = buf.slice(0, i); buf = buf.slice(i + 2); const line = chunk.split('\n').find(l => l.startsWith('data: ')); if (line) onEvent(JSON.parse(line.slice(6))); }
+    }
+  } finally { bar(-1); }
+}
+async function runQuestion(q) {
+  if (!can('ask')) return toast('Your role cannot run analyses.', 'warn');
+  abortRun();
   const log = $('#log'); log.replaceChildren(); $('#an-empty').replaceChildren(); setBusy(true); remember(q);
   const run = S.run = { q, events: [], answer: '', t0: performance.now() };
-  let cur = null;
-  const es = S.es = new EventSource('/api/ask?' + new URLSearchParams({ q, dataset: S.dataset }));
-  const end = () => { es.close(); setBusy(false); };
-  es.onmessage = m => {
-    const ev = JSON.parse(m.data); run.events.push(ev);
+  let cur = null; const ctl = S.abort = new AbortController();
+  const handle = ev => {
+    run.events.push(ev);
     if (ev.kind === 'tool_call') cur = addStep(ev);
     else if (ev.kind === 'tool_result' && cur) finishStep(cur, ev);
     else if (ev.kind === 'answer') { run.answer = ev.text; log.append(el('section', { class: 'answer' })); const a = log.lastChild; a.innerHTML = `<h2>Answer</h2>${md(ev.text)}`; a.append(answerActions(run)); }
     else if (ev.kind === 'stopped') log.append(el('div', { class: 'banner' }, `Stopped early: ${ev.reason} limit reached. The agent did not finish.`));
-    else if (ev.kind === 'error') { log.append(el('div', { class: 'banner' }, ev.message)); end(); }
-    else if (ev.kind === 'done') { log.insertAdjacentHTML('beforeend', `<div class="stats"><span><b>${((performance.now() - run.t0) / 1000).toFixed(1)}s</b> elapsed</span><span><b>${ev.steps}</b> steps</span><span><b>${ev.sql_calls}</b> SQL (${ev.sql_errors} errors)</span><span><b>${ev.chart_calls}</b> charts</span><span><b>${ev.python_calls}</b> Python</span><span><b>${(ev.in_tok + ev.out_tok).toLocaleString()}</b> tokens</span></div>`); end(); }
+    else if (ev.kind === 'error') log.append(el('div', { class: 'banner' }, ev.message));
+    else if (ev.kind === 'done') log.insertAdjacentHTML('beforeend', `<div class="stats"><span><b>${num((performance.now() - run.t0) / 1000, 1)}s</b> elapsed</span><span><b>${num(ev.steps)}</b> steps</span><span><b>${num(ev.sql_calls)}</b> SQL (${num(ev.sql_errors)} errors)</span><span><b>${num(ev.chart_calls)}</b> charts</span><span><b>${num(ev.python_calls)}</b> Python</span><span><b>${num(Number(ev.in_tok) + Number(ev.out_tok))}</b> tokens</span></div>`);
   };
-  es.onerror = () => { if ($('#go').disabled) { log.append(el('div', { class: 'banner' }, 'Connection lost or server busy.')); end(); } };
+  try { await streamAsk(q, handle, ctl.signal); }
+  catch (e) {
+    if (e.name === 'AbortError') return;
+    log.append(el('div', { class: 'banner' }, e.status === 429 ? e.message : e.status === 401 ? 'Your session has ended. Please sign in again.' : e.status === 403 ? 'Your role cannot run analyses.' : `Could not run the analysis: ${e.message}`));
+  } finally { if (S.abort === ctl) { S.abort = null; setBusy(false); } }
 }
 $('#f').onsubmit = e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) runQuestion(q); };
-$('#stop').onclick = () => { if (S.es) S.es.close(); setBusy(false); $('#log').append(el('div', { class: 'banner' }, 'Stopped. The analysis was cancelled in this view.')); };
+$('#stop').onclick = () => { abortRun(); setBusy(false); $('#log').append(el('div', { class: 'banner' }, 'Stopped. The analysis was cancelled in this view.')); };
 
 /* ===================== datasets + upload dialog ===================== */
 const dlg = $('#dlg');
@@ -527,14 +746,15 @@ async function refreshDatasets(selectId) {
 function paintDatasetList() {
   const ups = S.datasets.filter(d => d.kind === 'custom');
   $('#dlist').replaceChildren(...(ups.length ? ups.map(d => {
-    const del = el('button', { class: 'btn sm danger', type: 'button' }, 'Delete');
+    const mine = d.owner_id === S.user?.id, deletable = can('delete_any') || (can('delete_own') && mine);
+    const del = deletable ? el('button', { class: 'btn sm danger', type: 'button' }, 'Delete') : null;
     let armed = false, timer;
-    del.onclick = async () => {
+    if (del) del.onclick = async () => {
       if (!armed) { armed = true; del.textContent = 'Click again to confirm'; timer = setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 3500); return; }
       clearTimeout(timer);
       try { await api(`/api/datasets/${d.id}`, { method: 'DELETE' }); delete S.cache[d.id]; const was = S.dataset === d.id; await refreshDatasets(was ? 'lab' : S.dataset); toast(`Deleted “${d.name}”`, 'ok', 3000); if (was) applyDataset(); } catch (e) { toast('Could not delete: ' + e.message, 'err'); }
     };
-    return el('div', { class: 'drow' }, pic('data', '', 30), el('div', { class: 't' }, el('b', {}, d.name), el('small', {}, `${d.tables.length} table${d.tables.length === 1 ? '' : 's'} · ${d.tables.reduce((a, t) => a + t.rows, 0).toLocaleString()} rows · ${fmtBytes(d.bytes)} · added ${when(d.created)}`)),
+    return el('div', { class: 'drow' }, pic('data', '', 30), el('div', { class: 't' }, el('b', {}, d.name), el('small', {}, `${d.tables.length} table${d.tables.length === 1 ? '' : 's'} · ${d.tables.reduce((a, t) => a + t.rows, 0).toLocaleString()} rows · ${fmtBytes(d.bytes)} · added ${when(d.created)}${!mine && d.owner_name ? ' · owner ' + d.owner_name : ''}`)),
       el('button', { class: 'btn sm', type: 'button', onclick: () => { S.dataset = d.id; $('#ds-select').value = d.id; store.set('dataset', d.id); dlg.close(); applyDataset(); } }, 'Open'), del);
   }) : [el('div', { class: 'note' }, 'Nothing uploaded yet. Your uploads will appear here.')]));
 }
@@ -544,12 +764,14 @@ function uploadFile(file) {
     const x = new XMLHttpRequest(); x.open('POST', '/api/datasets');
     x.setRequestHeader('X-Filename', encodeURIComponent(file.name)); x.setRequestHeader('X-Requested-With', 'labops');
     x.upload.onprogress = e => { if (e.lengthComputable) $('#prog > i').style.width = (100 * e.loaded / e.total) + '%'; };
-    x.onload = () => { let b = {}; try { b = JSON.parse(x.responseText); } catch { } x.status < 300 ? resolve(b) : reject(new Error(b.detail || `Upload failed (${x.status})`)); };
+    x.upload.onload = () => upMsg('ok', 'Uploaded. Reading the sheets and building tables…');
+    x.onload = () => { let b = {}; try { b = JSON.parse(x.responseText); } catch { } if (x.status === 401) sessionExpired(); x.status < 300 ? resolve(b) : reject(new ApiError(typeof b.detail === 'string' ? b.detail : `Upload failed (${x.status})`, x.status, x.getResponseHeader('retry-after'))); };
     x.onerror = () => reject(new Error('Network error: is the server still running?'));
     x.send(file);
   });
 }
 async function handleFile(file) {
+  if (!can('upload')) return upMsg('err', 'Your role cannot upload data. Ask an administrator for the analyst role.');
   upMsg(); const ext = (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
   if (!['.xlsx', '.csv'].includes(ext)) return upMsg('err', ext === '.xls' ? 'Legacy .xls files are not supported. Open it in Excel and choose Save As → .xlsx.' : ext === '.xlsm' ? 'Macro-enabled workbooks are not accepted. Save a copy as a plain .xlsx.' : 'Only .xlsx and .csv files are supported.');
   const max = S.config.max_upload_mb || 15;
@@ -574,19 +796,22 @@ $('#file').onchange = e => { if (e.target.files[0]) handleFile(e.target.files[0]
 ['dragleave', 'drop'].forEach(t => $('#drop').addEventListener(t, e => { e.preventDefault(); $('#drop').classList.remove('over'); }));
 $('#drop').addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
 window.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
-window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length && !e.defaultPrevented) { e.preventDefault(); openDialog(); handleFile(e.dataTransfer.files[0]); } });
+window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length && !e.defaultPrevented) { e.preventDefault(); if (!can('upload') || document.body.dataset.state !== 'app') return toast('Your role cannot upload data.', 'warn'); openDialog(); handleFile(e.dataTransfer.files[0]); } });
 
 /* ===================== switching datasets ===================== */
 function applyDataset() {
   const m = meta(); S.kind = m.kind || 'lab'; store.set('dataset', S.dataset);
-  if (S.es) S.es.close(); setBusy(false); $('#log').replaceChildren();
+  abortRun(); setBusy(false); $('#log').replaceChildren();
   curTable = null; dqRule = null; rvFilter = 'All'; rvText = '';
   buildTabs(); $('#ds-icon').replaceChildren(pic(S.kind === 'lab' ? 'lab_operations' : 'data', 'ti', 24));
   const lab = S.kind === 'lab';
   $('#bi-lab').hidden = !lab; $('#bi-custom').hidden = lab; $('#dq-lab').hidden = !lab; $('#dq-custom').hidden = lab;
   $('#q').placeholder = lab ? 'Ask a question about lab operations, e.g. why did OOS rise in March?' : `Ask a question about “${m.name}”…`;
   $('#an-notice').replaceChildren(S.config.demo && !lab ? el('div', { class: 'notice' }, 'Demo mode can’t answer questions about your own data (its answers are scripted for the built-in lab data). The Overview, Data Review and Data tabs work now; to ask questions, start the server with a real model, e.g. ', el('code', {}, 'python -m analyst.server --provider ollama'), '.') : '');
-  paintChips(); $('#an-empty').replaceChildren(emptyState('analyze', 'Ask anything about this data', 'Pick a suggestion below, or press / to jump here from anywhere.')); showTab(TABS.includes(S.tab) ? S.tab : 'bi');
+  paintChips(); $('#an-empty').replaceChildren(emptyState('analyze', 'Ask anything about this data', 'Pick a suggestion below, or press / to jump here from anywhere.'));
+  const ask = can('ask'); $('#q').disabled = !ask; $('#go').disabled = !ask; $('#chips').classList.toggle('locked', !ask);
+  if (!ask) $('#an-notice').replaceChildren(el('div', { class: 'locked-note' }, `Your role (${S.user?.role}) can explore dashboards, data and reviews, but running analyses needs the analyst role. Ask an administrator to upgrade your account.`));
+  return showTab(TABS.includes(S.tab) ? S.tab : 'bi');
 }
 $('#ds-select').onchange = e => { S.dataset = e.target.value; applyDataset(); };
 
@@ -598,14 +823,16 @@ $$('.theme-sel').forEach(s => { s.replaceChildren(...BI_THEMES.map(([v, n]) => e
   $('#ico-upload').replaceChildren(icon('upload')); $('#btn-print').replaceChildren(icon('print')); $('#ico-search').replaceChildren(icon('search'));
   applyUiTheme(); const t = store.get('bi.theme2', 'th-glass'); setBiTheme(BI_THEMES.some(x => x[0] === t) ? t : 'th-glass');
   const hash = location.hash.slice(1); S.tab = TABS.includes(hash) ? hash : 'bi';
+  setState('boot', 'Checking your session…');
   try {
-    S.config = await api('/api/config');
-    $('#model').textContent = S.config.demo ? 'DEMO · scripted model' : S.config.model; if (S.config.demo) $('#model').classList.add('demo');
-    $('#py').textContent = S.config.python ? 'python sandbox on' : 'python sandbox off';
-    await refreshDatasets(); applyDataset();
-  } catch (e) { document.querySelector('main').prepend(el('div', { class: 'banner' }, 'Could not reach the server: ' + e.message)); }
+    const st = await api('/api/auth/status');
+    S.config.auth = st.enabled;
+    if (st.enabled && !st.user) return showAuth('', 'err', st.setup_required ? 'setup' : 'login');
+    S.user = st.user;
+    if (st.user.must_change) return afterSignIn(st.user);
+    await initApp();
+  } catch (e) { bootError('Could not reach the server: ' + e.message); }
 })();
-
 
 /* ===================== interaction polish ===================== */
 let spotRaf = 0;
@@ -625,12 +852,16 @@ function palCommands(q) {
   const cmds = [];
   TABS.forEach(t => cmds.push({ label: `Go to ${tabLabel(t)}`, sub: 'Navigate', img: IMG[t], run: () => showTab(t) }));
   S.datasets.filter(d => d.id !== S.dataset).forEach(d => cmds.push({ label: `Switch to ${d.name}`, sub: 'Dataset', img: d.kind === 'lab' ? 'lab_operations' : 'data', run: () => { S.dataset = d.id; $('#ds-select').value = d.id; applyDataset(); } }));
-  cmds.push({ label: 'Upload Excel or CSV…', sub: 'Data', svg: 'upload', run: openDialog }, { label: 'Toggle light / dark', sub: 'Appearance', svg: 'moon', run: () => $('#btn-theme').click() }, { label: 'Print / save as PDF', sub: 'Export', svg: 'print', run: () => window.print() });
+  if (can('upload')) cmds.push({ label: 'Upload Excel or CSV…', sub: 'Data', svg: 'upload', run: openDialog });
+  if (S.config.auth) cmds.push({ label: 'Change password', sub: 'Account', svg: 'dq', run: () => openPw(false).catch(() => { }) }, { label: 'Sign out', sub: 'Account', svg: 'moon', run: doLogout });
+  if (can('users')) cmds.push({ label: 'Manage users and roles', sub: 'Admin', svg: 'dq', run: openUsers });
+  if (can('audit')) cmds.push({ label: 'Audit log', sub: 'Admin', svg: 'dq', run: openAudit });
+  cmds.push({ label: 'Toggle light / dark', sub: 'Appearance', svg: 'moon', run: () => $('#btn-theme').click() }, { label: 'Print / save as PDF', sub: 'Export', svg: 'print', run: () => window.print() });
   BI_THEMES.forEach(([v, n]) => cmds.push({ label: `Dashboard theme: ${n}`, sub: 'Appearance', svg: 'sun', run: () => { setBiTheme(v); refreshTab(); } }));
   if (S.kind === 'lab' && C().biOpts) C().biOpts.months.forEach(m => cmds.push({ label: `Show ${new Date(m + '-15').toLocaleString('en', { month: 'long', year: 'numeric' })}`, sub: 'Month', img: 'dashboard', run: () => { $('#f-month').value = m; showTab('bi'); reloadBI(); } }));
   const text = q.trim(), terms = text.toLowerCase().split(/\s+/).filter(Boolean);
   const out = cmds.filter(c => terms.every(t => (c.label + ' ' + c.sub).toLowerCase().includes(t)));
-  if (text.length >= 3) {      // a short query is probably a command search; a sentence is probably a question
+  if (text.length >= 3 && can('ask')) {      // a short query is probably a command search; a sentence is probably a question
     const ask = { label: `Ask the analyst: ${text}`, sub: 'Analyze', img: 'analyze', run: () => askAgent(text) };
     if (out.length && terms.length < 3) out.push(ask); else out.unshift(ask);
   }
@@ -652,6 +883,7 @@ $('#pal-q').onkeydown = e => {
 pal.addEventListener('click', e => { if (e.target === pal) pal.close(); });
 $('#btn-pal').onclick = openPalette;
 document.addEventListener('keydown', e => {
+  if (document.body.dataset.state !== 'app') return;
   if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal.open ? pal.close() : openPalette(); return; }
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
   if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !document.querySelector('dialog[open]')) { e.preventDefault(); showTab('analyze'); $('#q').focus(); }

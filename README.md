@@ -44,9 +44,39 @@ Tabs: **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, i
 **Data Review** (rule results + downloadable query list per rule), **Analyze** (the agent, with Copy answer / Download report), **Data** (raw table browser), **Pinned**.
 There is a light/dark toggle, and Print gives a clean PDF of any dashboard.
 
+## Accounts, roles and security
+The app asks you to sign in. **On first run it shows a setup screen that creates the first account, which becomes the admin**; after that, admins add everyone else
+(Menu -> Manage users). Nothing is created for you, so there are no default passwords.
+```bash
+.venv/bin/python -m analyst.server --demo           # accounts on (default); data/auth.db is created next to the lab database
+.venv/bin/python -m analyst.server --demo --no-auth # single-user local mode: no sign-in, everyone is an admin (also LABOPS_AUTH=0)
+.venv/bin/python -m analyst.auth create-user alice --role analyst   # manage users from the terminal (password is prompted, never a flag)
+.venv/bin/python -m analyst.auth list-users | set-password NAME | disable NAME | enable NAME
+```
+
+| Role | Can do |
+|---|---|
+| **viewer** | read the dashboard, data review, tables and profiles |
+| **analyst** | + ask the analyst, upload datasets, delete **own** datasets |
+| **admin** | + manage users and roles, read the audit log, see and delete **any** dataset |
+
+Uploaded datasets are **private to their owner** (admins can see all); another user gets a 404, so even the existence of a dataset is not revealed. The UI hides what a role cannot do, but every route re-checks on the server.
+
+**What is enforced** (all covered by `tests/test_auth_store.py`, `tests/test_auth_api.py`, `tests/test_static.py`):
+- *Passwords:* scrypt with a per-user salt, constant-time compare, a policy (10+ chars, two kinds, not the username, not a common password), and a dummy hash for unknown users so timing does not reveal which usernames exist. Login errors are identical for "no such user" and "wrong password".
+- *Sessions:* random 256-bit token in an `HttpOnly`, `SameSite=Strict` cookie (`Secure` over HTTPS); only the token's SHA-256 is stored server-side. 12 h idle / 7 day absolute expiry. Sessions are revoked on logout, password change (other devices), role change, disable and delete, and a new login replaces the browser's previous token.
+- *Rate limiting:* per IP for every API call, per user for the API, plus tighter buckets for sign-in (and a lockout after 5 failures per IP+username, 25/hour per username across IPs), questions, uploads and password changes; one running analysis per user. Answers carry `Retry-After` and the UI shows a live countdown.
+- *Cross-site and injection defences:* mutating requests need an `X-Requested-With` header, cross-site fetches are refused via `Sec-Fetch-Site`, Host allowlist against DNS rebinding, a strict Content-Security-Policy (no inline scripts, `script-src` limited to this origin and cdnjs), `nosniff`, frame denial, `no-store` on API responses, upload size enforced while streaming.
+- *Admin safety:* the last active admin cannot be demoted, disabled or deleted; admins cannot lock themselves out; admin-set passwords must be changed at next sign-in.
+- *Audit log* (admins only): sign-ins, failures, lockouts, logouts, password changes, uploads, deletes, role changes, denied actions and questions asked (length + short hash only: never passwords or question text).
+- *Logout* clears the cookie, the session row, and the browser-side caches (recent questions, pins, loaded data).
+
+**Honest limits.** The rate limiter and lockout are in memory and per process (a restart resets them; run one process, or move them to Redis for several). There is no MFA, no email-based password reset (an admin resets it), and no account self-registration. The server speaks plain HTTP on `127.0.0.1`: if you ever expose it beyond localhost, put it behind an HTTPS reverse proxy (the cookie then becomes `Secure` automatically; `X-Forwarded-For` is deliberately not trusted, so limits would key on the proxy's address until you configure that). Chart.js is loaded from cdnjs (allowed by the CSP); vendoring it with a Subresource Integrity hash would remove that dependency. This is hardening for a local analytics tool, not a certified system (no 21 CFR Part 11 e-signatures).
+
 ## Look and feel
 - **Glass UI.** iOS-style frosted surfaces (`backdrop-filter` blur + saturation, specular edge highlights) over a slow-moving aurora backdrop, in light and dark mode. The dashboard has a **Glass** theme (default) plus the original Mint / Corporate / Navy themes. Respects `prefers-reduced-motion`, `prefers-reduced-transparency` and `prefers-contrast` (falls back to solid panels).
 - **Colour.** No purple and no gradient accents: a solid bright accent (cyan with dark text in dark mode, blue with white text in light mode) and a 12-colour chart palette defined once as `--c1..--c12` in `style.css`. Dark-mode series colours are saturated and every one is at least 4.5:1 against its glass card; light-mode ones are deeper and at least 3:1. Lines glow in dark mode and tooltips are always dark with white text. `tests/test_palette.py` enforces all of this (no purple-range colour in CSS/JS/HTML or the logo images, contrast floors, distinguishable series, vivid dark colours), so a later edit that breaks it fails the build.
+- **Loading states.** A full-screen splash (your logo, an animated bar and what it is doing) while the session and workspace load, a thin progress bar at the top while any request is in flight, a blurred overlay for slow views, skeleton cards while charts load, and a spinner with a lockout countdown on the sign-in button.
 - **Icons.** The tab, dataset and empty-state icons are the PNGs in `analyst/static/icons/` (`dashboard`, `market-research`, `analyze`, `data`, `pinned`, `lab_operations`); swap a file to change an icon. Only the small utility glyphs (upload, search, print, light/dark) are inline SVG.
 - **Logo.** `analyst/static/brand/` holds the logo made from a Canva design: `logo-mark.png` (header), `logo.png` / `logo-dark.png` (lockups for light / dark backgrounds), favicons and the app icon, plus the raw Canva export. `scripts/make_brand.py` regenerates them from a new Canva export.
 

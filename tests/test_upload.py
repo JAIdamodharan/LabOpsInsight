@@ -27,7 +27,12 @@ def c(app):
 
 
 def upload(c, data, name="orders.xlsx"):
-    return c.post("/api/datasets", content=data, headers={"X-Filename": quote(name)})
+    return c.post("/api/datasets", content=data, headers={"X-Filename": quote(name), **H})
+
+
+def test_upload_requires_the_same_origin_header(c):
+    r = c.post("/api/datasets", content=SALES, headers={"X-Filename": "a.xlsx"})          # what a cross-site form could not add
+    assert r.status_code == 403 and [d["id"] for d in c.get("/api/datasets").json()] == [LAB_ID]
 
 
 SALES = xlsx({"Orders": [["Order ID", "Region", "Units", "Price"]] + [[i, ["North", "South"][i % 2], i % 5 + 1, 10 + i] for i in range(1, 31)]})
@@ -77,7 +82,7 @@ def test_upload_errors_are_friendly_and_leave_nothing_behind(c, tmp_path):
     assert upload(c, b"x", "old.xls").json()["detail"].startswith("Legacy .xls")
     assert upload(c, b"not a zip", "bad.xlsx").status_code == 400
     assert upload(c, b"", "empty.xlsx").status_code == 400
-    assert c.post("/api/datasets", content=SALES).status_code == 400            # no X-Filename
+    assert c.post("/api/datasets", content=SALES, headers=H).status_code == 400            # no X-Filename
     assert upload(c, SALES, "macro.xlsm").status_code == 400
     assert [d["id"] for d in c.get("/api/datasets").json()] == [LAB_ID]
     left = [p.name for p in (tmp_path / "up").iterdir()]

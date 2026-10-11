@@ -107,8 +107,24 @@ class Registry:
                         tables=[dict(name=x["name"], rows=x["rows"], columns=len(x["columns"])) for x in t], bytes=Path(self.lab_path).stat().st_size, warnings=[], examples=[])
         return json.loads((self.dir / f"{ds_id}.json").read_text())
 
-    def list(self) -> list[dict]:
-        out = [self._meta(LAB_ID)]
+    # ---- ownership / access (uploads are private to their owner; admins can see everything) ----
+    def meta(self, ds_id: str) -> dict:
+        self.path(ds_id)
+        return self._meta(ds_id)
+
+    def can_access(self, ds_id: str, user: dict | None) -> bool:
+        self.path(ds_id)
+        if ds_id == LAB_ID or user is None:
+            return True
+        if user.get("role") == "admin":
+            return True
+        return self._meta(ds_id).get("owner_id") == user.get("id")
+
+    def require_access(self, ds_id: str, user: dict | None) -> None:
+        if not self.can_access(ds_id, user):
+            raise DatasetError("unknown dataset", 404)          # 404 not 403: do not reveal that someone else's dataset exists
+
+    def _upload_metas(self) -> list[dict]:
         uploads = []
         for p in self.dir.glob("*.json"):
             if ID_RE.match(p.stem) and (self.dir / f"{p.stem}.duckdb").exists():
@@ -116,13 +132,18 @@ class Registry:
                     uploads.append(json.loads(p.read_text()))
                 except (OSError, ValueError):
                     continue
-        return out + sorted(uploads, key=lambda m: m["created"])
+        return uploads
+
+    def list(self, user: dict | None = None) -> list[dict]:
+        uploads = [m for m in self._upload_metas() if user is None or user.get("role") == "admin" or m.get("owner_id") == user.get("id")]
+        return [self._meta(LAB_ID)] + sorted(uploads, key=lambda m: m["created"])
 
     # ---- mutation -------------------------------------------------------
-    def add(self, filename: str, data: bytes) -> dict:
+    def add(self, filename: str, data: bytes, owner: dict | None = None) -> dict:
         with self._lock:
             existing = [p for p in self.dir.glob("*.duckdb")]
-            if len(existing) >= MAX_DATASETS:
+            mine = [m for m in self._upload_metas() if owner is None or m.get("owner_id") == owner.get("id")]
+            if len(mine) >= MAX_DATASETS:
                 raise DatasetError(f"You already have {MAX_DATASETS} uploaded datasets. Delete one first.", 409)
             if sum(p.stat().st_size for p in existing) + len(data) > MAX_TOTAL_BYTES:
                 raise DatasetError("The upload storage limit has been reached. Delete an uploaded dataset first.", 409)
@@ -138,15 +159,24 @@ class Registry:
         tmp.replace(final)
         tables = [dict(name=t.name, sheet=t.sheet, rows=t.rows, columns=len(t.columns)) for t in res.tables]
         meta = dict(id=ds_id, name=_display_name(filename), kind="custom", filename=Path(filename.replace("\\", "/")).name[:120],
+                    owner_id=None if owner is None else owner.get("id"), owner_name=None if owner is None else owner.get("username"),
                     created=datetime.now(timezone.utc).isoformat(timespec="seconds"), tables=tables, bytes=final.stat().st_size, warnings=res.warnings[:20],
                     examples=_examples([dict(name=t.name, columns=t.columns) for t in res.tables]))
         (self.dir / f"{ds_id}.json").write_text(json.dumps(meta))
         return meta
 
-    def delete(self, ds_id: str) -> None:
+    def delete(self, ds_id: str, user: dict | None = None) -> None:
         if ds_id == LAB_ID:
             raise DatasetError("The built-in dataset cannot be deleted.", 400)
         self.path(ds_id)
+        if user is not None:
+            perms = set(user.get("permissions", ()))
+            owner = self._meta(ds_id).get("owner_id")
+            if "delete_any" not in perms:
+                if owner != user.get("id"):
+                    raise DatasetError("unknown dataset", 404)
+                if "delete_own" not in perms:
+                    raise DatasetError("Your role cannot delete datasets.", 403)
         with self._lock:
             db = self._dbs.pop(ds_id, None)
             self._profiles.pop(ds_id, None)

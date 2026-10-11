@@ -6,3 +6,4 @@ data/*.duckdb
 artifacts/
 eval/results/
 data/uploads/
+data/auth.db*

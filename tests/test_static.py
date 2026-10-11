@@ -43,7 +43,7 @@ def test_every_element_id_the_script_uses_exists_in_the_page():
     html, js = (STATIC / "index.html").read_text(), (STATIC / "app.js").read_text()
     ids_in_html = set(re.findall(r'id="([^"]+)"', html))
     used = set(re.findall(r"\$\('#([A-Za-z0-9_-]+)'\)", js))
-    dynamic = {"pincount", "dq-list", "prog"}                # created at runtime or handled specially
+    dynamic = {"pincount", "dq-list", "prog", "boot-retry"}                # created at runtime or handled specially
     assert used - ids_in_html - dynamic == set(), used - ids_in_html - dynamic
 
 
@@ -85,3 +85,38 @@ def test_brand_and_icon_files_are_served(c):
     for url in ("/static/brand/logo-mark.png", "/static/brand/favicon.ico", "/static/icons/dashboard.png", "/static/icons/lab_operations.png"):
         r = c.get(url)
         assert r.status_code == 200 and len(r.content) > 500, url
+
+
+def test_page_is_compatible_with_a_strict_content_security_policy():
+    import re
+    html = (STATIC / "index.html").read_text()
+    inline = [m for m in re.findall(r"<script\b([^>]*)>", html) if "src=" not in m]
+    assert not inline, "inline <script> would be blocked by the CSP"
+    assert not re.search(r"\son\w+\s*=", html), "inline event-handler attributes would be blocked by the CSP"
+    assert not re.search(r"javascript:", html, re.I)
+    srcs = re.findall(r'<script[^>]*src="([^"]+)"', html)
+    assert all(u.startswith("/static/") or u.startswith("https://cdnjs.cloudflare.com/") for u in srcs), srcs
+
+
+def test_script_avoids_dangerous_sinks():
+    import re
+    js = (STATIC / "app.js").read_text()
+    for bad in ("eval(", "new Function", "document.write", "setTimeout('", 'setTimeout("', ".outerHTML ="):
+        assert bad not in js, bad
+    # every innerHTML / insertAdjacentHTML assignment must be static markup, or built from esc()/md()/numbers only
+    for m in re.finditer(r"(innerHTML\s*=|insertAdjacentHTML\()([^\n]*)", js):
+        rhs = m.group(2)
+        assert "esc(" in rhs or "md(" in rhs or "ICON[" in rhs or "num(" in rhs or "<h2>Answer</h2>" in rhs, rhs[:120]
+
+
+def test_user_supplied_strings_are_rendered_as_text_in_the_admin_screens():
+    js = (STATIC / "app.js").read_text()
+    admin = js[js.index("/* ---- admin: users + audit log ---- */"):js.index("/* ---- loading overlay for slow views ---- */")]
+    assert "innerHTML" not in admin and "insertAdjacentHTML" not in admin       # usernames, details and IPs go through textContent via el()
+
+
+def test_logout_clears_client_side_state():
+    js = (STATIC / "app.js").read_text()
+    clear = js[js.index("function clearClientState()"):js.index("/* ---- sign-in / first-run screen ---- */")]
+    for needle in ("abortRun()", "S.user = null", "S.cache = {}", "recent.", "dash.v1", "killCharts"):
+        assert needle in clear, needle

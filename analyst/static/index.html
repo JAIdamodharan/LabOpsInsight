@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>LabOps Insight</title>
 <meta name="description" content="Analytics, data review and an investigation agent for lab data. Upload your own Excel workbook.">
-<script>try{var t=localStorage.getItem('ui.theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<script src="/static/theme-init.js"></script>
 <link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png">
 <link rel="icon" type="image/png" sizes="64x64" href="/static/brand/favicon-64.png">
 <link rel="shortcut icon" href="/static/brand/favicon.ico">
@@ -13,8 +13,38 @@
 <meta name="theme-color" content="#00d4ff">
 <link rel="stylesheet" href="/static/style.css?v=__V__">
 </head>
-<body>
+<body data-state="boot">
 <div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+<div id="topbar" aria-hidden="true"><i></i></div>
+
+<!-- Loading screen: visible immediately, before any script runs -->
+<div id="boot" role="status" aria-live="polite">
+  <div class="boot-card">
+    <div class="boot-logo"><img class="mk-dark" src="/static/brand/logo-mark.png" alt="" width="64" height="64"><img class="mk-light" src="/static/brand/logo-mark-light.png" alt="" width="64" height="64"></div>
+    <h1>LabOps Insight</h1>
+    <div class="boot-bar"><i></i></div>
+    <p id="boot-msg">Starting…</p>
+  </div>
+</div>
+
+<!-- Sign-in / first-run setup -->
+<section id="auth" hidden aria-label="Sign in">
+  <form id="auth-form" class="auth-card" novalidate>
+    <div class="boot-logo"><img class="mk-dark" src="/static/brand/logo-mark.png" alt="" width="56" height="56"><img class="mk-light" src="/static/brand/logo-mark-light.png" alt="" width="56" height="56"></div>
+    <h1 id="auth-title">Sign in</h1>
+    <p id="auth-sub" class="mute"></p>
+    <div id="auth-msg" role="alert" aria-live="assertive"></div>
+    <label>Username<input id="au-user" name="username" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="32"></label>
+    <label>Password<span class="pwrow"><input id="au-pass" name="password" type="password" autocomplete="current-password" maxlength="128"><button type="button" class="btn ghost sm" id="au-show" aria-label="Show password">Show</button></span></label>
+    <label id="au-confirm-wrap" hidden>Confirm password<input id="au-pass2" name="confirm" type="password" autocomplete="new-password" maxlength="128"></label>
+    <div id="au-meter" class="meter" hidden><i></i><span></span></div>
+    <button class="btn primary wide" id="au-submit" type="submit"><span class="spinner" hidden></span><span class="lbl">Sign in</span></button>
+    <p class="note" id="auth-foot"></p>
+  </form>
+</section>
+
+<div id="busy" hidden role="status" aria-live="polite"><div class="busy-card"><span class="spinner big"></span><span id="busy-msg">Loading…</span></div></div>
+
 <header class="top">
   <div class="top-in">
     <div class="brand"><span class="logo"><img class="mk-dark" src="/static/brand/logo-mark.png" alt="" width="26" height="26"><img class="mk-light" src="/static/brand/logo-mark-light.png" alt="" width="26" height="26"></span><span>LabOps Insight</span></div>
@@ -25,6 +55,18 @@
     <span class="badge" id="model"></span><span class="badge" id="py"></span>
     <button class="btn ghost" id="btn-print" type="button" title="Print / save as PDF" aria-label="Print or save as PDF"></button>
     <button class="btn ghost" id="btn-theme" type="button" title="Switch light / dark" aria-label="Switch light or dark theme"></button>
+    <span class="badge" id="local-badge" hidden title="Authentication is disabled: everyone using this server is an admin">Local mode · no sign-in</span>
+    <div class="usermenu" id="usermenu" hidden>
+      <button class="btn user-btn" id="btn-user" type="button" aria-haspopup="menu" aria-expanded="false"><span class="avatar" id="avatar"></span><span class="t" id="user-name"></span></button>
+      <div class="menu" id="user-menu" role="menu" hidden>
+        <div class="menu-head"><b id="um-name"></b><span class="rolepill" id="um-role"></span></div>
+        <button role="menuitem" type="button" id="um-pw">Change password</button>
+        <button role="menuitem" type="button" id="um-users" hidden>Manage users</button>
+        <button role="menuitem" type="button" id="um-audit" hidden>Audit log</button>
+        <hr>
+        <button role="menuitem" type="button" id="um-logout" class="danger">Sign out</button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -130,6 +172,58 @@
     <p class="note"><a href="/api/example.xlsx" download>Download an example workbook</a> to see the format and try the data review on realistic mistakes.</p>
     <div class="h-sec">Your datasets</div>
     <div class="dlist" id="dlist"></div>
+  </div>
+</dialog>
+
+<dialog id="dlg-pw" aria-labelledby="pw-t">
+  <form id="pw-form" novalidate>
+    <div class="dlg-h"><h2 id="pw-t">Change password</h2><button class="btn ghost" id="pw-x" type="button" aria-label="Close">✕</button></div>
+    <div class="dlg-b">
+      <p class="note" id="pw-note" style="margin-top:0"></p>
+      <div id="pw-msg" role="alert"></div>
+      <label class="fld">Current password<input id="pw-cur" type="password" autocomplete="current-password" maxlength="128"></label>
+      <label class="fld">New password<input id="pw-new" type="password" autocomplete="new-password" maxlength="128"></label>
+      <div class="meter" id="pw-meter"><i></i><span></span></div>
+      <label class="fld">Repeat new password<input id="pw-new2" type="password" autocomplete="new-password" maxlength="128"></label>
+      <p class="note">At least 10 characters, with two kinds of characters, not containing your username. Changing it signs you out everywhere else.</p>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn primary" id="pw-submit" type="submit"><span class="spinner" hidden></span><span class="lbl">Update password</span></button></div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-users" class="wide-dlg" aria-labelledby="us-t">
+  <div class="dlg-h"><h2 id="us-t">Users and roles</h2><button class="btn ghost" id="us-x" type="button" aria-label="Close">✕</button></div>
+  <div class="dlg-b">
+    <div class="rolehelp"><b>viewer</b> read dashboards, data and reviews · <b>analyst</b> + ask the analyst, upload and delete own data · <b>admin</b> + manage users, see the audit log and all datasets</div>
+    <form id="us-form" class="us-form" novalidate>
+      <input id="us-name" placeholder="new username" autocomplete="off" maxlength="32" aria-label="New username">
+      <input id="us-pass" type="password" placeholder="temporary password" autocomplete="new-password" maxlength="128" aria-label="Temporary password">
+      <select id="us-role" aria-label="Role"></select>
+      <button class="btn primary" type="submit">Add user</button>
+    </form>
+    <div id="us-msg" role="alert"></div>
+    <p class="note">New users and password resets must choose their own password at next sign-in.</p>
+    <div style="overflow-x:auto"><table class="admin-table"><thead><tr><th>User</th><th>Role</th><th>Status</th><th>Last sign-in</th><th></th></tr></thead><tbody id="us-body"></tbody></table></div>
+  </div>
+</dialog>
+
+<dialog id="dlg-reset" aria-labelledby="rs-t">
+  <form id="rs-form" novalidate>
+    <div class="dlg-h"><h2 id="rs-t">Reset password</h2><button class="btn ghost" id="rs-x" type="button" aria-label="Close">✕</button></div>
+    <div class="dlg-b">
+      <p class="note" id="rs-note" style="margin-top:0"></p>
+      <div id="rs-msg" role="alert"></div>
+      <label class="fld">Temporary password<input id="rs-pw" type="password" autocomplete="new-password" maxlength="128"></label>
+      <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button class="btn primary" type="submit">Reset and sign them out</button></div>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="dlg-audit" class="wide-dlg" aria-labelledby="au-t">
+  <div class="dlg-h"><h2 id="au-t">Audit log</h2><button class="btn ghost" id="ad-x" type="button" aria-label="Close">✕</button></div>
+  <div class="dlg-b">
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:8px"><select id="ad-filter" aria-label="Filter by action"></select><button class="btn sm" id="ad-refresh" type="button">Refresh</button><span class="note" style="margin:0">Newest first. Passwords and question text are never recorded.</span></div>
+    <div style="overflow-x:auto"><table class="admin-table"><thead><tr><th>When</th><th>User</th><th>Action</th><th>Detail</th><th>IP</th></tr></thead><tbody id="ad-body"></tbody></table></div>
   </div>
 </dialog>
 
