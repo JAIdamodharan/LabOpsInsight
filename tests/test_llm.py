@@ -92,7 +92,7 @@ def test_xai_preset_needs_key_and_an_explicit_model(monkeypatch):
     monkeypatch.delenv("XAI_API_KEY", raising=False)
     with pytest.raises(SystemExit, match="XAI_API_KEY"):
         llm.make_client("xai", model="some-model")
-    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    monkeypatch.setenv("XAI_API_KEY", "xai-" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6")
     with pytest.raises(SystemExit, match="--model"):
         llm.make_client("xai")                                   # no guessed default: model names change
     c, model = llm.make_client("xai", model="some-model")
