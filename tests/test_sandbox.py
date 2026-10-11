@@ -21,7 +21,7 @@ def local(dbpath, tmp_path):
 
 
 def test_runs_code_and_queries_db(local):
-    r = local.run("print(con.sql('select count(*) c from orders').df().c[0] > 1000)")
+    r = local.run("print(con.sql('select count(*) c from tests').df().c[0] > 1000)")
     assert r.stdout.strip() == "True" and not r.is_error
 
 
@@ -49,7 +49,7 @@ def test_secrets_not_inherited(local, monkeypatch):
 
 
 def test_db_handle_is_readonly(local):
-    r = local.run("con.execute('DROP TABLE orders')")
+    r = local.run("con.execute('DROP TABLE tests')")
     assert r.is_error
 
 

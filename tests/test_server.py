@@ -18,12 +18,12 @@ def events(resp):
 
 def test_index_and_config(path, tmp_path):
     c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path)))
-    assert "Autonomous Data Analyst" in c.get("/").text
+    assert "LabOps Insight" in c.get("/").text
     assert c.get("/api/config").json()["demo"] is True
 
 
 def test_stream_with_fake_client(path, tmp_path):
-    fc = FakeClient([msg("tool_use", tool("1", "run_sql", sql="SELECT count(*) n FROM orders")),
+    fc = FakeClient([msg("tool_use", tool("1", "run_sql", sql="SELECT count(*) n FROM tests")),
                      msg("end_turn", text("done"))])
     c = TestClient(create_app(path, client=fc, artifacts_dir=str(tmp_path)))
     ev = events(c.get("/api/ask", params={"q": "how many?"}))
@@ -31,15 +31,33 @@ def test_stream_with_fake_client(path, tmp_path):
     assert ev[-1]["sql_calls"] == 1 and ev[-1]["stop"] == "answered"
 
 
-def test_demo_mode_end_to_end_with_chart(path, tmp_path):
+def test_demo_mode_end_to_end(path, tmp_path):
     c = TestClient(create_app(path, demo=True, sandbox="local", artifacts_dir=str(tmp_path)))
-    ev = events(c.get("/api/ask", params={"q": "Why did revenue drop in March 2025?"}))
+    ev = events(c.get("/api/ask", params={"q": "Why was the OOS rate on HPLC-03 so high in Mar 2025?"}))
     kinds = [e["kind"] for e in ev]
     assert kinds[-1] == "done" and "answer" in kinds
     ans = next(e for e in ev if e["kind"] == "answer")["text"]
-    assert "mobile_app" in ans and "West" in ans and "East" in ans
-    chart = next(e for e in ev if e["kind"] == "tool_result" and e.get("files"))
-    assert c.get(f"/artifacts/{chart['files'][0]}").headers["content-type"] == "image/png"
+    assert "HPLC-03" in ans and "Lab B" in ans and "calibration" in ans.lower()
+    assert any(e.get("chart") for e in ev if e["kind"] == "tool_result")
+    assert any(e["kind"] == "tool_call" and e["input"] == {} and e["name"] == "data_quality" for e in ev)
+    assert not any(e.get("is_error") for e in ev if e["kind"] == "tool_result")
+
+
+def test_demo_mode_declines_off_topic(path, tmp_path):
+    c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path)))
+    ev = events(c.get("/api/ask", params={"q": "What is the weather today?"}))
+    assert "four scripted investigations" in next(e for e in ev if e["kind"] == "answer")["text"]
+
+
+@pytest.mark.parametrize("q,needle", [
+    ("Why did Related Substances on-time delivery drop in Feb 2025?", "LCMS-02"),
+    ("Why did Documentation deviations increase in Apr 2025, and who raised them?", "January 2025"),
+    ("Which records need data review?", "DQ-003"),
+])
+def test_demo_scenarios(path, tmp_path, q, needle):
+    c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path)))
+    ev = events(c.get("/api/ask", params={"q": q}))
+    assert needle in next(e for e in ev if e["kind"] == "answer")["text"]
     assert not any(e.get("is_error") for e in ev if e["kind"] == "tool_result")
 
 

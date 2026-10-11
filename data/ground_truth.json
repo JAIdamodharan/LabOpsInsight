@@ -1,0 +1,48 @@
+{
+  "incidents": {
+    "oos_spike": {
+      "instrument": "HPLC-03",
+      "lab": "Lab B",
+      "method": "Assay",
+      "window": [
+        "2025-03-03",
+        "2025-03-23"
+      ],
+      "fixed_by_calibration": "2025-03-24"
+    },
+    "tat_collapse": {
+      "instrument": "LCMS-02",
+      "lab": "Lab C",
+      "method": "Related Substances",
+      "breakdown": [
+        "2025-02-10",
+        "2025-02-24"
+      ],
+      "month": "2025-02"
+    },
+    "training_gap": {
+      "category": "Documentation",
+      "from": "2025-04-01",
+      "team": "QC-Team-2",
+      "analysts": [
+        "AN-025",
+        "AN-026",
+        "AN-027",
+        "AN-028",
+        "AN-029",
+        "AN-030"
+      ]
+    }
+  },
+  "defects": {
+    "duplicates": 40,
+    "completed_before_start": 35,
+    "missing_analyst": 60,
+    "unit_scale_error": 25,
+    "oos_reported_as_pass": 20,
+    "pass_reported_as_oos": 10,
+    "missing_result": 30,
+    "test_on_broken_instrument": 20,
+    "sample_due_before_received": 15
+  }
+}

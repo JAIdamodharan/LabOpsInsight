@@ -9,7 +9,7 @@ from scripts.make_data import build
 
 @pytest.fixture(scope="session")
 def db(tmp_path_factory):
-    path = tmp_path_factory.mktemp("d") / "shop.duckdb"
+    path = tmp_path_factory.mktemp("d") / "labops.duckdb"
     build(path)
     return Database(str(path))
 
@@ -17,11 +17,11 @@ def db(tmp_path_factory):
 # ---- guardrails -------------------------------------------------------------
 
 @pytest.mark.parametrize("sql", [
-    "DROP TABLE orders",
-    "DELETE FROM orders",
-    "INSERT INTO orders VALUES (1,1,'2025-01-01','web','completed')",
-    "SELECT 1; DROP TABLE orders",
-    "COPY orders TO '/tmp/x.csv'",
+    "DROP TABLE tests",
+    "DELETE FROM tests",
+    "INSERT INTO analysts VALUES ('AN-999','QC-Team-1','2025-01-01')",
+    "SELECT 1; DROP TABLE tests",
+    "COPY tests TO '/tmp/x.csv'",
     "ATTACH '/tmp/other.db'",
     "",
 ])
@@ -36,7 +36,7 @@ def test_cannot_read_filesystem(db):
 
 
 def test_truncates_rows(db):
-    r = db.run("SELECT * FROM order_items")
+    r = db.run("SELECT * FROM tests")
     assert len(r.rows) == 200 and r.truncated
 
 
@@ -48,11 +48,10 @@ def test_timeout(db, monkeypatch):
 
 def test_planted_incident_is_visible(db):
     rows = db.run("""
-        SELECT strftime(order_date,'%Y-%m') m, count(*) FROM orders
-        WHERE channel='mobile_app' AND customer_id IN (SELECT customer_id FROM customers WHERE region IN ('West','East'))
-        GROUP BY 1 ORDER BY 1""").rows
+        SELECT strftime(completed_date,'%Y-%m') m, round(100.0*avg((status='OOS')::int),2) FROM tests
+        WHERE instrument_id='HPLC-03' AND method='Assay' GROUP BY 1 ORDER BY 1""").rows
     by_month = dict(rows)
-    assert by_month["2025-03"] < 0.3 * by_month["2025-02"]
+    assert by_month["2025-03"] > 5 * max(by_month["2025-02"], by_month["2025-04"], 1.0)
 
 
 # ---- agent loop with a scripted fake model ----------------------------------
@@ -81,8 +80,8 @@ class FakeClient:
 def test_agent_recovers_from_sql_error_then_answers(db):
     client = FakeClient([
         msg("tool_use", tool("1", "get_schema")),
-        msg("tool_use", tool("2", "run_sql", sql="SELECT nope FROM orders")),
-        msg("tool_use", tool("3", "run_sql", sql="SELECT count(*) FROM orders")),
+        msg("tool_use", tool("2", "run_sql", sql="SELECT nope FROM tests")),
+        msg("tool_use", tool("3", "run_sql", sql="SELECT count(*) FROM tests")),
         msg("end_turn", text("done")),
     ])
     agent = Analyst(db, client=client)
@@ -109,9 +108,9 @@ def test_agent_stops_at_token_budget(db):
 
 def test_agent_nudges_instead_of_answering_over_an_error(db):
     client = FakeClient([
-        msg("tool_use", tool("1", "run_sql", sql="SELECT nope FROM orders")),
+        msg("tool_use", tool("1", "run_sql", sql="SELECT nope FROM tests")),
         msg("end_turn", text("here is a fixed query in prose")),       # premature answer -> nudged
-        msg("tool_use", tool("2", "run_sql", sql="SELECT count(*) FROM orders")),
+        msg("tool_use", tool("2", "run_sql", sql="SELECT count(*) FROM tests")),
         msg("end_turn", text("done")),
     ])
     agent = Analyst(db, client=client)
@@ -121,7 +120,7 @@ def test_agent_nudges_instead_of_answering_over_an_error(db):
 
 
 def test_nudges_are_capped(db):
-    client = FakeClient([msg("tool_use", tool("1", "run_sql", sql="SELECT nope FROM orders"))] +
+    client = FakeClient([msg("tool_use", tool("1", "run_sql", sql="SELECT nope FROM tests"))] +
                         [msg("end_turn", text("prose"))] * 3)
     agent = Analyst(db, client=client)
     list(agent.run("q"))

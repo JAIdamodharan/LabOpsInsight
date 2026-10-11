@@ -1,4 +1,4 @@
-"""Web UI + streaming API.  python -m analyst.server --db data/shop.duckdb [--demo] [--sandbox local|docker]"""
+"""Web UI + streaming API.  python -m analyst.server --db data/labops.duckdb [--demo] [--sandbox local|docker]"""
 import argparse
 import json
 import threading
@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
 from .agent import MODEL, Analyst
-from . import dashboard
+from . import dashboard, dq
 from .db import Database
 from .demo import DemoClient
 from .llm import add_cli_args, make_client
@@ -43,11 +43,22 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
         return {"schema": db.schema()}
 
     @app.get("/api/dashboard")
-    def dash(month: str | None = None, region: str | None = None, channel: str | None = None):
+    def dash(month: str | None = None, lab: str | None = None, service_line: str | None = None):
         try:
-            return dashboard.build(db, month or None, region or None, channel or None)
+            return dashboard.build(db, month or None, lab or None, service_line or None)
         except ValueError as e:  # slicer values are checked against the catalog, never interpolated
             raise HTTPException(400, str(e))
+
+    @app.get("/api/dq")
+    def dq_summary():
+        return dq.summary(db)
+
+    @app.get("/api/dq/{rule_id}")
+    def dq_issues(rule_id: str, limit: int = 200, offset: int = 0):
+        try:
+            return dq.issues(db, rule_id, limit, offset)
+        except KeyError:
+            raise HTTPException(404, "unknown rule")
 
     @app.get("/api/tables")
     def tables():
@@ -111,7 +122,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none",
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default="data/shop.duckdb")
+    ap.add_argument("--db", default="data/labops.duckdb")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--demo", action="store_true", help="scripted model; no API key needed")
     ap.add_argument("--sandbox", choices=["docker", "local", "none"], default="none")

@@ -63,7 +63,7 @@ def report(rows: list[dict], model: str, price_in: float, price_out: float) -> s
 
 def main() -> None:
     ap = argparse.ArgumentParser()
-    ap.add_argument("--db", default="data/shop.duckdb")
+    ap.add_argument("--db", default="data/labops.duckdb")
     ap.add_argument("--questions", default="eval/questions.json")
     add_cli_args(ap)
     ap.add_argument("--ids", help="comma-separated question ids")

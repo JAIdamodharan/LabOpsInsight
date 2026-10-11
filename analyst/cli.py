@@ -1,4 +1,4 @@
-"""Usage: python -m analyst.cli "Why did revenue drop in March 2025?" [--db data/shop.duckdb]"""
+"""Usage: python -m analyst.cli "Why did the OOS rate rise in March 2025?" [--db data/labops.duckdb]"""
 import argparse
 import sys
 
@@ -11,7 +11,7 @@ from .sandbox import DockerSandbox, LocalSandbox
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("question")
-    ap.add_argument("--db", default="data/shop.duckdb")
+    ap.add_argument("--db", default="data/labops.duckdb")
     ap.add_argument("--sandbox", choices=["docker", "local", "none"], default="none",
                     help="enable run_python (docker = isolated; local = DEV ONLY, not isolated)")
     add_cli_args(ap)

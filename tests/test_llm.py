@@ -49,7 +49,7 @@ def test_message_translation_roundtrip():
 
 def test_agent_runs_end_to_end_over_openai_protocol(db):
     seen = []
-    c = client_for([completion(calls=[("run_sql", '{"sql":"SELECT count(*) FROM orders"}')]),
+    c = client_for([completion(calls=[("run_sql", '{"sql":"SELECT count(*) FROM tests"}')]),
                     completion("There are many orders.")], seen)
     agent = Analyst(db, client=c, model="m")
     list(agent.run("how many orders?"))

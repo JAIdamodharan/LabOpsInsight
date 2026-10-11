@@ -49,8 +49,8 @@ def test_pie_limits_and_negatives():
 
 
 def test_kpi_cards():
-    spec = build_chart(R(["total_revenue", "orders", "top"], [(Decimal("1420207"), 12, "web")]), {"type": "kpi", "title": "March"})
-    assert spec["cards"] == [{"label": "total revenue", "value": 1420207.0}, {"label": "orders", "value": 12.0}, {"label": "top", "value": "web"}]
+    spec = build_chart(R(["total_tests", "oos", "top"], [(Decimal("1420207"), 12, "HPLC-03")]), {"type": "kpi", "title": "March"})
+    assert spec["cards"] == [{"label": "total tests", "value": 1420207.0}, {"label": "oos", "value": 12.0}, {"label": "top", "value": "HPLC-03"}]
 
 
 def test_scatter():
@@ -73,23 +73,23 @@ def test_errors_are_actionable(res, args, msg_):
 
 def test_agent_chart_tool_emits_spec_and_table(db):
     client = FakeClient([
-        msg("tool_use", tool("1", "run_sql", sql="SELECT channel, count(*) n FROM orders GROUP BY 1 ORDER BY 1")),
-        msg("tool_use", tool("2", "chart", type="bar", title="Orders by channel", x="channel", y="n",
-                             sql="SELECT channel, count(*) n FROM orders GROUP BY 1 ORDER BY 1")),
+        msg("tool_use", tool("1", "run_sql", sql="SELECT method, count(*) n FROM tests GROUP BY 1 ORDER BY 1")),
+        msg("tool_use", tool("2", "chart", type="bar", title="Tests by method", x="method", y="n",
+                             sql="SELECT method, count(*) n FROM tests GROUP BY 1 ORDER BY 1")),
         msg("end_turn", text("done")),
     ])
     agent = Analyst(db, client=client)
     ev = list(agent.run("q"))
     sql_ev, chart_ev = [e for e in ev if e.kind == "tool_result"]
-    assert sql_ev.data["table"]["columns"] == ["channel", "n"] and len(sql_ev.data["table"]["rows"]) == 3
-    assert chart_ev.data["chart"]["labels"] == ["marketplace", "mobile_app", "web"]
+    assert sql_ev.data["table"]["columns"] == ["method", "n"] and len(sql_ev.data["table"]["rows"]) == 5
+    assert chart_ev.data["chart"]["labels"] == ["Assay", "Dissolution", "Related Substances", "Residual Solvents", "Water Content"]
     assert agent.last_stats.chart_calls == 1 and len(agent.last_stats.charts) == 1
 
 
 def test_agent_chart_error_is_fed_back_not_raised(db):
     client = FakeClient([
         msg("tool_use", tool("1", "chart", type="bar", title="t", x="nope", y="n", sql="SELECT 1 n")),
-        msg("tool_use", tool("2", "chart", type="bar", title="t", x="n", y="n", sql="DROP TABLE orders")),
+        msg("tool_use", tool("2", "chart", type="bar", title="t", x="n", y="n", sql="DROP TABLE tests")),
         msg("end_turn", text("sorry")), msg("end_turn", text("sorry")), msg("end_turn", text("sorry")),  # nudged twice, then accepted
     ])
     agent = Analyst(db, client=client)
@@ -103,19 +103,19 @@ def test_agent_chart_error_is_fed_back_not_raised(db):
 def test_tables_api_lists_and_pages(path, tmp_path):
     c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path)))
     names = {t["name"]: t for t in c.get("/api/tables").json()}
-    assert set(names) == {"customers", "order_items", "orders", "products"} and names["products"]["rows"] == 200
-    r = c.get("/api/table/products", params={"limit": 5, "sort": "price", "desc": "true"}).json()
-    assert len(r["rows"]) == 5 and r["rows"][0][2] >= r["rows"][4][2] and r["total"] == 200
-    assert c.get("/api/table/products", params={"limit": 99999}).json()["limit"] == 200
+    assert set(names) == {"analysts", "deviations", "instrument_events", "instruments", "projects", "samples", "tests"} and names["instruments"]["rows"] == 13
+    r = c.get("/api/table/tests", params={"limit": 5, "sort": "run_hours", "desc": "true"}).json()
+    assert len(r["rows"]) == 5 and r["rows"][0][-1] >= r["rows"][4][-1] and r["total"] > 17000
+    assert c.get("/api/table/tests", params={"limit": 99999}).json()["limit"] == 200
 
 
 @pytest.mark.parametrize("url", [
     "/api/table/nope",
-    '/api/table/orders;DROP TABLE orders',
-    '/api/table/orders?sort=order_id;DROP TABLE orders',
-    "/api/table/orders?sort=%22%20OR%201=1",
+    '/api/table/tests;DROP TABLE tests',
+    '/api/table/tests?sort=test_id;DROP TABLE tests',
+    "/api/table/tests?sort=%22%20OR%201=1",
 ])
 def test_tables_api_blocks_injection(path, tmp_path, url):
     c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path)))
     assert c.get(url).status_code in (400, 404)
-    assert c.get("/api/table/orders", params={"limit": 1}).status_code == 200   # still intact
+    assert c.get("/api/table/tests", params={"limit": 1}).status_code == 200   # still intact

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Data Analyst Agent</title>
+<title>LabOps Insight</title>
 <style>
 :root{--bg:#0f1115;--panel:#171a21;--line:#262b36;--text:#e6e8ee;--mute:#8b93a7;--accent:#6ea8fe;--ok:#4ade80;--err:#f87171;--code:#0b0d11;--hover:#1e222b}
 @media (prefers-color-scheme:light){:root{--bg:#f6f7f9;--panel:#fff;--line:#e2e5ec;--text:#161a22;--mute:#667085;--accent:#2563eb;--ok:#16a34a;--err:#dc2626;--code:#f1f3f7;--hover:#f0f2f6}}
@@ -111,13 +111,33 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .heat td.cell{text-align:center;font-variant-numeric:tabular-nums;font-weight:600;border:2px solid var(--b-card)}
 .heat td.cell small{display:block;font-weight:400;font-size:11px;color:var(--b-mute)}
 @media (max-width:900px){.s7,.s6,.s5,.s4,.s3,.s8{grid-column:span 12}.kgrid{grid-template-columns:repeat(2,1fr)}.gauge,.gauge+.gauge{grid-column:auto;grid-row:auto}}
+.bi{--b-warn:#d98e04}.bi.th-navy{--b-warn:#ffcb66}.bi.th-corp{--b-warn:#e0a800}
+.ins{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.insight{display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:8px;background:var(--b-card);border:1px solid var(--b-border);border-left:4px solid var(--b-mute);font-size:13.5px}
+.insight.bad{border-left-color:var(--b-bad)}.insight.warn{border-left-color:var(--b-warn)}.insight.info{border-left-color:var(--b-title)}
+.insight span{flex:1}
+.insight .link{white-space:nowrap}
+.kgrid.dqk{grid-template-columns:repeat(4,1fr)}
+@media (max-width:900px){.kgrid.dqk{grid-template-columns:repeat(2,1fr)}}
+.pill{font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;border:1px solid currentColor}
+.pill.Critical,.pill.Fail{color:var(--b-bad)}.pill.Major{color:var(--b-warn)}.pill.Minor{color:var(--b-mute)}.pill.Pass{color:var(--b-good)}
+.btab tr.sel{outline:2px solid var(--b-title);outline-offset:-2px}
+.heat td.cell.na{color:var(--b-mute);font-weight:400}
+.btab.heat th,.btab.heat td,.btab.inst th,.btab.inst td{padding:5px 6px;font-size:12px}
+.bi .grid{background:var(--b-card);border-color:var(--b-border)}
+.bi .gbar{border-bottom-color:var(--b-border);color:var(--b-mute)}
+.bi .gbar input{background:var(--b-card);color:var(--b-text);border-color:var(--b-border)}
+.bi .gscroll th{background:var(--b-head);color:var(--b-headtext)}
+.bi .gscroll td{border-bottom-color:var(--b-border);color:var(--b-text)}
+.bi .gscroll tbody tr:nth-child(even){background:var(--b-alt)}
 </style>
 </head>
 <body>
 <main>
-  <header><h1>Autonomous Data Analyst</h1><span class="badge" id="model"></span><span class="badge" id="py"></span></header>
+  <header><h1>LabOps Insight</h1><span class="badge" id="model"></span><span class="badge" id="py"></span></header>
   <nav role="tablist">
     <button role="tab" data-tab="bi" aria-selected="true">Dashboard</button>
+    <button role="tab" data-tab="dq" aria-selected="false">Data Review</button>
     <button role="tab" data-tab="analyze" aria-selected="false">Analyze</button>
     <button role="tab" data-tab="data" aria-selected="false">Data</button>
     <button role="tab" data-tab="pins" aria-selected="false">Pinned<span class="n" id="pincount" hidden>0</span></button>
@@ -127,21 +147,30 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
     <div class="bi th-mint" id="bi">
       <div class="bi-bar">
         <label>Month<select id="f-month"></select></label>
-        <label>Region<select id="f-region"></select></label>
-        <label>Channel<select id="f-channel"></select></label>
+        <label>Lab<select id="f-lab"></select></label>
+        <label>Service line<select id="f-svc"></select></label>
         <label>Theme<select id="f-theme"><option value="th-mint">Mint</option><option value="th-corp">Corporate</option><option value="th-navy">Navy</option></select></label>
         <button class="link" id="f-reset" type="button">Reset</button>
         <span class="sp"></span>
-        <button class="link" id="f-ask" type="button">Ask the analyst why →</button>
+        <button class="link" id="f-ask" type="button">Ask the analyst what changed →</button>
       </div>
       <div class="bi-title"><h2 id="bi-h"></h2><span id="bi-sub"></span></div>
+      <div id="bi-ins" class="ins"></div>
       <div class="kgrid" id="bi-k"></div>
       <div class="bgrid" id="bi-g"></div>
     </div>
   </section>
 
+  <section id="tab-dq" hidden>
+    <div class="bi th-mint" id="dqbox">
+      <div class="bi-title"><h2>Data review</h2><span>Rule-based checks on the lab records (ALCOA+ data integrity). Read-only: nothing is changed, the output is a query list to raise with the owning lab.</span></div>
+      <div class="kgrid dqk" id="dq-k"></div>
+      <div class="bgrid" id="dq-g"></div>
+    </div>
+  </section>
+
   <section id="tab-analyze" hidden>
-    <form id="f"><input id="q" maxlength="500" placeholder="Ask a business question about the shop data…"><button class="primary" id="go">Analyze</button></form>
+    <form id="f"><input id="q" maxlength="500" placeholder="Ask a question about lab operations, e.g. why did OOS rise in March?"><button class="primary" id="go">Analyze</button></form>
     <div class="chips" id="chips"></div>
     <div id="log" aria-live="polite"></div>
   </section>
@@ -160,7 +189,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 const $=s=>document.querySelector(s), log=$('#log');
-const EXAMPLES=["Why did revenue drop in March 2025?","Show revenue by category as a pie chart","What was the average order value in February 2025?","What is the average customer satisfaction score by region?"];
+const EXAMPLES=["Why was the OOS rate on HPLC-03 so high in Mar 2025?","Why did Related Substances on-time delivery drop in Feb 2025?","Why did Documentation deviations increase in Apr 2025, and who raised them?","Which records need data review?"];
 const PALETTE=['#6ea8fe','#f59e0b','#34d399','#f472b6','#a78bfa','#fb7185','#22d3ee','#a3e635','#94a3b8','#fbbf24','#2dd4bf','#e879f9'];
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const el=(tag,attrs={},...kids)=>{const e=document.createElement(tag);for(const[k,v]of Object.entries(attrs)){if(k==='class')e.className=v;else if(k.startsWith('on'))e[k]=v;else e.setAttribute(k,v)}kids.flat().forEach(c=>e.append(c));return e};
@@ -172,10 +201,11 @@ let es=null,t0=0;
 /* ---------- tabs ---------- */
 document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('nav button').forEach(x=>x.setAttribute('aria-selected',x===b));
-  ['bi','analyze','data','pins'].forEach(t=>$('#tab-'+t).hidden=t!==b.dataset.tab);
+  ['bi','dq','analyze','data','pins'].forEach(t=>$('#tab-'+t).hidden=t!==b.dataset.tab);
   if(b.dataset.tab==='data'&&!tablesLoaded)loadTables();
   if(b.dataset.tab==='pins')renderDash();
   if(b.dataset.tab==='bi'&&biData)renderBI(biData);
+  if(b.dataset.tab==='dq'&&!dqLoaded)loadDQ();
 });
 
 /* ---------- spreadsheet-style grid ---------- */
@@ -279,29 +309,29 @@ async function showTable(){
   $('#datagrid').replaceChildren(pager,g);
 }
 
-/* ---------- BI dashboard ---------- */
+/* ---------- BI dashboard (lab operations) ---------- */
 const bi=$('#bi'),bcharts=[];
 const bc=v=>getComputedStyle(bi).getPropertyValue(v).trim();
 const rgba=(rgbVar,a)=>`rgba(${bc(rgbVar)},${a})`;
-const money=v=>v>=1e6?`$${(v/1e6).toFixed(2)}M`:v>=1e4?`$${(v/1e3).toFixed(1)}K`:`$${v.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
 const cnt=v=>v>=1e4?`${(v/1e3).toFixed(1)}K`:Math.round(v).toLocaleString();
-const FMT={money,count:cnt,pct:v=>v.toFixed(1)+'%'};
+const FMT={count:cnt,pct:v=>v.toFixed(1)+'%',days:v=>v.toFixed(2)+' d'};
 const compact=v=>Math.abs(v)>=1e6?+(v/1e6).toFixed(1)+'M':Math.abs(v)>=1e3?+(v/1e3).toFixed(1)+'K':v;
 let biOpts=null,biData=null;
 function dirClass(delta,good){if(delta==null||Math.abs(delta)<0.05)return'flat';return(delta>0)===(good==='up')?'good':'bad'}
 function kpiCard(k,prevLabel){
   const cls=dirClass(k.delta,k.good),arrow=k.delta==null||Math.abs(k.delta)<0.05?'':(k.delta>0?'↑':'↓');
-  const d=k.delta==null?'—':`${k.delta>0?'+':''}${k.delta.toFixed(k.delta_kind==='pp'?1:1)}${k.delta_kind==='pp'?' pp':'%'}`;
+  const d=k.delta==null?'—':`${k.delta>0?'+':''}${k.delta.toFixed(1)}${k.delta_kind==='pp'?' pp':'%'}`;
   return el('div',{class:'bcard kcard'},el('h3',{},k.label),
     el('div',{class:'kv'},FMT[k.fmt](k.value),el('span',{class:'arrow '+cls},arrow)),
     el('div',{class:'kp'},k.prev==null?'no prior period':`${prevLabel}: ${FMT[k.fmt](k.prev)} · `,el('b',{class:cls},k.prev==null?'':d)));
 }
+function gaugeColor(v){return v>=92?'--b-good':v>=85?'--b-warn':'--b-bad'}
 function gaugeCard(g,prevLabel){
-  const cls=g.good==='up'?'good':'bad',canvas=el('canvas');
-  const card=el('div',{class:'bcard gauge'},el('h3',{},g.label),el('div',{class:'gwrap'},canvas,el('div',{class:'gval '+cls},g.value.toFixed(1)+'%')),
+  const canvas=el('canvas'),cv=gaugeColor(g.value);
+  const card=el('div',{class:'bcard gauge'},el('h3',{},g.label),el('div',{class:'gwrap'},canvas,el('div',{class:'gval',style:`color:${bc(cv)}`},g.value.toFixed(1)+'%')),
     el('div',{class:'gprev'},g.prev==null?'':`${prevLabel}: ${g.prev.toFixed(1)}%`));
   if(typeof Chart!=='undefined')requestAnimationFrame(()=>bcharts.push(new Chart(canvas,{type:'doughnut',
-    data:{datasets:[{data:[g.value,100-g.value],backgroundColor:[bc(g.good==='up'?'--b-good':'--b-bad'),bc('--b-track')],borderWidth:0}]},
+    data:{datasets:[{data:[g.value,100-g.value],backgroundColor:[bc(cv),bc('--b-track')],borderWidth:0}]},
     options:{rotation:-90,circumference:180,cutout:'68%',responsive:true,maintainAspectRatio:false,animation:{duration:500},plugins:{legend:{display:false},tooltip:{enabled:false}}}})));
   return card;
 }
@@ -311,72 +341,108 @@ function chartBox(title,cls,build){
   else requestAnimationFrame(()=>bcharts.push(build(canvas)));
   return card;
 }
-const axisOpts=(extra={})=>({ticks:{color:bc('--b-mute'),...(extra.num?{callback:extra.fmt||(v=>compact(v))}:{}),...(extra.ticks||{})},grid:{color:bc('--b-border'),drawOnChartArea:extra.noGrid?false:true},border:{display:false},...(extra.rest||{})});
+const axisOpts=(extra={})=>({ticks:{color:bc('--b-mute'),...(extra.num?{callback:extra.fmt||(v=>compact(v))}:{}),...(extra.ticks||{})},grid:{color:bc('--b-border'),drawOnChartArea:extra.noGrid?false:true},border:{display:false},...(extra.min!==undefined?{min:extra.min}:{}),...(extra.max!==undefined?{max:extra.max}:{})});
 const legend=()=>({labels:{color:bc('--b-text'),usePointStyle:true,boxWidth:8}});
+function insightRow(i){
+  const row=el('div',{class:'insight '+i.level},el('span',{},i.text));
+  if(i.ask)row.append(el('button',{class:'link',onclick:()=>askAgent(i.ask)},'Investigate →'));
+  else row.append(el('button',{class:'link',onclick:()=>document.querySelector('[data-tab=dq]').click()},'Open Data Review →'));
+  return row;
+}
+function askAgent(q){$('#q').value=q;document.querySelector('[data-tab=analyze]').click();$('#f').requestSubmit()}
 
 function renderBI(d){
   biData=d;bcharts.splice(0).forEach(c=>c.destroy());
-  const f=d.filters,P=d.period,T=d.trend;
-  $('#bi-h').textContent=`Shop Performance — ${P.label}`;
-  $('#bi-sub').textContent=(P.prev_label?`vs ${P.prev_label}`:'first month in data')+` · ${f.region||'All regions'} · ${f.channel||'All channels'}`;
-  const k=$('#bi-k'),g=$('#bi-g');
-  k.replaceChildren(...d.kpis.map(x=>kpiCard(x,P.prev_label)),...d.gauges.map(x=>gaugeCard(x,P.prev_label)));
-  const sel=T.selected;
-  const labels=[...T.labels,...T.projection_labels],n=T.labels.length;
-  const pt=(base)=>labels.map((_,i)=>i===sel?7:base);
-  const trend=chartBox('Revenue monthly trend & projection','s7',cv=>new Chart(cv,{type:'line',
-    data:{labels,datasets:[
-      {label:'Revenue',data:[...T.revenue,null,null],borderColor:bc('--b-a1'),backgroundColor:bc('--b-a1')+'55',fill:true,tension:.3,pointRadius:pt(3),pointBackgroundColor:labels.map((_,i)=>i===sel?bc('--b-a3'):bc('--b-a1')),spanGaps:false},
-      {label:'Linear trend',data:T.trendline,borderColor:bc('--b-a3'),borderWidth:1.5,pointRadius:0,fill:false},
-      {label:'Projection (illustrative)',data:labels.map((_,i)=>i<n-1?null:i===n-1?T.revenue[n-1]:T.trendline[i]),borderColor:bc('--b-a2'),backgroundColor:bc('--b-a2')+'66',borderDash:[6,4],fill:true,tension:.3,pointRadius:3}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},interaction:{mode:'index',intersect:false},
-      plugins:{legend:legend(),tooltip:{callbacks:{label:c=>c.parsed.y==null?null:`${c.dataset.label}: ${money(c.parsed.y)}`}}},scales:{x:axisOpts({ticks:{maxRotation:55}}),y:axisOpts({num:true,fmt:v=>'$'+compact(v)})}}}));
-  const combo=chartBox('Orders vs average order value','s5',cv=>new Chart(cv,{data:{labels:T.labels,datasets:[
-      {type:'bar',label:'Orders',data:T.orders,yAxisID:'y',backgroundColor:T.labels.map((_,i)=>i===sel?bc('--b-a5'):bc('--b-a4')),borderRadius:3},
-      {type:'line',label:'Avg order value',data:T.aov,yAxisID:'y1',borderColor:bc('--b-a3'),backgroundColor:bc('--b-a3'),tension:.3,pointRadius:3}]},
-    options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},plugins:{legend:legend(),tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y1'?`AOV: ${money(c.parsed.y)}`:`Orders: ${c.parsed.y.toLocaleString()}`}}},
-      scales:{x:axisOpts({ticks:{maxRotation:55}}),y:axisOpts({num:true}),y1:{position:'right',ticks:{color:bc('--b-mute'),callback:v=>'$'+v},grid:{drawOnChartArea:false},border:{display:false}}}}}));
-  const cat=chartBox(`Revenue by category — ${P.label}`,'s6',cv=>new Chart(cv,{type:'bar',
-    data:{labels:d.categories.map(c=>c.label),datasets:[{data:d.categories.map(c=>c.value),backgroundColor:bc('--b-a1'),borderRadius:4}]},
-    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:400},plugins:{legend:{display:false},tooltip:{callbacks:{label:c=>money(c.parsed.x)}}},scales:{x:axisOpts({num:true,fmt:v=>'$'+compact(v)}),y:axisOpts({noGrid:true})}}}));
-  const pal=[bc('--b-a1'),bc('--b-a5'),bc('--b-a4'),bc('--b-a3'),bc('--b-a2')];
-  const ch=chartBox(`Revenue by channel — ${P.label}`,'s6',cv=>new Chart(cv,{type:'doughnut',
-    data:{labels:d.channels.map(c=>c.label),datasets:[{data:d.channels.map(c=>c.value),backgroundColor:pal,borderColor:bc('--b-card')==='transparent'?'#0000':'#0000',borderWidth:0}]},
-    options:{responsive:true,maintainAspectRatio:false,cutout:'58%',animation:{duration:400},plugins:{legend:{position:'bottom',...legend()},tooltip:{callbacks:{label:c=>`${c.label}: ${money(c.parsed)}`}}}}}));
-  const maxShare=Math.max(1,...d.regions.map(r=>r.share));
-  const rt=el('div',{class:'bcard s5'},el('h3',{},`Regions — ${P.label}`),el('table',{class:'btab'},
-    el('thead',{},el('tr',{},...['Region','Revenue','Share',`vs ${P.prev_label||'prev'}`].map((h,i)=>el('th',{class:i===1||i===3?'num':''},h)))),
-    el('tbody',{},...d.regions.map(r=>el('tr',{},el('td',{},r.region),el('td',{class:'num'},money(r.revenue)),
-      el('td',{},el('span',{class:'dtrack'},el('div',{class:'dbar',style:`width:${100*r.share/maxShare}%`})),r.share.toFixed(1)+'%'),
-      el('td',{class:'num '+dirClass(r.mom,'up')},r.mom==null?'—':`${r.mom>0?'+':''}${r.mom.toFixed(1)}%`))))));
+  const f=d.filters,P=d.period,T=d.trend,sel=T.selected;
+  $('#bi-h').textContent=`Lab Operations — ${P.label}`;
+  $('#bi-sub').textContent=(P.prev_label?`vs ${P.prev_label}`:'first month in data')+` · ${f.lab||'All labs'} · ${f.service_line||'All service lines'} · synthetic, anonymised data`;
+  $('#bi-ins').replaceChildren(...d.insights.map(insightRow));
+  $('#bi-k').replaceChildren(...d.kpis.map(x=>kpiCard(x,P.prev_label)),...d.gauges.map(x=>gaugeCard(x,P.prev_label)));
+  const hl=(base,hi)=>T.labels.map((_,i)=>i===sel?hi:base);
+  const volume=chartBox('Tests completed & OOS rate','s7',cv=>new Chart(cv,{data:{labels:T.labels,datasets:[
+      {type:'bar',label:'Tests completed',data:T.tests,yAxisID:'y',backgroundColor:hl(bc('--b-a4'),bc('--b-a5')),borderRadius:3},
+      {type:'line',label:'OOS rate (%)',data:T.oos_rate,yAxisID:'y1',borderColor:bc('--b-bad'),backgroundColor:bc('--b-bad'),tension:.25,pointRadius:hl(3,7),pointHoverRadius:7}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},interaction:{mode:'index',intersect:false},plugins:{legend:legend(),tooltip:{callbacks:{label:c=>c.dataset.yAxisID==='y1'?`OOS rate: ${c.parsed.y.toFixed(2)}%`:`Tests: ${c.parsed.y.toLocaleString()}`}}},
+      scales:{x:axisOpts({ticks:{maxRotation:55}}),y:axisOpts({num:true}),y1:{position:'right',min:0,ticks:{color:bc('--b-mute'),callback:v=>v+'%'},grid:{drawOnChartArea:false},border:{display:false}}}}}));
+  const delivery=chartBox('On-time delivery & turnaround','s5',cv=>new Chart(cv,{type:'line',data:{labels:T.labels,datasets:[
+      {label:'On-time delivery (%)',data:T.on_time,yAxisID:'y',borderColor:bc('--b-a1'),backgroundColor:bc('--b-a1'),tension:.25,pointRadius:hl(3,7)},
+      {label:'Avg turnaround (days)',data:T.tat,yAxisID:'y1',borderColor:bc('--b-a3'),backgroundColor:bc('--b-a3'),borderDash:[5,4],tension:.25,pointRadius:hl(2,6)}]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},interaction:{mode:'index',intersect:false},plugins:{legend:legend()},
+      scales:{x:axisOpts({ticks:{maxRotation:55}}),y:axisOpts({num:true,fmt:v=>v+'%',min:80,max:100}),y1:{position:'right',ticks:{color:bc('--b-mute'),callback:v=>(+v.toFixed(2))+' d'},grid:{drawOnChartArea:false},border:{display:false}}}}}));
+  const cats=d.deviation_categories;
+  const dev=chartBox(`Deviations opened by category — ${P.label}`,'s6',cv=>new Chart(cv,{type:'bar',
+    data:{labels:cats.map(c=>c.label),datasets:[{label:P.label,data:cats.map(c=>c.value),backgroundColor:bc('--b-a5'),borderRadius:4},
+      ...(P.prev_label?[{label:P.prev_label,data:cats.map(c=>c.prev),backgroundColor:bc('--b-a4'),borderRadius:4}]:[])]},
+    options:{responsive:true,maintainAspectRatio:false,animation:{duration:400},plugins:{legend:legend()},scales:{x:axisOpts({}),y:axisOpts({num:true,fmt:v=>Number.isInteger(v)?v:''})}}}));
+  const M=d.methods;
+  const meth=chartBox(`Avg turnaround by method (days) — ${P.label}`,'s6',cv=>new Chart(cv,{type:'bar',
+    data:{labels:M.map(m=>m.label),datasets:[{data:M.map(m=>m.tat),backgroundColor:M.map(m=>m.on_time!=null&&m.on_time<85?bc('--b-bad'):bc('--b-a1')),borderRadius:4}]},
+    options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,animation:{duration:400},plugins:{legend:{display:false},
+      tooltip:{callbacks:{label:c=>`${c.parsed.x.toFixed(2)} days · ${M[c.dataIndex].on_time??'—'}% on time · ${M[c.dataIndex].tests} tests`}}},scales:{x:axisOpts({num:true,fmt:v=>v+' d'}),y:axisOpts({noGrid:true})}}}));
+  const it=el('div',{class:'bcard s6'},el('h3',{},`Instruments — ${P.label}`),el('table',{class:'btab inst'},
+    el('thead',{},el('tr',{},...['Instrument','Tests','Utilization','OOS %','Δ pp'].map((h,i)=>el('th',{class:i===1||i===3||i===4?'num':''},h)))),
+    el('tbody',{},...d.instruments.map(r=>el('tr',{},el('td',{title:`${r.type} · ${r.lab}`},r.instrument),el('td',{class:'num'},r.tests.toLocaleString()),
+      el('td',{},el('span',{class:'dtrack'},el('div',{class:'dbar',style:`width:${Math.max(2,r.utilization)}%;background:${r.utilization>=95?bc('--b-bad'):bc('--b-a1')}`})),r.utilization.toFixed(0)+'%'),
+      el('td',{class:'num '+(r.oos_rate>=10?'bad':'')},r.oos_rate.toFixed(1)),
+      el('td',{class:'num '+dirClass(r.oos_delta,'down')},r.oos_delta==null?'—':`${r.oos_delta>0?'+':''}${r.oos_delta.toFixed(1)}`))))));
   const H=d.heatmap;
-  const heat=el('div',{class:'bcard s7'},el('h3',{},`Where did orders change? Channel × region, ${P.label} vs ${P.prev_label||'—'} (ignores filters)`),
-    H.rows.length?el('table',{class:'btab heat'},el('thead',{},el('tr',{},el('th',{},'Channel'),...H.regions.map(r=>el('th',{class:'num'},r)))),
-      el('tbody',{},...H.rows.map(row=>el('tr',{},el('td',{},row.channel),...row.cells.map(c=>{
-        const a=c.change==null?0:Math.min(Math.abs(c.change)/60,1)*.75;
-        return el('td',{class:'cell',style:c.change==null?'':`background:${rgba(c.change<0?'--b-bad-rgb':'--b-good-rgb',a.toFixed(2))}`,title:`${c.prev} → ${c.cur} orders`},
-          c.change==null?'—':`${c.change>0?'+':''}${c.change.toFixed(0)}%`,el('small',{},`${c.prev} → ${c.cur}`))}))))):el('div',{class:'kp'},'No previous month to compare.'));
-  g.replaceChildren(trend,combo,cat,ch,rt,heat);
+  const heat=el('div',{class:'bcard s6'},el('h3',{},'OOS rate by instrument, last 6 months (ignores filters)'),
+    el('table',{class:'btab heat'},el('thead',{},el('tr',{},el('th',{},'Instrument'),...H.months.map(m=>el('th',{class:'num'},m)))),
+      el('tbody',{},...H.rows.map(row=>el('tr',{},el('td',{title:row.lab},row.instrument),...row.cells.map(c=>{
+        const a=c.rate==null?0:Math.min(c.rate/25,1)*.8;
+        return el('td',{class:'cell'+(c.rate==null?' na':''),style:c.rate==null?'':`background:${rgba('--b-bad-rgb',a.toFixed(2))}`,title:`${c.oos} OOS of ${c.tests} tests`},c.rate==null?'—':c.rate.toFixed(1)+'%')}))))));
+  $('#bi-g').replaceChildren(volume,delivery,dev,meth,it,heat);
 }
-async function loadBI(first){
-  const p=new URLSearchParams();[['month','#f-month'],['region','#f-region'],['channel','#f-channel']].forEach(([k,s])=>{const v=$(s).value;if(v)p.set(k,v)});
+async function loadBI(){
+  const p=new URLSearchParams();[['month','#f-month'],['lab','#f-lab'],['service_line','#f-svc']].forEach(([k,s])=>{const v=$(s).value;if(v)p.set(k,v)});
   const r=await fetch('/api/dashboard?'+p);if(!r.ok){$('#bi-sub').textContent='Failed to load dashboard.';return}
   const d=await r.json();
   if(!biOpts){biOpts=d.options;
     $('#f-month').replaceChildren(...biOpts.months.map(m=>el('option',{value:m},new Date(m+'-15').toLocaleString('en',{month:'short',year:'numeric'}))));
-    $('#f-region').replaceChildren(el('option',{value:''},'All regions'),...biOpts.regions.map(x=>el('option',{value:x},x)));
-    $('#f-channel').replaceChildren(el('option',{value:''},'All channels'),...biOpts.channels.map(x=>el('option',{value:x},x)));
+    $('#f-lab').replaceChildren(el('option',{value:''},'All labs'),...biOpts.labs.map(x=>el('option',{value:x},x)));
+    $('#f-svc').replaceChildren(el('option',{value:''},'All service lines'),...biOpts.service_lines.map(x=>el('option',{value:x},x)));
     $('#f-month').value=d.filters.month}
   renderBI(d);
 }
-['#f-month','#f-region','#f-channel'].forEach(s=>$(s).onchange=()=>loadBI());
-$('#f-theme').onchange=()=>{bi.className='bi '+$('#f-theme').value;try{localStorage.setItem('bi.theme',$('#f-theme').value)}catch{}if(biData)renderBI(biData)};
-$('#f-reset').onclick=()=>{$('#f-region').value='';$('#f-channel').value='';$('#f-month').value='2025-03';loadBI()};
+['#f-month','#f-lab','#f-svc'].forEach(s=>$(s).onchange=()=>loadBI());
+function setTheme(t){bi.className='bi '+t;$('#dqbox').className='bi '+t;try{localStorage.setItem('bi.theme',t)}catch{}}
+$('#f-theme').onchange=()=>{setTheme($('#f-theme').value);if(biData)renderBI(biData);if(dqLoaded)renderDQ(dqData)};
+$('#f-reset').onclick=()=>{$('#f-lab').value='';$('#f-svc').value='';$('#f-month').value='2025-03';loadBI()};
 $('#f-ask').onclick=()=>{if(!biData)return;const P=biData.period;
-  $('#q').value=P.prev_label?`Why did revenue change in ${P.label} compared with ${P.prev_label}?`:`Summarize performance in ${P.label}`;
-  document.querySelector('[data-tab=analyze]').click();$('#f').requestSubmit()};
-try{const t=localStorage.getItem('bi.theme');if(t&&['th-mint','th-corp','th-navy'].includes(t)){$('#f-theme').value=t;bi.className='bi '+t}}catch{}
+  askAgent(P.prev_label?`What changed in lab operations in ${P.label} compared with ${P.prev_label}? Check the OOS rate, on-time delivery and deviations.`:`Summarize lab performance in ${P.label}`)};
+try{const t=localStorage.getItem('bi.theme');if(t&&['th-mint','th-corp','th-navy'].includes(t)){$('#f-theme').value=t;setTheme(t)}}catch{}
 loadBI();
+
+/* ---------- data review ---------- */
+let dqLoaded=false,dqData=null,dqRule=null;
+async function loadDQ(){
+  dqLoaded=true;
+  const r=await fetch('/api/dq');if(!r.ok){$('#dq-g').textContent='Failed to load data review.';return}
+  dqData=await r.json();renderDQ(dqData);
+}
+function renderDQ(s){
+  const crit=s.issues_by_severity.Critical;
+  const kc=(label,value,cls)=>el('div',{class:'bcard kcard'},el('h3',{},label),el('div',{class:'kv '+(cls||'')},value));
+  $('#dq-k').replaceChildren(kc('Clean test records',s.clean_pct.toFixed(1)+'%',s.clean_pct>=99?'good':'bad'),kc('Records needing review',s.flagged_tests.toLocaleString()),
+    kc('Critical issues',crit.toLocaleString(),crit?'bad':'good'),kc('Rules failing',`${s.open_rules} of ${s.rules.length}`,s.open_rules?'bad':'good'));
+  const tbl=el('div',{class:'bcard s12'},el('h3',{},'Checks'),el('table',{class:'btab'},
+    el('thead',{},el('tr',{},...['Rule','Check','ALCOA+','Severity','Issues','% of records','Result',''].map((h,i)=>el('th',{class:i===4||i===5?'num':''},h)))),
+    el('tbody',{},...s.rules.map(r=>el('tr',{class:dqRule===r.id?'sel':'',title:r.description},el('td',{},r.id),el('td',{},r.title),el('td',{},r.alcoa),
+      el('td',{},el('span',{class:'pill '+r.severity},r.severity)),el('td',{class:'num'},r.count.toLocaleString()),el('td',{class:'num'},r.pct.toFixed(2)+'%'),
+      el('td',{},el('span',{class:'pill '+r.status},r.status)),
+      el('td',{},r.count?el('button',{class:'link',onclick:()=>showRule(r.id)},'View query list'):'')))))); 
+  $('#dq-g').replaceChildren(tbl,el('div',{id:'dq-list',class:'s12'}));
+  if(dqRule)showRule(dqRule,true);
+}
+async function showRule(id,quiet){
+  dqRule=id;const r=await fetch(`/api/dq/${encodeURIComponent(id)}?limit=200`);if(!r.ok)return;
+  const d=await r.json();
+  document.querySelectorAll('#dq-g .btab tbody tr').forEach(tr=>tr.classList.toggle('sel',tr.firstChild.textContent===id));
+  const box=el('div',{class:'bcard',style:'margin-top:10px'},el('h3',{},`${d.rule.id} · ${d.rule.title}: ${d.total} record${d.total===1?'':'s'}`+(d.total>d.limit?` (showing first ${d.limit})`:'')),
+    el('div',{class:'kp',style:'text-align:left;margin-bottom:6px'},'Each row is a query to raise with the owning lab. Nothing has been changed in the source data.'),
+    grid(d.columns,d.rows,{name:`${d.rule.id}_queries`}));
+  $('#dq-list').replaceChildren(box);if(!quiet)box.scrollIntoView({block:'nearest',behavior:'smooth'});
+}
 
 /* ---------- analyze ---------- */
 EXAMPLES.forEach(t=>$('#chips').append(el('button',{type:'button',class:'chip',onclick:()=>{$('#q').value=t;$('#f').requestSubmit()}},t)));
@@ -388,10 +454,10 @@ function md(s){
   let h=esc(s).replace(/\*\*(.+?)\*\*/g,'<b>$1</b>').replace(/\*(.+?)\*/g,'<i>$1</i>');
   return h.split(/\n{2,}/).map(p=>/^\s*- /m.test(p)?'<ul>'+p.split('\n').filter(x=>x.trim()).map(x=>`<li>${x.replace(/^\s*- /,'')}</li>`).join('')+'</ul>':`<p>${p.replace(/\n/g,'<br>')}</p>`).join('');
 }
-const LABELS={get_schema:'Schema',run_sql:'SQL',run_python:'Python',chart:'Chart'};
+const LABELS={get_schema:'Schema',run_sql:'SQL',run_python:'Python',chart:'Chart',data_quality:'Data review'};
 function addStep(ev){
   const code=ev.input.sql||ev.input.code||'';
-  const head=ev.name==='chart'?`${ev.input.type||''}: ${ev.input.title||''}`:code.split('\n')[0]||'inspect tables';
+  const head=ev.name==='chart'?`${ev.input.type||''}: ${ev.input.title||''}`:ev.name==='data_quality'?'run rule-based data review':code.split('\n')[0]||'inspect tables';
   const d=el('details',{class:'step',open:''},
     el('summary',{},el('span',{class:'tag'},LABELS[ev.name]||ev.name),el('span',{class:'sum'},head),el('span',{class:'spin'})),
     el('div',{class:'body'},code?el('pre',{},code):'',el('div',{class:'res'})));

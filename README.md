@@ -1,97 +1,91 @@
-# Autonomous Data Analyst Agent
+# LabOps Insight: lab operations analytics, data review and an investigation agent
 
-Ask a business question in plain English; the agent inspects the schema, writes and runs
-read-only SQL, self-corrects on errors, and answers with evidence.
+An end-to-end analytics project for an analytical / QC laboratory (the kind of operation inside a CRO / CDMO).
+It answers three questions a lab-operations analyst gets asked every week:
 
+1. **How is the lab performing?** OOS rate, on-time delivery, turnaround, instrument utilization and deviations,
+   with slicers, month-over-month deltas and plain-language auto-insights.
+2. **Can we trust the data?** A rule-based data-review engine (the analytics equivalent of clinical-data-management
+   edit checks) that produces a query list, tagged with ALCOA+ data-integrity attributes.
+3. **Why did it change?** A natural-language agent that investigates root causes with SQL, charts and a data-quality
+   tool, and is built to say "the data shows X; an investigator should verify Y" instead of overclaiming.
+
+> **All data is synthetic and anonymised.** Nothing here comes from, or represents, any real company's systems.
+> The three operational root causes and eight data defects were planted so every result can be verified exactly.
+
+## What the data contains (and what the project finds)
+`scripts/make_data.py` builds `data/labops.duckdb` (17k tests, 7k samples, 13 instruments, 30 analysts) and `data/ground_truth.json`.
+
+| Planted root cause | What the dashboard / agent surfaces |
+|---|---|
+| HPLC-03 drifts +4.5 points on Assay results 3-23 Mar 2025 until recalibrated | OOS rate 3.8% vs ~1.6% baseline; HPLC-03 at 24.7%; weekly mean Assay jumps 100 -> 104.7% then recovers |
+| LCMS-02 breaks down 10-24 Feb 2025; LC-MS work queues on LCMS-01 | On-time delivery 90% vs ~95%; Related Substances at 75%; wait before testing 0.8 -> 6 days |
+| Six analysts joined Jan 2025 and raise most Documentation deviations from Apr | Documentation deviations ~4 -> ~17 per month; 87% against the new cohort; other categories flat |
+
+| Planted data defect | Rule | Count (found exactly) |
+|---|---|---|
+| Duplicate test records | DQ-001 | 40 |
+| Completed before started | DQ-002 | 35 |
+| Missing analyst (not attributable) | DQ-003 | 60 |
+| Unit / scale error | DQ-004 | 25 |
+| Status contradicts result vs spec (20 OOS shown as Pass) | DQ-005 | 30 |
+| Result missing | DQ-006 | 30 |
+| Test started on an instrument that was down | DQ-007 | 20 |
+| Sample due before received | DQ-008 | 15 |
+
+## Run it
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m scripts.make_data            # synthetic shop DB with a planted incident
-export ANTHROPIC_API_KEY=...
-.venv/bin/python -m analyst.cli "Why did revenue drop in March 2025?"
-.venv/bin/python -m pytest                       # guardrail + agent-loop tests (no API key needed)
+.venv/bin/python -m scripts.make_data                      # builds the synthetic lab database
+.venv/bin/python -m analyst.server --demo --sandbox local  # open http://127.0.0.1:8000, no API key needed
+.venv/bin/python -m pytest                                 # 120+ tests, no API key needed
 ```
+Tabs: **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, instrument table, OOS heatmap, 3 themes),
+**Data Review** (rule results + downloadable query list per rule), **Analyze** (the agent), **Data** (raw table browser), **Pinned**.
 
-## Running for free
-The agent is model-agnostic: `analyst/llm.py` translates to any OpenAI-compatible endpoint.
+`--demo` uses a scripted model that runs **real** SQL and data-quality checks for four investigations (OOS, on-time delivery,
+deviations, data quality) and declines anything else. For free-form questions use a real model:
 
 | Provider | Cost | Setup |
 |---|---|---|
-| `ollama` | free, local | `ollama pull llama3.2 && ollama serve`, then `--provider ollama` |
-| `groq` | free tier | key at console.groq.com, `export GROQ_API_KEY=...`, `--provider groq` |
-| `gemini` | free tier | key at aistudio.google.com, `export GEMINI_API_KEY=...`, `--provider gemini` |
-| `openrouter` | `:free` models | `export OPENROUTER_API_KEY=...`, `--provider openrouter` |
-| `anthropic` | paid (per token) | `export ANTHROPIC_API_KEY=...` (default) |
+| `ollama` | free, local | `ollama pull llama3.2 && ollama serve`, then `--provider ollama` (a 3B model is weak; expect mistakes) |
+| `groq` / `gemini` | free tiers | key from the provider, `export GROQ_API_KEY=...`, `--provider groq` |
+| `anthropic` | paid per token | `export ANTHROPIC_API_KEY=...` |
 
 ```bash
-.venv/bin/python -m analyst.cli --provider ollama "How many customers are in the West region?"
+.venv/bin/python -m analyst.cli --provider groq "Why was the OOS rate on HPLC-03 so high in March 2025?"
 .venv/bin/python -m analyst.server --provider groq --sandbox local
-.venv/bin/python -m eval.run_eval --provider groq --model llama-3.3-70b-versatile
+.venv/bin/python -m eval.run_eval --provider groq          # 26-question benchmark
 ```
-Default model names may be retired by providers over time; pass `--model` to override.
-Weak models are handled with a text-tool-call rescue parser and an "unresolved error" nudge guard.
+Default model names can be retired by providers; pass `--model` to override.
 
-### Baselines (22-question eval; update as runs complete)
-| Model | Questions | Accuracy | Notes |
+## Design decisions worth discussing
+- **GxP-style behaviour.** The agent reports numbers as recorded, never silently drops or "fixes" records, runs the data-review
+  check before concluding on result/date metrics, and separates what the data shows from what it infers. The data-review engine
+  is read-only: it raises queries, it never edits.
+- **A real OOS spike must not be "cleaned away".** A test asserts that the HPLC-03 drift is not flagged as a data-quality issue.
+- **Guardrails.** Read-only DuckDB, external file access off, single-statement SELECT allowlist, row cap, timeout, token and step budgets.
+  Dashboard slicer values are validated against the catalog and bound as parameters, never interpolated.
+- **Charts cannot show invented numbers.** The model passes SQL and column names; `analyst/charts.py` validates them and the browser draws.
+- **Deterministic evaluation.** `eval/` grades 26 questions (easy / medium / hard diagnosis / traps that must not be hallucinated)
+  against golden SQL re-run on the live database, with no LLM judge. Reports accuracy by difficulty, cost per correct answer and a failure taxonomy.
+- **Model-agnostic.** The agent speaks one format; `analyst/llm.py` translates to any OpenAI-compatible endpoint, with a rescue parser for
+  tool calls that weak models write as text and a guard against answering over an unresolved error.
+
+## Known limitations (be honest about these)
+- Synthetic data: it demonstrates method, not results on real lab data. Real LIMS/ELN exports would need an ingestion and mapping layer.
+- DQ-004 only catches scale errors that push a result beyond 3x the upper spec limit; near-zero values slip through.
+- "Utilization" assumes 20 available hours per weekday per instrument; real utilization needs scheduled-time and downtime data.
+- The agent has **not** yet been benchmarked with a real model on the lab question set (the earlier 3B-model baseline was for a retired retail dataset and is
+  intentionally not reported). Run `eval.run_eval` and record the numbers here.
+- The Docker sandbox path is implemented and unit-tested but its isolation test needs a running Docker daemon.
+- Not validated for regulated (GxP / 21 CFR Part 11) use: no audit trail, e-signatures or access control.
+
+## Layout
+`analyst/` agent, DB guardrails, charts, dashboard, data review, LLM adapter, server, UI · `scripts/make_data.py` data generator ·
+`eval/` benchmark · `sandbox/` Docker image for the optional Python tool · `tests/`
+
+## Results to fill in after your own runs
+| Model | Accuracy (26 q) | Cost / correct answer | Median latency |
 |---|---|---|---|
-| ollama/llama3.2 (3B, local, free) | q01-q08 | 3/8 (38%) | fails on joins and multi-step revenue; hits step limit |
-
-## Evaluation
-```bash
-.venv/bin/python -m eval.run_eval --price-in <USD/Mtok> --price-out <USD/Mtok>
-```
-22 questions (easy/medium/hard/trap) graded **deterministically**: numeric answers are compared to golden
-SQL re-run against the DB (2% tolerance, handles `$1.42M`-style formats), categorical answers must contain
-the golden value, diagnosis questions must name the planted cause, and *trap* questions (unanswerable from
-the data) must be recognised rather than hallucinated. The report gives accuracy by difficulty, median latency,
-tokens, cost per correct answer, self-correction rate, and a failure taxonomy. Results land in `eval/results/`.
-
-## BI Dashboard tab (no LLM needed)
-`analyst/dashboard.py` + the Dashboard tab give a Power BI-style executive view driven by slicers (month / region / channel):
-8 KPI cards with previous-period value and good/bad-coloured arrows, 2 gauges, revenue trend with linear projection,
-orders-vs-AOV dual-axis combo chart, category/channel breakdowns, a region table with in-cell data bars, and a
-channel x region heatmap of order change (it makes the planted March incident obvious: mobile_app -83%/-84% in East/West).
-Three switchable themes (Mint / Corporate / Navy); responsive down to phone width. All values come from parameterised SQL;
-slicer values are validated against the catalog. "Ask the analyst why" hands the current view to the agent.
-The projection is an illustrative least-squares line, not a forecast model.
-
-## Visuals (Power BI-style)
-- **`chart` tool**: the agent picks bar / hbar / line / area / pie / doughnut / scatter / KPI cards; the browser renders it
-  interactively (Chart.js, hover tooltips, PNG export). The model passes only SQL + column names, never data, and
-  `analyst/charts.py` validates the request (numeric columns, pie slice limit, no truncated data, duplicate-series checks).
-  Works with any model and needs no sandbox.
-- **Spreadsheet grids**: every SQL result is a sortable, filterable table with CSV export (formula-injection safe).
-- **Data tab**: browse the raw tables with paging and whole-table server-side sorting (identifiers allowlisted from the catalog).
-- **Dashboard tab**: pin charts and KPI cards; saved in the browser.
-
-## Web UI
-```bash
-.venv/bin/python -m analyst.server --sandbox local            # real model (needs ANTHROPIC_API_KEY)
-.venv/bin/python -m analyst.server --demo --sandbox local     # scripted model, real queries: no key needed
-```
-Open http://127.0.0.1:8000. Steps stream live over SSE: SQL with result tables, Python with charts, then the
-answer and run stats. Demo mode is labelled in the UI; only the agent's decisions are scripted, the SQL and
-Python really execute.
-
-## Python sandbox
-`--sandbox docker` (recommended) runs model-written Python in a locked-down container; `--sandbox local`
-is **dev-only** (env scrubbed, timeout, but no filesystem/network isolation). Charts are saved to `artifacts/`.
-```bash
-docker build -t analyst-sandbox sandbox/
-.venv/bin/python -m analyst.cli --sandbox docker "Is the March drop statistically significant? Show a chart."
-```
-
-## Design
-- `analyst/db.py` – guardrails: read-only connection, external file access disabled,
-  single-statement allowlist, 200-row cap, 10s timeout.
-- `analyst/agent.py` – hand-written tool loop with step and token budgets; yields events for live tracing.
-- `scripts/make_data.py` – synthetic data with a known ground truth (mobile_app orders in the West/East
-  regions fell ~85% in March 2025, cutting revenue ~18%), so answers can be graded automatically.
-
-## Roadmap
-- [x] M1 core loop + guardrails + tests
-- [x] M2 eval harness (22 questions, deterministic grading, cost/latency/failure report)
-- [ ] M2b first real baseline numbers (needs API key) + prompt iteration
-- [x] M3 sandboxed Python tool for charts/stats (`DockerSandbox`: no network, read-only FS, non-root, mem/CPU/pid limits; build with `docker build -t analyst-sandbox sandbox/`)
-- [ ] M5 add BIRD subset for an external, comparable number
-- [x] M6 streaming web UI (FastAPI + SSE)
-- [ ] M6b record demo video with a real model run
+| (run `python -m eval.run_eval --provider ...`) | | | |

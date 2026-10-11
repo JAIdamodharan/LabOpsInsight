@@ -17,7 +17,7 @@ QS = json.loads(Path("eval/questions.json").read_text())
     ("1.42 million", 1420207, True),
     ("roughly 1.2M", 1420207, False),
     ("It dropped 5.9%.", -5.9, False),   # sign matters unless absolute
-    ("42 orders", 42, True),
+    ("42 tests", 42, True),
 ])
 def test_number_matching(answer, exp, ok):
     assert number_matches(answer, exp) is ok
@@ -29,7 +29,7 @@ def test_absolute_sign_insensitive():
 
 
 def test_extract_ignores_words():
-    assert extract_numbers("5 months and 42 orders") == [5.0, 42.0]
+    assert extract_numbers("5 months and 42 tests") == [5.0, 42.0]
 
 
 @pytest.mark.parametrize("q", QS, ids=[q["id"] for q in QS])
@@ -44,27 +44,27 @@ def test_every_question_is_well_formed_and_golden_sql_runs(q, db):
 def test_golden_answer_passes_its_own_grader(db):
     q = next(q for q in QS if q["id"] == "q01")
     exp = int(db.run(q["number_sql"]).rows[0][0])
-    assert grade(q, f"There are {exp:,} orders.", db)[0]
-    assert not grade(q, "There are 12 orders.", db)[0]
+    assert grade(q, f"There are {exp:,} tests.", db)[0]
+    assert not grade(q, "There are 12 tests.", db)[0]
 
 
 def test_diagnosis_grader_requires_all_concepts(db):
-    q = next(q for q in QS if q["id"] == "q17")
-    assert grade(q, "Mobile app orders in West and East collapsed.", db)[0]
-    assert not grade(q, "Mobile app orders in West collapsed.", db)[0]
-    assert not grade(q, "Revenue dropped due to seasonality.", db)[0]
+    q = next(q for q in QS if q["id"] == "q18")
+    assert grade(q, "HPLC-03 Assay results drifted high.", db)[0]
+    assert not grade(q, "HPLC-03 had a problem.", db)[0]
+    assert not grade(q, "Seasonality caused it.", db)[0]
 
 
 def test_trap_questions_reject_confident_hallucination(db):
-    q = next(q for q in QS if q["id"] == "q22")
-    assert not grade(q, "Average satisfaction is 4.2 in West and 4.4 in East.", db)[0]
+    q = next(q for q in QS if q["id"] == "q25")
+    assert not grade(q, "The average patient age was 54 in stability studies.", db)[0]
     assert grade(q, "The database has no such column, so I cannot compute it.", db)[0]
 
 
 def test_run_one_and_report(db):
     q = next(q for q in QS if q["id"] == "q01")
     exp = int(db.run(q["number_sql"]).rows[0][0])
-    agent = Analyst(db, client=FakeClient([msg("end_turn", text(f"{exp} orders"))]))
+    agent = Analyst(db, client=FakeClient([msg("end_turn", text(f"{exp} tests"))]))
     row = run_one(agent, q, db)
     assert row["passed"] and row["stop"] == "answered"
     bad = dict(row, id="x", passed=False, reason="wrong_number (expected ~1)")

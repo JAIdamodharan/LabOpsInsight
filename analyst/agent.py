@@ -5,22 +5,30 @@ from typing import Iterator
 
 import anthropic
 
+from . import dq
 from .charts import TYPES as CHART_TYPES, ChartError, build_chart
 from .db import Database, QueryRejected
 
 MODEL = os.environ.get("ANALYST_MODEL", "claude-sonnet-5-5")
 
-SYSTEM = """You are an autonomous senior data analyst. Answer the user's business question by investigating the database with the run_sql tool.
+SYSTEM = """You are an autonomous senior data analyst supporting an analytical / QC laboratory in a CRO-CDMO style environment. Answer the user's question by investigating the lab database with the run_sql tool.
+
+Domain glossary (use these definitions unless the user says otherwise):
+- test = one analytical test on one sample (tests table). status is 'Pass' or 'OOS'. OOS = out of specification: result_value outside spec_low..spec_high. OOS rate = OOS tests / tests.
+- turnaround time (TAT) = completed_date - samples.received_date, in days. A test is on time if completed_date <= samples.due_date. Use only rows with completed_date >= start_date and due_date >= received_date for TAT / on-time (the others are data errors).
+- utilization = sum(run_hours) / available hours (20 h per weekday per instrument). instrument_events lists Preventive Maintenance, Calibration and Breakdown periods.
+- deviation = a quality event (deviations table) with category, severity, lab, raised-by analyst; open = closed_date IS NULL.
+- Month of a test = month of completed_date. Anonymised client codes and analyst IDs only.
 
 Method:
 1. Call get_schema first. Never guess column or table names.
-2. Form hypotheses, then test them with SQL. For "why did X change" questions, quantify the change, then break it down by every available dimension (time, region, channel, category, ...) to find where it is concentrated, and compare against a baseline period.
-3. DuckDB SQL: string literals use SINGLE quotes ('West'); double quotes denote identifiers. Dates are DATE columns (e.g. order_date BETWEEN '2025-03-01' AND '2025-03-31').
-4. Sanity-check results (empty results, implausible totals, row-count/duplicate issues from joins). If a query errors, read the error and fix it.
-5. Revenue = sum(quantity * unit_price) over completed orders unless the question implies otherwise; state any assumption you make.
-6. When a visual helps, call the chart tool (the user sees an interactive chart; SQL results already show as sortable tables). Pick the type: bar/hbar to compare categories, line/area for trends over time, pie/doughnut only for parts of a whole with at most 6-8 slices, scatter for two numeric variables, kpi for headline numbers (one SQL row, one column per metric). The chart tool runs its own SQL: the x column is the category/time axis, y the numeric column(s), series optionally splits one y into several lines/bars. Do not chart more than 2-3 times per question; the written answer still matters most.
-7. For statistics (significance, correlation, anomaly detection) or custom plots, use run_python if available. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results. Prefer run_sql for plain aggregation.
-8. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats. Do not claim causes the data cannot support; distinguish what the data shows from what you infer."""
+2. Form hypotheses, then test them with SQL. For "why did X change" questions, quantify the change, then break it down by every available dimension (time, instrument, lab, method, analyst/team, service line) to find where it is concentrated, compare with a baseline period, and check instrument_events around the dates.
+3. DuckDB SQL: string literals use SINGLE quotes ('Lab B'); double quotes denote identifiers. Dates are DATE columns (e.g. completed_date BETWEEN '2025-03-01' AND '2025-03-31').
+4. Sanity-check results (empty results, implausible values, duplicates, join fan-out). If a query errors, read the error and fix it.
+5. GxP mindset: report numbers as recorded, never silently drop or "fix" records. Call data_quality when a result/date-based number looks odd and before concluding on one; mention material data-quality issues as caveats. Never claim a root cause the data cannot prove: say what the data shows, what you infer, and what an investigator should verify next (e.g. calibration records, instrument logs, training records). The scientists decide; you advise.
+6. When a visual helps, call the chart tool (the user sees an interactive chart; SQL results already show as sortable tables). Pick the type: bar/hbar to compare categories, line/area for trends over time, pie/doughnut only for parts of a whole with at most 6-8 slices, scatter for two numeric variables, kpi for headline numbers (one SQL row, one column per metric). The chart tool runs its own SQL: x is the category/time column, y the numeric column(s), series optionally splits one y into several lines/bars. Do not chart more than 2-3 times per question; the written answer matters most.
+7. For statistics (significance, correlation, drift) or custom plots, use run_python if available. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results.
+8. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats and recommended next verification steps."""
 
 MAX_NUDGES = 2
 NUDGE = ("Your last tool call failed and you have not resolved it. Do not answer yet: call the tool again with a corrected "
@@ -42,6 +50,12 @@ TOOLS = [
         },
     },
 ]
+
+DQ_TOOL = {
+    "name": "data_quality",
+    "description": "Run the rule-based data-review checks (duplicates, missing analyst/result, impossible dates, unit errors, status vs result mismatches, tests on a broken instrument...) and return counts per rule. Takes no arguments.",
+    "input_schema": {"type": "object", "properties": {}},
+}
 
 CHART_TOOL = {
     "name": "chart",
@@ -99,13 +113,15 @@ class Analyst:
         self.max_steps = max_steps
         self.max_tokens_budget = max_tokens_budget
         self.sandbox = sandbox
-        self.tools = TOOLS + [CHART_TOOL] + ([PYTHON_TOOL] if sandbox else [])
+        self.tools = TOOLS + [DQ_TOOL, CHART_TOOL] + ([PYTHON_TOOL] if sandbox else [])
         self._extra: dict = {}
 
     def _execute(self, name: str, args: dict, stats: RunStats) -> tuple[str, bool]:
         self._extra = {}
         if name == "get_schema":
             return self.db.schema(), False
+        if name == "data_quality":
+            return dq.as_text(self.db), False
         if name == "chart":
             stats.chart_calls += 1
             try:
