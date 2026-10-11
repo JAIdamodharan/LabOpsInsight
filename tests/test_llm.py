@@ -164,3 +164,60 @@ def test_analyst_model_from_dotenv_becomes_the_cli_default(tmp_path, monkeypatch
     a = ap.parse_args([])
     assert a.model == "openai/gpt-oss-120b" and a.provider == "groq"
     monkeypatch.delenv("ANALYST_MODEL"); monkeypatch.delenv("ANALYST_PROVIDER")
+
+
+# ---- automatic fallback when a preset's default model is unavailable ----
+def _fallback_client(available, auto, rejects=("gone-model",), explicit=None):
+    calls = {"chat": [], "models": 0}
+
+    def handler(req):
+        if req.url.path.endswith("/models"):
+            calls["models"] += 1
+            return httpx.Response(200, json={"data": [{"id": i} for i in available]})
+        model = json.loads(req.content)["model"]
+        calls["chat"].append(model)
+        if model in rejects or model not in available:
+            return httpx.Response(404, json={"error": {"message": f"The model `{model}` does not exist or you do not have access to it.", "code": "model_not_found"}})
+        return httpx.Response(200, json=completion("hello"))
+    c = OpenAICompatClient("http://x/v1", transport=httpx.MockTransport(handler), auto_model=auto)
+    return c, calls
+
+
+def _ask(c, model="gone-model"):
+    return c.messages.create(model=model, max_tokens=5, system="s", tools=TOOLS, messages=[{"role": "user", "content": "q"}])
+
+
+def test_unavailable_default_model_falls_back_to_the_best_available_and_says_so(capsys):
+    c, calls = _fallback_client(["whisper-large-v3", "llama-3.1-8b-instant", "openai/gpt-oss-120b"], auto=True)
+    assert _ask(c).content[0].text == "hello"
+    assert c.model_used == "openai/gpt-oss-120b" and calls["chat"] == ["gone-model", "openai/gpt-oss-120b"]
+    err = capsys.readouterr().err
+    assert "gone-model" in err and "openai/gpt-oss-120b" in err and "--model" in err
+    _ask(c)                                                              # the choice is remembered: no second 404, no second lookup
+    assert calls["chat"] == ["gone-model", "openai/gpt-oss-120b", "openai/gpt-oss-120b"] and calls["models"] == 1
+
+
+def test_fallback_uses_any_sensible_chat_model_if_no_preferred_one_exists():
+    c, _ = _fallback_client(["whisper-large-v3", "zzz-embed", "acme-llama-big"], auto=True)
+    _ask(c)
+    assert c.model_used == "acme-llama-big"
+
+
+def test_a_model_the_user_chose_is_never_silently_replaced():
+    c, calls = _fallback_client(["openai/gpt-oss-120b"], auto=False)
+    with pytest.raises(RuntimeError, match="analyst.llm models"):
+        _ask(c)
+    assert calls["chat"] == ["gone-model"] and calls["models"] == 0 and c.model_used is None
+
+
+def test_no_usable_model_gives_the_helpful_error_not_a_loop():
+    c, calls = _fallback_client(["whisper-large-v3", "playai-tts"], auto=True)
+    with pytest.raises(RuntimeError, match="not available for this key"):
+        _ask(c)
+    assert calls["chat"] == ["gone-model"]
+
+
+def test_make_client_marks_only_preset_defaults_as_automatic(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6")
+    assert llm.make_client("groq")[0].auto_model is True
+    assert llm.make_client("groq", model="my-model")[0].auto_model is False

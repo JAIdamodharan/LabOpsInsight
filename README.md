@@ -128,6 +128,8 @@ deviations, data quality) and declines anything else. For free-form questions us
 ```
 Default model names can be retired by providers; pass `--model` to override.
 
+**Automatic model fallback.** If you did not choose a model and the preset default is not available to your key, the app asks the provider which models your key can use, picks the best chat model (preferring large instruct models with tool calling), prints a one-line note saying which one, and carries on. A model you choose yourself (`--model` or `ANALYST_MODEL`) is never replaced silently.
+
 **If a provider says "model not found"** (names get retired, or restricted per project), ask your own key what it can use, then set one:
 ```bash
 .venv/bin/python -m analyst.llm models --provider groq

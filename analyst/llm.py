@@ -106,15 +106,29 @@ def from_openai_response(data: dict, tool_names=()) -> NS:
               usage=NS(input_tokens=u.get("prompt_tokens", 0), output_tokens=u.get("completion_tokens", 0)))
 
 
+# tried in this order when a preset's default model is not available to the user's key (and they did not choose one themselves)
+PREFERRED = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.6-27b", "qwen/qwen3-32b", "openai/gpt-oss-20b", "minimaxai/minimax-m2.7", "llama-3.1-8b-instant"]
+
+
 class OpenAICompatClient:
     def __init__(self, base_url: str, api_key: str | None = None, timeout: float = 300,
-                 max_retries: int = 4, transport: httpx.BaseTransport | None = None):
+                 max_retries: int = 4, transport: httpx.BaseTransport | None = None, auto_model: bool = False):
         headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
         self.http = httpx.Client(base_url=base_url.rstrip("/"), headers=headers, timeout=timeout, transport=transport)
         self.max_retries = max_retries
+        self.auto_model = auto_model          # True only when the model came from a preset default, never when the user chose it
+        self.model_used: str | None = None
         self.messages = NS(create=self._create)
 
+    def _pick_available_model(self) -> str | None:
+        r = self.http.get("/models")
+        if r.status_code >= 400:
+            return None
+        ids = [m["id"] for m in r.json().get("data", []) if isinstance(m, dict) and "id" in m and not any(w in m["id"].lower() for w in NON_CHAT)]
+        return next((m for m in PREFERRED if m in ids), None) or next((m for m in sorted(ids) if any(w in m.lower() for w in ("gpt-oss", "llama", "qwen", "instruct"))), None)
+
     def _create(self, *, model, max_tokens, system, tools, messages, **_):
+        model = self.model_used or model
         body = {"model": model, "max_tokens": max_tokens, "temperature": 0,
                 "messages": to_openai_messages(system, messages), "tools": to_openai_tools(tools)}
         for attempt in range(self.max_retries + 1):
@@ -123,6 +137,14 @@ class OpenAICompatClient:
                 wait = float(r.headers.get("retry-after") or 0) or min(2 ** attempt * 2, 30)
                 time.sleep(min(wait, 60))  # free tiers rate-limit; back off instead of failing the run
                 continue
+            if r.status_code == 404 and "model" in r.text.lower() and self.auto_model and not self.model_used:
+                pick = self._pick_available_model()
+                if pick and pick != model:
+                    print(f"note: the default model '{model}' is not available to your key; using '{pick}' instead "
+                          f"(choose one yourself with --model NAME or ANALYST_MODEL in .env).", file=sys.stderr)
+                    self.model_used = pick
+                    body["model"] = pick
+                    continue
             if r.status_code == 404 and "model" in r.text.lower():
                 raise RuntimeError(f"The model '{model}' is not available for this key ({r.status_code}). Providers retire model names, or restrict them per project. "
                                    f"List what your account can use:  .venv/bin/python -m analyst.llm models --provider <name>  "
@@ -184,7 +206,8 @@ def make_client(provider: str = "anthropic", model: str | None = None, base_url:
     if key and looks_like_placeholder(key):
         raise SystemExit(f"{key_env} is set to '{key[:24]}', which is placeholder text, not a real key. Copy the actual key from your provider's console "
                          f"and run: export {key_env}=\"<the real key>\"")
-    return OpenAICompatClient(url, key), model or (p.model if p else None) or _need_model()
+    chosen = model or (p.model if p else None)
+    return OpenAICompatClient(url, key, auto_model=not model and bool(chosen)), chosen or _need_model()
 
 
 def _need_model():

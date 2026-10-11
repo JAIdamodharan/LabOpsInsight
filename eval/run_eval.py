@@ -89,7 +89,7 @@ def main() -> None:
     out.mkdir(parents=True, exist_ok=True)
     stamp = time.strftime("%Y%m%d-%H%M%S")
     (out / f"{stamp}.json").write_text(json.dumps(rows, indent=2, default=str))
-    md = report(rows, f"{args.provider}/{model}", args.price_in, args.price_out)
+    md = report(rows, f"{args.provider}/{getattr(client, 'model_used', None) or model}", args.price_in, args.price_out)
     (out / f"{stamp}.md").write_text(md)
     print("\n" + md)
 
