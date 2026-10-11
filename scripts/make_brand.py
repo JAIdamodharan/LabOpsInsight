@@ -1,8 +1,10 @@
-"""Turn a Canva export (black icon + navy text on a flat pale background) into transparent, tinted brand assets.
+"""Turn a Canva export (black icon + navy wordmark on a flat pale background) into transparent, tinted brand assets.
 
 Usage, from the project root:
-    .venv/bin/python -I scripts/make_brand.py path/to/canva_export.png analyst/static/brand
-Expects the icon above the wordmark. Needs numpy and Pillow.
+    .venv/bin/python -I scripts/make_brand.py analyst/static/brand/logo_canva_export.png analyst/static/brand
+
+Expects the icon above the wordmark. Needs numpy and Pillow. No purple: the icon is tinted cyan->blue (for dark
+backgrounds) or blue->teal (for light backgrounds), and the favicon is a bright glyph on a deep navy tile.
 """
 import sys
 from pathlib import Path
@@ -24,11 +26,14 @@ alpha_text = np.clip((bg_r - R) / (bg_r - 15.0), 0, 1)       # wordmark is navy 
 alpha = np.where(np.arange(H)[:, None] < split, alpha_icon, alpha_text)
 alpha[alpha < 0.03] = 0
 
+BRIGHT = ((0, 212, 255), (77, 141, 255))     # cyan -> blue: high contrast on dark glass
+DEEP = ((0, 114, 255), (0, 163, 196))        # blue -> teal: high contrast on light glass
+NAVY_TILE = (6, 22, 48)
+
 
 def rgba(color_fn, mask_rows):
     img = np.zeros((H, W, 4), dtype=np.uint8)
-    rgb = color_fn()
-    img[..., :3] = rgb.astype(np.uint8)
+    img[..., :3] = color_fn().astype(np.uint8)
     img[..., 3] = (alpha * 255 * mask_rows[:, None]).astype(np.uint8)
     return Image.fromarray(img, "RGBA")
 
@@ -39,11 +44,13 @@ ys, xs = np.where(alpha_icon * rows_icon[:, None] > 0.05)
 x0, x1, y0, y1 = xs.min(), xs.max(), ys.min(), ys.max()
 
 
-def gradient():
-    t = ((np.arange(W)[None, :] - x0) / (x1 - x0) + (np.arange(H)[:, None] - y0) / (y1 - y0)) / 2
-    t = np.clip(t, 0, 1)[..., None]
-    c1, c2 = np.array([37, 99, 235.0]), np.array([139, 92, 246.0])   # #2563eb -> #8b5cf6
-    return c1 * (1 - t) + c2 * t
+def gradient(pair):
+    def fn():
+        t = ((np.arange(W)[None, :] - x0) / (x1 - x0) + (np.arange(H)[:, None] - y0) / (y1 - y0)) / 2
+        t = np.clip(t, 0, 1)[..., None]
+        c1, c2 = np.array(pair[0], float), np.array(pair[1], float)
+        return c1 * (1 - t) + c2 * t
+    return fn
 
 
 def solid(hexcolor):
@@ -51,8 +58,8 @@ def solid(hexcolor):
     return lambda: np.ones((H, W, 3)) * c
 
 
-icon = rgba(gradient, rows_icon)
-text_navy, text_light = rgba(solid("#0f1b4d"), rows_text), rgba(solid("#e8eeff"), rows_text)
+icon_bright, icon_deep = rgba(gradient(BRIGHT), rows_icon), rgba(gradient(DEEP), rows_icon)
+text_navy, text_light = rgba(solid("#0f1b4d"), rows_text), rgba(solid("#eef4ff"), rows_text)
 
 
 def crop_pad(im, pad=0.07):
@@ -69,30 +76,23 @@ def square(im, size):
     return canvas.resize((size, size), Image.LANCZOS)
 
 
-mark = crop_pad(icon)
-square(mark, 512).save(out / "logo-mark.png", optimize=True)
-for name, txt in (("logo.png", text_navy), ("logo-dark.png", text_light)):
+square(crop_pad(icon_bright), 512).save(out / "logo-mark.png", optimize=True)          # for dark mode
+square(crop_pad(icon_deep), 512).save(out / "logo-mark-light.png", optimize=True)      # for light mode
+for name, icon, txt in (("logo.png", icon_deep, text_navy), ("logo-dark.png", icon_bright, text_light)):
     lock = crop_pad(Image.alpha_composite(icon, txt), 0.05)
     lock.resize((900, int(900 * lock.height / lock.width)), Image.LANCZOS).save(out / name, optimize=True)
 
-# favicon / app icon: white glyph on a blue->violet rounded tile
-white = np.zeros((H, W, 4), np.uint8)
-white[..., :3] = 255
-white[..., 3] = (alpha_icon * rows_icon[:, None] * 255).astype(np.uint8)
-glyph = square(crop_pad(Image.fromarray(white, "RGBA"), 0.0), 1000)
+# favicon / app icon: bright glyph on a deep navy tile (no gradient background, maximum contrast)
+glyph = square(crop_pad(Image.fromarray(np.asarray(icon_bright), "RGBA"), 0.0), 1000)
 
 
 def tile(size, radius_frac):
-    g = np.zeros((size, size, 3))
-    t = (np.arange(size)[None, :] + np.arange(size)[:, None]) / (2 * size)
-    g[...] = (np.array([37, 99, 235.0]) * (1 - t[..., None]) + np.array([139, 92, 246.0]) * t[..., None])
-    base = Image.fromarray(g.astype(np.uint8), "RGB").convert("RGBA")
+    base = Image.new("RGBA", (size, size), NAVY_TILE + (255,))
     mask = Image.new("L", (size, size), 0)
     ImageDraw.Draw(mask).rounded_rectangle((0, 0, size - 1, size - 1), radius=int(size * radius_frac), fill=255)
     base.putalpha(mask)
-    inner = int(size * 0.66)
-    gl = glyph.resize((inner, inner), Image.LANCZOS)
-    base.alpha_composite(gl, ((size - inner) // 2, (size - inner) // 2))
+    inner = int(size * 0.7)
+    base.alpha_composite(glyph.resize((inner, inner), Image.LANCZOS), ((size - inner) // 2, (size - inner) // 2))
     return base
 
 

@@ -146,20 +146,21 @@ function grid(cols, rows, { onSort, name = 'data', note = '', sortBy = null, sor
 }
 
 /* ===================== charts for Analyze + Pinned ===================== */
-const PALETTE = ['#0a84ff', '#ff9f0a', '#30d158', '#bf5af2', '#64d2ff', '#ff453a', '#5e5ce6', '#ffd60a', '#ff375f', '#32d74b', '#40c8e0', '#ac8e68'];
+const palette = () => Array.from({ length: 12 }, (_, i) => css(`--c${i + 1}`));
 let pins = store.get('dash.v1', []);
 const savePins = () => { store.set('dash.v1', pins); const n = $('#pincount'); if (n) { n.textContent = pins.length; n.hidden = !pins.length; } };
 const pinKey = s => JSON.stringify([s.type, s.title, s.labels, s.datasets, s.cards]);
 function drawChart(canvas, s) {
-  const mute = css('--mute'), line = css('--line'), text = css('--text');
+  applyChartDefaults();
+  const PAL = palette(), mute = css('--mute'), line = css('--line'), text = css('--text');
   const multi = s.datasets.length > 1, round = s.type === 'pie' || s.type === 'doughnut';
   const type = { hbar: 'bar', area: 'line' }[s.type] || s.type;
   const datasets = s.datasets.map((d, i) => {
-    const c = PALETTE[i % PALETTE.length];
-    if (round) return { label: d.label, data: d.data, backgroundColor: s.labels.map((_, j) => PALETTE[j % PALETTE.length]), borderColor: css('--panel'), borderWidth: 2 };
+    const c = PAL[i % PAL.length];
+    if (round) return { label: d.label, data: d.data, backgroundColor: s.labels.map((_, j) => PAL[j % PAL.length]), borderColor: css('--panel'), borderWidth: 3, hoverOffset: 10 };
     if (s.type === 'scatter') return { label: d.label, data: d.data, backgroundColor: c, pointRadius: 4 };
     if (type === 'line') return { label: d.label, data: d.data, borderColor: c, backgroundColor: c + (s.type === 'area' ? '44' : ''), fill: s.type === 'area', tension: .25, pointRadius: 3, spanGaps: true };
-    return { label: d.label, data: d.data, backgroundColor: c, borderRadius: 4 };
+    return { label: d.label, data: d.data, backgroundColor: c, borderRadius: 6, borderSkipped: false };
   });
   const axis = title => ({ ticks: { color: mute }, grid: { color: line }, title: { display: !!title, text: title || '', color: mute } });
   return new Chart(canvas, { type, data: { labels: s.labels, datasets }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, indexAxis: s.type === 'hbar' ? 'y' : 'x',
@@ -193,11 +194,28 @@ function renderPins() {
 }
 
 /* ===================== themed (BI) chart helpers ===================== */
+const isDark = () => (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')) === 'dark';
+function applyChartDefaults() {
+  if (typeof Chart === 'undefined') return;
+  const D = Chart.defaults, dark = isDark();
+  D.font.family = '-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",Inter,Roboto,sans-serif'; D.font.size = 12.5; D.font.weight = '500';
+  D.elements.line.borderWidth = 3.5; D.elements.line.borderCapStyle = 'round'; D.elements.line.borderJoinStyle = 'round';
+  D.elements.point.radius = 4; D.elements.point.hoverRadius = 8; D.elements.point.borderWidth = 2.5; D.elements.point.borderColor = dark ? 'rgba(255,255,255,.95)' : '#ffffff';
+  D.elements.bar.borderRadius = 6; D.elements.bar.borderSkipped = false;
+  const T = D.plugins.tooltip; T.backgroundColor = 'rgba(4,10,22,.96)'; T.titleColor = '#ffffff'; T.bodyColor = '#f1f5ff'; T.borderColor = 'rgba(255,255,255,.32)'; T.borderWidth = 1;
+  T.padding = 11; T.cornerRadius = 12; T.boxPadding = 5; T.titleFont = { size: 13, weight: '700' }; T.bodyFont = { size: 13, weight: '600' };
+}
+if (typeof Chart !== 'undefined') Chart.register({   // soft neon glow on lines in dark mode makes them pop off the glass
+  id: 'glow',
+  beforeDatasetDraw(c, a) { if (!isDark()) return; const ds = c.data.datasets[a.index]; if ((ds.type || c.config.type) !== 'line') return; c.ctx.save(); c.ctx.shadowColor = ds.borderColor; c.ctx.shadowBlur = 18; },
+  afterDatasetDraw(c, a) { if (!isDark()) return; const ds = c.data.datasets[a.index]; if ((ds.type || c.config.type) !== 'line') return; c.ctx.restore(); },
+});
 const bcharts = [];
 const killCharts = () => bcharts.splice(0).forEach(c => c.destroy());
 const axisOpts = (extra = {}) => ({ ticks: { color: bc('--b-mute'), ...(extra.num ? { callback: extra.fmt || (v => compact(v)) } : {}), ...(extra.ticks || {}) }, grid: { color: bc('--b-border'), drawOnChartArea: !extra.noGrid }, border: { display: false }, ...(extra.min !== undefined ? { min: extra.min } : {}), ...(extra.max !== undefined ? { max: extra.max } : {}) });
-const legend = () => ({ labels: { color: bc('--b-text'), usePointStyle: true, boxWidth: 8 } });
+const legend = () => ({ labels: { color: bc('--b-text'), usePointStyle: true, boxWidth: 9, boxHeight: 9, padding: 14, font: { size: 12.5, weight: '700' } } });
 function chartBox(title, cls, build) {
+  applyChartDefaults();
   const canvas = el('canvas'), card = el('div', { class: 'bcard ' + cls }, el('h3', {}, title), el('div', { class: 'bcv' }, canvas));
   if (typeof Chart === 'undefined') card.append(el('div', { class: 'kp' }, 'Chart library failed to load (offline?).'));
   else requestAnimationFrame(() => bcharts.push(build(canvas)));
@@ -248,20 +266,20 @@ function renderBI(d) {
   const hover = (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
   const monthClick = { onClick: (e, els) => { if (els.length) pickMonth(els[0].index); }, onHover: hover };
   const volume = chartBox('Tests completed & OOS rate', 's7', cv => new Chart(cv, { data: { labels: T.labels, datasets: [
-    { type: 'bar', label: 'Tests completed', data: T.tests, yAxisID: 'y', backgroundColor: hl(bc('--b-a4'), bc('--b-a5')), borderRadius: 3 },
-    { type: 'line', label: 'OOS rate (%)', data: T.oos_rate, yAxisID: 'y1', borderColor: bc('--b-bad'), backgroundColor: bc('--b-bad'), tension: .25, pointRadius: hl(3, 7), pointHoverRadius: 7 }] },
+    { type: 'bar', order: 2, label: 'Tests completed', data: T.tests, yAxisID: 'y', backgroundColor: hl(bc('--b-a1'), bc('--b-a2')), borderRadius: 7, borderSkipped: false },
+    { type: 'line', order: 1, label: 'OOS rate (%)', data: T.oos_rate, yAxisID: 'y1', borderColor: bc('--b-bad'), backgroundColor: bc('--b-bad'), tension: .3, pointRadius: hl(4, 9), pointHoverRadius: 10 }] },
     options: { ...monthClick, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend(), tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? `OOS rate: ${c.parsed.y.toFixed(2)}%` : `Tests: ${c.parsed.y.toLocaleString()}` } } },
       scales: { x: axisOpts({ ticks: { maxRotation: 55 } }), y: axisOpts({ num: true }), y1: { position: 'right', min: 0, ticks: { color: bc('--b-mute'), callback: v => v + '%' }, grid: { drawOnChartArea: false }, border: { display: false } } } } }));
   const delivery = chartBox('On-time delivery & turnaround', 's5', cv => new Chart(cv, { type: 'line', data: { labels: T.labels, datasets: [
-    { label: 'On-time delivery (%)', data: T.on_time, yAxisID: 'y', borderColor: bc('--b-a1'), backgroundColor: bc('--b-a1'), tension: .25, pointRadius: hl(3, 7) },
-    { label: 'Avg turnaround (days)', data: T.tat, yAxisID: 'y1', borderColor: bc('--b-a3'), backgroundColor: bc('--b-a3'), borderDash: [5, 4], tension: .25, pointRadius: hl(2, 6) }] },
+    { label: 'On-time delivery (%)', data: T.on_time, yAxisID: 'y', borderColor: bc('--b-a1'), backgroundColor: bc('--b-a1'), tension: .3, pointRadius: hl(4, 9) },
+    { label: 'Avg turnaround (days)', data: T.tat, yAxisID: 'y1', borderColor: bc('--b-a2'), backgroundColor: bc('--b-a2'), borderDash: [7, 5], tension: .3, pointRadius: hl(3, 8) }] },
     options: { ...monthClick, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend() },
       scales: { x: axisOpts({ ticks: { maxRotation: 55 } }), y: axisOpts({ num: true, fmt: v => v + '%', min: 80, max: 100 }), y1: { position: 'right', ticks: { color: bc('--b-mute'), callback: v => (+v.toFixed(2)) + ' d' }, grid: { drawOnChartArea: false }, border: { display: false } } } } }));
   const cats = d.deviation_categories;
-  const dev = chartBox(`Deviations opened by category — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: cats.map(c => c.label), datasets: [{ label: P.label, data: cats.map(c => c.value), backgroundColor: bc('--b-a5'), borderRadius: 4 }, ...(P.prev_label ? [{ label: P.prev_label, data: cats.map(c => c.prev), backgroundColor: bc('--b-a4'), borderRadius: 4 }] : [])] },
+  const dev = chartBox(`Deviations opened by category — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: cats.map(c => c.label), datasets: [{ label: P.label, data: cats.map(c => c.value), backgroundColor: bc('--b-a1'), borderRadius: 7, borderSkipped: false }, ...(P.prev_label ? [{ label: P.prev_label, data: cats.map(c => c.prev), backgroundColor: bc('--b-mute') + '88', borderRadius: 7, borderSkipped: false }] : [])] },
     options: { responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, onHover: hover, onClick: (e, els) => { if (els.length) askAgent(`Why did ${cats[els[0].index].label} deviations ${cats[els[0].index].value >= cats[els[0].index].prev ? 'increase' : 'change'} in ${P.label}, and who raised them?`); }, plugins: { legend: legend() }, scales: { x: axisOpts({}), y: axisOpts({ num: true, fmt: v => Number.isInteger(v) ? v : '' }) } } }));
   const M = d.methods;
-  const meth = chartBox(`Avg turnaround by method (days) — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: M.map(m => m.label), datasets: [{ data: M.map(m => m.tat), backgroundColor: M.map(m => m.on_time != null && m.on_time < 85 ? bc('--b-bad') : bc('--b-a1')), borderRadius: 4 }] },
+  const meth = chartBox(`Avg turnaround by method (days) — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: M.map(m => m.label), datasets: [{ data: M.map(m => m.tat), backgroundColor: M.map(m => m.on_time != null && m.on_time < 85 ? bc('--b-bad') : bc('--b-a2')), borderRadius: 7, borderSkipped: false }] },
     options: { indexAxis: 'y', onHover: hover, onClick: (e, els) => { if (els.length) askAgent(`Why is ${M[els[0].index].label} turnaround ${M[els[0].index].on_time != null && M[els[0].index].on_time < 85 ? 'so slow' : 'what it is'} in ${P.label}? Check on-time delivery.`); }, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x.toFixed(2)} days · ${M[c.dataIndex].on_time ?? '—'}% on time · ${M[c.dataIndex].tests} tests` } } }, scales: { x: axisOpts({ num: true, fmt: v => (+v.toFixed(2)) + ' d' }), y: axisOpts({ noGrid: true }) } } }));
   const it = el('div', { class: 'bcard s6' }, el('h3', {}, `Instruments — ${P.label}`), el('table', { class: 'btab inst' },
     el('thead', {}, el('tr', {}, ...['Instrument', 'Tests', 'Utilization', 'OOS %', 'Δ pp'].map((h, i) => el('th', { class: i === 1 || i === 3 || i === 4 ? 'num' : '' }, h)))),
@@ -339,8 +357,8 @@ const SEV_LEVEL = { Critical: 'bad', Major: 'warn', Minor: 'info' };
 function askForIssue(i) { return `Check "${i.title.toLowerCase()}" in ${i.table}${i.column ? '.' + i.column : ''} and tell me how it affects the numbers.`; }
 function specCard(spec) {
   return chartBox(spec.title, 's6', cv => {
-    const pal = [bc('--b-a1'), bc('--b-a5'), bc('--b-a4'), bc('--b-a3'), bc('--b-a2')], isLine = spec.type === 'line', hb = spec.type === 'hbar';
-    return new Chart(cv, { type: hb ? 'bar' : spec.type, data: { labels: spec.labels, datasets: spec.datasets.map((d, i) => ({ label: d.label, data: d.data, backgroundColor: isLine ? pal[i % 5] + '55' : pal[i % 5], borderColor: pal[i % 5], borderRadius: 4, tension: .25, pointRadius: isLine ? 2 : 0, fill: isLine })) },
+    const pal = [bc('--b-a1'), bc('--b-a2'), bc('--b-a4'), bc('--b-a3'), bc('--b-a5')], isLine = spec.type === 'line', hb = spec.type === 'hbar';
+    return new Chart(cv, { type: hb ? 'bar' : spec.type, data: { labels: spec.labels, datasets: spec.datasets.map((d, i) => ({ label: d.label, data: d.data, backgroundColor: isLine ? pal[i % 5] + '40' : pal[i % 5], borderColor: pal[i % 5], borderRadius: 7, borderSkipped: false, tension: .3, pointRadius: isLine ? 3 : 0, fill: isLine })) },
       options: { indexAxis: hb ? 'y' : 'x', responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: spec.datasets.length > 1, ...legend() }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Number(c.parsed.y ?? c.parsed.x).toLocaleString(undefined, { maximumFractionDigits: 2 })}` } } },
         scales: { x: axisOpts(hb ? { num: true } : { ticks: { maxRotation: 45, autoSkip: true } }), y: axisOpts(hb ? { noGrid: true } : { num: true }) } } });
   });
