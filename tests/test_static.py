@@ -45,3 +45,43 @@ def test_every_element_id_the_script_uses_exists_in_the_page():
     used = set(re.findall(r"\$\('#([A-Za-z0-9_-]+)'\)", js))
     dynamic = {"pincount", "dq-list", "prog"}                # created at runtime or handled specially
     assert used - ids_in_html - dynamic == set(), used - ids_in_html - dynamic
+
+
+ICONS = STATIC / "icons"
+BRAND = STATIC / "brand"
+
+
+def test_user_icons_live_in_the_icons_folder_and_not_in_the_project_root():
+    expected = {"dashboard", "analyze", "data", "pinned", "lab_operations", "market-research"}
+    assert {p.stem for p in ICONS.glob("*.png")} == expected
+    root = Path(__file__).resolve().parent.parent
+    assert not [p.name for p in root.glob("*.png")], "icons must not be left in the project root"
+
+
+def test_every_asset_the_ui_references_exists():
+    import re
+    js, html, css = (STATIC / "app.js").read_text(), (STATIC / "index.html").read_text(), (STATIC / "style.css").read_text()
+    paths = set(re.findall(r"/static/((?:icons|brand)/[\w.\-]+)", js + html + css))
+    assert paths, "expected the UI to reference icons or brand assets"
+    missing = sorted(p for p in paths if not (STATIC / p).exists())
+    assert not missing, missing
+    names = set(re.findall(r"pic\('([\w\-]+)'", js)) | set(re.findall(r"\b\w+: '([\w\-]+)'", js.split("const IMG =")[1].split("};")[0]))
+    assert {n for n in names if not (ICONS / f"{n}.png").exists()} == set()
+
+
+def test_brand_assets_are_valid_images():
+    from PIL import Image
+    for name, size in [("logo-mark.png", (512, 512)), ("favicon-32.png", (32, 32)), ("favicon-64.png", (64, 64)), ("apple-touch-icon.png", (180, 180))]:
+        with Image.open(BRAND / name) as im:
+            assert im.size == size, name
+    with Image.open(BRAND / "logo-mark.png") as im:
+        assert im.mode == "RGBA" and im.getchannel("A").getextrema()[0] == 0        # genuinely transparent background
+    with Image.open(BRAND / "favicon.ico") as ico:
+        assert ico.format == "ICO"
+    assert (BRAND / "logo.png").stat().st_size > 5_000 and (BRAND / "logo-dark.png").exists()
+
+
+def test_brand_and_icon_files_are_served(c):
+    for url in ("/static/brand/logo-mark.png", "/static/brand/favicon.ico", "/static/icons/dashboard.png", "/static/icons/lab_operations.png"):
+        r = c.get(url)
+        assert r.status_code == 200 and len(r.content) > 500, url

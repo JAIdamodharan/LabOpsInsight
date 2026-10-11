@@ -6,15 +6,22 @@
 <title>LabOps Insight</title>
 <meta name="description" content="Analytics, data review and an investigation agent for lab data. Upload your own Excel workbook.">
 <script>try{var t=localStorage.getItem('ui.theme');if(t==='light'||t==='dark')document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="icon" type="image/png" sizes="32x32" href="/static/brand/favicon-32.png">
+<link rel="icon" type="image/png" sizes="64x64" href="/static/brand/favicon-64.png">
+<link rel="shortcut icon" href="/static/brand/favicon.ico">
+<link rel="apple-touch-icon" href="/static/brand/apple-touch-icon.png">
+<meta name="theme-color" content="#4f9dff">
 <link rel="stylesheet" href="/static/style.css?v=__V__">
 </head>
 <body>
+<div class="aurora" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
 <header class="top">
   <div class="top-in">
-    <div class="brand"><span class="logo" id="logo"></span><span>LabOps Insight</span></div>
+    <div class="brand"><span class="logo"><img src="/static/brand/logo-mark.png" alt="" width="26" height="26"></span><span>LabOps Insight</span></div>
     <label class="dsel"><span id="ds-icon"></span><select id="ds-select" aria-label="Dataset"></select></label>
     <button class="btn primary" id="btn-upload" type="button"><span id="ico-upload"></span><span class="t">Upload Excel</span></button>
     <span class="sp"></span>
+    <button class="btn search-btn" id="btn-pal" type="button" aria-label="Open command palette"><span id="ico-search"></span><span class="t">Search</span><kbd>⌘K</kbd></button>
     <span class="badge" id="model"></span><span class="badge" id="py"></span>
     <button class="btn ghost" id="btn-print" type="button" title="Print / save as PDF" aria-label="Print or save as PDF"></button>
     <button class="btn ghost" id="btn-theme" type="button" title="Switch light / dark" aria-label="Switch light or dark theme"></button>
@@ -23,6 +30,7 @@
 
 <main>
   <nav class="tabs" role="tablist" id="tabs" aria-label="Sections">
+    <span class="ind" id="tab-ind" aria-hidden="true"></span>
     <button role="tab" data-tab="bi"></button>
     <button role="tab" data-tab="dq"></button>
     <button role="tab" data-tab="analyze"></button>
@@ -44,6 +52,7 @@
           <button class="link" id="f-ask" type="button">Ask the analyst what changed →</button>
         </div>
         <div class="bi-title"><h2 id="bi-h"></h2><span id="bi-sub"></span></div>
+        <div class="hint" id="bi-hint">Tip: click a KPI card, a chart point, a deviation bar or an instrument row to ask the analyst about it. Press <kbd>⌘K</kbd> for the command palette.</div>
         <div id="bi-ins" class="ins"></div>
         <div class="kgrid" id="bi-k"></div>
         <div class="bgrid" id="bi-g"></div>
@@ -89,6 +98,7 @@
     <div id="an-notice"></div>
     <form id="f" class="askbox"><input id="q" maxlength="500" autocomplete="off" aria-label="Your question"><button class="btn ghost" id="stop" type="button" hidden>Stop</button><button class="btn primary" id="go">Analyze</button></form>
     <div class="chips" id="chips"></div>
+    <div id="an-empty"></div>
     <div id="log" aria-live="polite"></div>
   </section>
 
@@ -109,7 +119,7 @@
   <div class="dlg-h"><h2 id="dlg-t">Add your data</h2><button class="btn ghost" id="dlg-x" type="button" aria-label="Close">✕</button></div>
   <div class="dlg-b">
     <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose an Excel or CSV file, or drop it here">
-      <span id="ico-drop"></span>
+      <img id="img-drop" src="/static/icons/data.png" alt="" width="64" height="64">
       <strong>Drop an Excel or CSV file here</strong>
       <span class="mute">or click to browse · .xlsx or .csv · up to <span id="max-mb">15</span> MB</span>
     </div>
@@ -121,6 +131,12 @@
     <div class="h-sec">Your datasets</div>
     <div class="dlist" id="dlist"></div>
   </div>
+</dialog>
+
+<dialog id="pal" aria-label="Command palette">
+  <input id="pal-q" type="text" placeholder="Type a command, a dataset, a month, or a question to ask…" autocomplete="off" aria-label="Command palette">
+  <ul id="pal-list" role="listbox"></ul>
+  <div class="foot"><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> select</span><span><kbd>esc</kbd> close</span></div>
 </dialog>
 
 <div id="toasts" aria-live="polite"></div>

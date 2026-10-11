@@ -44,6 +44,24 @@ Tabs: **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, i
 **Data Review** (rule results + downloadable query list per rule), **Analyze** (the agent, with Copy answer / Download report), **Data** (raw table browser), **Pinned**.
 There is a light/dark toggle, and Print gives a clean PDF of any dashboard.
 
+## Look and feel
+- **Glass UI.** iOS-style frosted surfaces (`backdrop-filter` blur + saturation, specular edge highlights) over a slow-moving aurora backdrop, in light and dark mode. The dashboard has a **Glass** theme (default) plus the original Mint / Corporate / Navy themes. Respects `prefers-reduced-motion`, `prefers-reduced-transparency` and `prefers-contrast` (falls back to solid panels).
+- **Icons.** The tab, dataset and empty-state icons are the PNGs in `analyst/static/icons/` (`dashboard`, `market-research`, `analyze`, `data`, `pinned`, `lab_operations`); swap a file to change an icon. Only the small utility glyphs (upload, search, print, light/dark) are inline SVG.
+- **Logo.** `analyst/static/brand/` holds the logo made from a Canva design: `logo-mark.png` (header), `logo.png` / `logo-dark.png` (lockups for light / dark backgrounds), favicons and the app icon, plus the raw Canva export. `scripts/make_brand.py` regenerates them from a new Canva export.
+
+### Interactions
+| Do this | Get this |
+|---|---|
+| Click a **KPI card** | the analyst investigates why that metric changed |
+| Click a **point or bar** in the volume / on-time charts | the whole dashboard jumps to that month |
+| Click a **deviation bar**, a **turnaround bar** or an **instrument row** | the analyst investigates it |
+| `Cmd/Ctrl + K` | command palette: jump to tabs, switch dataset or month, change theme, upload, or type a question |
+| `/` | focus the question box from anywhere |
+| Arrow keys on the tab bar | move between tabs |
+
+KPI numbers count up, cards carry sparklines with the selected month marked, and a soft highlight follows the cursor over glass cards.
+In demo mode every scripted answer states its fixed scope (e.g. "HPLC-03 in March 2025") and questions outside it are declined rather than answered with the wrong story.
+
 ## Use your own Excel data
 Click **Upload Excel** (or drop a file anywhere on the page). `.xlsx` and `.csv` are accepted; each sheet becomes a table and the first row is read
 as the column headers. Headers are cleaned to `snake_case`, duplicates are suffixed, and the types are inferred. **Numbers stored as text are kept as text and flagged**,

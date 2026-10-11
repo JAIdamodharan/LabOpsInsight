@@ -4,11 +4,14 @@ It issues real tool calls (real SQL, real data-quality checks) in the order a go
 final answer from the actual query results. Only the *decisions* are scripted; there are four investigations
 (OOS, on-time delivery, deviations, data quality). Anything else is declined honestly.
 """
+import re
 from types import SimpleNamespace as NS
 
 from . import dq
 from .db import Database
 
+OTHER_INSTRUMENT = re.compile(r"\b(?:hplc|lcms|gc|diss|kf)-0\d\b")
+OTHER_CATEGORIES = ("equipment", "sample handling", "process", "data integrity")
 UNSUPPORTED = ("**Demo mode only covers four scripted investigations:** OOS rate (e.g. HPLC-03), on-time delivery / turnaround, "
                "deviations (e.g. Documentation), and data quality. Choose one of the example questions, or run with a real model "
                "(`--provider ollama|groq|anthropic`) for free-form questions.")
@@ -58,7 +61,7 @@ def _tu(i, name, **inp):
 
 class DemoClient:
     def __init__(self, db: Database, with_python: bool = False):
-        self.db, self.i, self.plan, self.final = db, 0, None, None
+        self.db, self.i, self.plan, self.final, self.scope = db, 0, None, None, ""
         self.messages = NS(create=self._create)
 
     def q(self, sql):
@@ -68,17 +71,25 @@ class DemoClient:
     def _scenario(self, question: str):
         t = question.lower()
         has = lambda *w: any(x in t for x in w)
-        if has("data quality", "data-quality", "duplicate", "data review", "integrity", "clean", "records need"):
+        named = set(OTHER_INSTRUMENT.findall(t))
+        if has("data quality", "data-quality", "duplicate", "data review", "integrity", "clean", "records need") and not has("deviation"):
             return self._dq()
         if has("deviation", "documentation", "training"):
+            if has(*OTHER_CATEGORIES) and "documentation" not in t:
+                return [], lambda: UNSUPPORTED          # the scripted walkthrough is about Documentation deviations only
             return self._deviations()
-        if has("on-time", "on time", "turnaround", "tat", "delay", "late", "delivery", "breakdown", "lcms"):
+        if has("utilization", "tests completed", "units"):
+            return [], lambda: UNSUPPORTED
+        if has("on-time", "on time", "turnaround", "tat", "delay", "late", "delivery", "breakdown", "lcms-02"):
             return self._on_time()
         if has("oos", "out of spec", "out-of-spec", "hplc", "calibration", "instrument"):
+            if named - {"hplc-03"}:
+                return [], lambda: UNSUPPORTED          # another instrument was named: do not answer with the HPLC-03 story
             return self._oos()
         return [], lambda: UNSUPPORTED
 
     def _oos(self):
+        self.scope = "HPLC-03 in March 2025"
         plan = [("get_schema", {}), ("run_sql", dict(sql=OOS_MONTHLY)),
                 ("chart", dict(type="line", title="Monthly OOS rate (%)", sql=OOS_MONTHLY, x="month", y="oos_rate_pct")),
                 ("run_sql", dict(sql=OOS_BY_INST)),
@@ -107,6 +118,7 @@ class DemoClient:
         return plan, final
 
     def _on_time(self):
+        self.scope = "February 2025, Related Substances and LCMS-02"
         plan = [("get_schema", {}), ("run_sql", dict(sql=OT_MONTHLY)),
                 ("chart", dict(type="line", title="Monthly on-time delivery (%)", sql=OT_MONTHLY, x="month", y="on_time_pct")),
                 ("run_sql", dict(sql=OT_METHOD)),
@@ -134,6 +146,7 @@ class DemoClient:
         return plan, final
 
     def _deviations(self):
+        self.scope = "Documentation deviations from April 2025"
         plan = [("get_schema", {}), ("run_sql", dict(sql=DV_MONTHLY)),
                 ("chart", dict(type="line", title="Deviations opened per month, by category", sql=DV_MONTHLY, x="month", y="deviations", series="category")),
                 ("run_sql", dict(sql=DV_ANALYST)),
@@ -159,6 +172,7 @@ class DemoClient:
         return plan, final
 
     def _dq(self):
+        self.scope = "the whole built-in lab dataset"
         plan = [("get_schema", {}), ("data_quality", {}), ("run_sql", dict(sql=DQ_MISMATCH)),
                 ("chart", dict(type="bar", title="Records missing an analyst or a result, by month", sql=DQ_MONTHLY, x="month", y="missing_analyst,missing_result"))]
 
@@ -182,4 +196,5 @@ class DemoClient:
         if i < len(self.plan):
             name, args = self.plan[i]
             return NS(stop_reason="tool_use", content=[_tu(i, name, **args)], usage=usage)
-        return NS(stop_reason="end_turn", content=[NS(type="text", text=self.final())], usage=usage)
+        text = self.final().replace("*(Demo mode: scripted model, real queries.)*", f"*(Demo mode: scripted model, real queries. Scope of this walkthrough: {self.scope}.)*")
+        return NS(stop_reason="end_turn", content=[NS(type="text", text=text)], usage=usage)

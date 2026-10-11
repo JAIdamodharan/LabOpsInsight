@@ -81,3 +81,28 @@ def test_artifacts_path_traversal_blocked(path, tmp_path):
     (tmp_path / "ok.png").write_bytes(b"x")
     c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path / "sub")))
     assert c.get("/artifacts/../server.py").status_code in (404, 400)
+
+
+@pytest.mark.parametrize("q", [
+    "What happened with HPLC-01 in Mar 2025? Check its OOS rate and downtime.",
+    "What happened with LCMS-01 in Feb 2025? Check its OOS rate and downtime.",
+    "Why did Equipment deviations increase in Mar 2025, and who raised them?",
+    "Why did instrument utilization change in Mar 2025 compared with Feb 2025?",
+    "Why did tests completed change in Mar 2025 compared with Feb 2025?",
+])
+def test_demo_declines_questions_outside_its_scripted_scope(path, tmp_path, q):
+    c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path)))
+    ans = next(e for e in events(c.get("/api/ask", params={"q": q})) if e["kind"] == "answer")["text"]
+    assert "four scripted investigations" in ans and "HPLC-03 in the" not in ans
+
+
+@pytest.mark.parametrize("q,scope", [
+    ("Why did oos rate change in Mar 2025 compared with Feb 2025?", "HPLC-03 in March 2025"),
+    ("What happened with HPLC-03 in Mar 2025? Check its OOS rate and downtime.", "HPLC-03 in March 2025"),
+    ("Why did on-time delivery change in Mar 2025 compared with Feb 2025?", "February 2025"),
+    ("Why did Documentation deviations increase in Apr 2025, and who raised them?", "Documentation deviations from April 2025"),
+])
+def test_demo_answers_state_their_scope(path, tmp_path, q, scope):
+    c = TestClient(create_app(path, demo=True, artifacts_dir=str(tmp_path)))
+    ans = next(e for e in events(c.get("/api/ask", params={"q": q})) if e["kind"] == "answer")["text"]
+    assert f"Scope of this walkthrough: {scope}" in ans

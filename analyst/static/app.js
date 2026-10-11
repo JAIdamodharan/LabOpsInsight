@@ -27,9 +27,31 @@ const ICON = {
   moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
   print: '<path d="M6 9V3h12v6M6 18H4v-7h16v7h-2"/><rect x="6" y="14" width="12" height="7"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
   sheet: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8M12 11v10"/>',
   flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/>',
 };
+const IMG = { bi: 'dashboard', dq: 'market-research', analyze: 'analyze', data: 'data', pins: 'pinned', lab: 'lab_operations', custom: 'data' };
+const pic = (name, cls = 'ti', size = 22) => el('img', { class: cls, src: `/static/icons/${name}.png`, alt: '', width: size, height: size, draggable: 'false' });
+const emptyState = (img, title, text) => el('div', { class: 'empty-state' }, pic(img, '', 112), el('b', {}, title), el('span', {}, text));
+const monthLabel = m => new Date(m + '-15').toLocaleString('en', { month: 'short', year: 'numeric' });
+function stagger(root) { root.classList.remove('stagger'); [...root.children].forEach((c, i) => c.style.setProperty('--i', i)); void root.offsetWidth; root.classList.add('stagger'); }
+function countUp(node, to, fmt, ms = 800) {
+  if (matchMedia('(prefers-reduced-motion: reduce)').matches || document.hidden || !isFinite(to)) { node.textContent = fmt(to); return; }
+  const t0 = performance.now(); node.textContent = fmt(0);
+  const tick = now => { const p = Math.min(1, (now - t0) / ms), e = 1 - Math.pow(1 - p, 3); node.textContent = p < 1 ? fmt(to * e) : fmt(to); if (p < 1) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+}
+function spark(vals, sel) {
+  const ns = 'http://www.w3.org/2000/svg', w = 92, h = 24, pad = 3; let last = null;
+  const v = vals.map(x => { if (x == null) return last; last = x; return x; }).map(x => x ?? 0);
+  const min = Math.min(...v), max = Math.max(...v), rng = (max - min) || 1;
+  const pts = v.map((x, i) => [(pad + i * (w - 2 * pad) / Math.max(1, v.length - 1)).toFixed(1), (h - pad - ((x - min) / rng) * (h - 2 * pad)).toFixed(1)]);
+  const svg = document.createElementNS(ns, 'svg'); svg.setAttribute('class', 'spark'); svg.setAttribute('viewBox', `0 0 ${w} ${h}`); svg.setAttribute('aria-hidden', 'true');
+  const pl = document.createElementNS(ns, 'polyline'); pl.setAttribute('points', pts.map(q => q.join(',')).join(' ')); svg.append(pl);
+  if (sel != null && pts[sel]) { const c = document.createElementNS(ns, 'circle'); c.setAttribute('cx', pts[sel][0]); c.setAttribute('cy', pts[sel][1]); c.setAttribute('r', '2.8'); svg.append(c); }
+  return svg;
+}
 const icon = (n, big) => { const s = el('span'); s.innerHTML = `<svg class="i" viewBox="0 0 24 24"${big ? ' style="width:30px;height:30px"' : ''}>${ICON[n]}</svg>`; return s.firstChild; };  // static, trusted markup only
 
 function toast(msg, kind = 'info', ms = 5000) {
@@ -55,11 +77,11 @@ function applyUiTheme(t) {
   const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')) === 'dark';
   $('#btn-theme').replaceChildren(icon(dark ? 'sun' : 'moon'));
 }
-const BI_THEMES = [['th-mint', 'Mint'], ['th-corp', 'Corporate'], ['th-navy', 'Navy']];
+const BI_THEMES = [['th-glass', 'Glass'], ['th-mint', 'Mint'], ['th-corp', 'Corporate'], ['th-navy', 'Navy']];
 function setBiTheme(t) {
   $$('.bi').forEach(b => { b.className = 'bi ' + t; });
   $$('.theme-sel').forEach(s => { s.value = t; });
-  store.set('bi.theme', t);
+  store.set('bi.theme2', t);
 }
 const bc = v => getComputedStyle($('#bi')).getPropertyValue(v).trim();
 const rgba = (rgbVar, a) => `rgba(${bc(rgbVar)},${a})`;
@@ -70,17 +92,21 @@ function tabLabel(t) { return { bi: S.kind === 'lab' ? 'Dashboard' : 'Overview',
 function buildTabs() {
   $$('#tabs button').forEach(b => {
     const t = b.dataset.tab;
-    b.replaceChildren(...[icon(t), el('span', {}, tabLabel(t)), t === 'pins' ? el('span', { class: 'n', id: 'pincount', hidden: '' }, '0') : null].filter(Boolean));
+    b.replaceChildren(...[pic(IMG[t]), el('span', {}, tabLabel(t)), t === 'pins' ? el('span', { class: 'n', id: 'pincount', hidden: '' }, '0') : null].filter(Boolean));
     b.onclick = () => showTab(t);
     b.onkeydown = e => { const i = TABS.indexOf(t); if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const n = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length]; showTab(n); $(`[data-tab=${n}]`).focus(); } };
   });
-  savePins();
+  savePins(); moveInd();
 }
+function moveInd() { const ind = $('#tab-ind'), b = $('#tabs button[aria-selected=true]'); if (!ind || !b) return; ind.style.width = b.offsetWidth + 'px'; ind.style.left = b.offsetLeft + 'px'; }
+addEventListener('resize', moveInd);
 const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, analyze: () => { } };
 function showTab(t) {
   S.tab = t;
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   TABS.forEach(x => { $('#tab-' + x).hidden = x !== t; });
+  moveInd();
+  if (S.shown !== t) { const sec = $('#tab-' + t); sec.classList.remove('tab-in'); void sec.offsetWidth; sec.classList.add('tab-in'); S.shown = t; }
   try { history.replaceState(null, '', '#' + t); } catch { }
   loaders[t]();
 }
@@ -120,7 +146,7 @@ function grid(cols, rows, { onSort, name = 'data', note = '', sortBy = null, sor
 }
 
 /* ===================== charts for Analyze + Pinned ===================== */
-const PALETTE = ['#6ea8fe', '#f59e0b', '#34d399', '#f472b6', '#a78bfa', '#fb7185', '#22d3ee', '#a3e635', '#94a3b8', '#fbbf24', '#2dd4bf', '#e879f9'];
+const PALETTE = ['#0a84ff', '#ff9f0a', '#30d158', '#bf5af2', '#64d2ff', '#ff453a', '#5e5ce6', '#ffd60a', '#ff375f', '#32d74b', '#40c8e0', '#ac8e68'];
 let pins = store.get('dash.v1', []);
 const savePins = () => { store.set('dash.v1', pins); const n = $('#pincount'); if (n) { n.textContent = pins.length; n.hidden = !pins.length; } };
 const pinKey = s => JSON.stringify([s.type, s.title, s.labels, s.datasets, s.cards]);
@@ -163,7 +189,7 @@ function chartCard(s, { dash = false } = {}) {
   return card;
 }
 function renderPins() {
-  $('#dash').replaceChildren(...(pins.length ? pins.map(s => chartCard(s, { dash: true })) : [el('div', { class: 'empty' }, 'Nothing pinned yet. Ask a question, then click “Pin to dashboard” on a chart.')]));
+  $('#dash').replaceChildren(...(pins.length ? pins.map(s => chartCard(s, { dash: true })) : [emptyState('pinned', 'Nothing pinned yet', 'Ask a question, then click “Pin to dashboard” on a chart.')]));
 }
 
 /* ===================== themed (BI) chart helpers ===================== */
@@ -190,11 +216,16 @@ function askAgent(q) { $('#q').value = q; showTab('analyze'); $('#f').requestSub
 const cnt = v => v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : Math.round(v).toLocaleString();
 const FMT = { count: cnt, pct: v => v.toFixed(1) + '%', days: v => v.toFixed(2) + ' d' };
 function dirClass(delta, good) { if (delta == null || Math.abs(delta) < 0.05) return 'flat'; return (delta > 0) === (good === 'up') ? 'good' : 'bad'; }
-function kpiCard(k, prevLabel) {
+const activate = fn => e => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
+function kpiCard(k, P, T) {
   const cls = dirClass(k.delta, k.good), arrow = k.delta == null || Math.abs(k.delta) < 0.05 ? '' : (k.delta > 0 ? '↑' : '↓');
   const d = k.delta == null ? '—' : `${k.delta > 0 ? '+' : ''}${k.delta.toFixed(1)}${k.delta_kind === 'pp' ? ' pp' : '%'}`;
-  return el('div', { class: 'bcard kcard' }, el('h3', {}, k.label), el('div', { class: 'kv' }, FMT[k.fmt](k.value), el('span', { class: 'arrow ' + cls }, arrow)),
-    el('div', { class: 'kp' }, k.prev == null ? 'no prior period' : `${prevLabel}: ${FMT[k.fmt](k.prev)} · `, el('b', { class: cls }, k.prev == null ? '' : d)));
+  const series = { tests: T.tests, oos_rate: T.oos_rate, on_time: T.on_time, tat: T.tat }[k.key];
+  const val = el('span', { class: 'val' }); countUp(val, k.value, FMT[k.fmt]);
+  const ask = () => askAgent(P.prev_label ? `Why did ${k.label.toLowerCase()} change in ${P.label} compared with ${P.prev_label}?` : `Summarize ${k.label.toLowerCase()} in ${P.label}`);
+  return el('div', { class: 'bcard kcard click', role: 'button', tabindex: '0', title: 'Click to ask the analyst about this metric', onclick: activate(ask), onkeydown: activate(ask) }, el('h3', {}, k.label),
+    el('div', { class: 'kv' }, val, el('span', { class: 'arrow ' + cls }, arrow)), series ? spark(series, T.selected) : null,
+    el('div', { class: 'kp' }, k.prev == null ? 'no prior period' : `${P.prev_label}: ${FMT[k.fmt](k.prev)} · `, el('b', { class: cls }, k.prev == null ? '' : d)));
 }
 const gaugeColor = v => v >= 92 ? '--b-good' : v >= 85 ? '--b-warn' : '--b-bad';
 function gaugeCard(g, prevLabel) {
@@ -210,27 +241,31 @@ function renderBI(d) {
   $('#bi-h').textContent = `Lab Operations — ${P.label}`;
   $('#bi-sub').textContent = (P.prev_label ? `vs ${P.prev_label}` : 'first month in data') + ` · ${f.lab || 'All labs'} · ${f.service_line || 'All service lines'} · synthetic, anonymised data`;
   $('#bi-ins').replaceChildren(...d.insights.map(i => insightRow({ ...i, goto: i.ask ? null : 'dq' })));
-  $('#bi-k').replaceChildren(...d.kpis.map(x => kpiCard(x, P.prev_label)), ...d.gauges.map(x => gaugeCard(x, P.prev_label)));
+  $('#bi-k').replaceChildren(...d.kpis.map(x => kpiCard(x, P, T)), ...d.gauges.map(x => gaugeCard(x, P.prev_label)));
+  stagger($('#bi-k'));
   const hl = (base, hi) => T.labels.map((_, i) => i === sel ? hi : base);
+  const pickMonth = idx => { const m = T.months[idx]; if (!m || m === f.month) return; $('#f-month').value = m; reloadBI(); toast(`Showing ${T.labels[idx]}`, 'info', 1800); };
+  const hover = (e, els) => { e.native.target.style.cursor = els.length ? 'pointer' : 'default'; };
+  const monthClick = { onClick: (e, els) => { if (els.length) pickMonth(els[0].index); }, onHover: hover };
   const volume = chartBox('Tests completed & OOS rate', 's7', cv => new Chart(cv, { data: { labels: T.labels, datasets: [
     { type: 'bar', label: 'Tests completed', data: T.tests, yAxisID: 'y', backgroundColor: hl(bc('--b-a4'), bc('--b-a5')), borderRadius: 3 },
     { type: 'line', label: 'OOS rate (%)', data: T.oos_rate, yAxisID: 'y1', borderColor: bc('--b-bad'), backgroundColor: bc('--b-bad'), tension: .25, pointRadius: hl(3, 7), pointHoverRadius: 7 }] },
-    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend(), tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? `OOS rate: ${c.parsed.y.toFixed(2)}%` : `Tests: ${c.parsed.y.toLocaleString()}` } } },
+    options: { ...monthClick, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend(), tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? `OOS rate: ${c.parsed.y.toFixed(2)}%` : `Tests: ${c.parsed.y.toLocaleString()}` } } },
       scales: { x: axisOpts({ ticks: { maxRotation: 55 } }), y: axisOpts({ num: true }), y1: { position: 'right', min: 0, ticks: { color: bc('--b-mute'), callback: v => v + '%' }, grid: { drawOnChartArea: false }, border: { display: false } } } } }));
   const delivery = chartBox('On-time delivery & turnaround', 's5', cv => new Chart(cv, { type: 'line', data: { labels: T.labels, datasets: [
     { label: 'On-time delivery (%)', data: T.on_time, yAxisID: 'y', borderColor: bc('--b-a1'), backgroundColor: bc('--b-a1'), tension: .25, pointRadius: hl(3, 7) },
     { label: 'Avg turnaround (days)', data: T.tat, yAxisID: 'y1', borderColor: bc('--b-a3'), backgroundColor: bc('--b-a3'), borderDash: [5, 4], tension: .25, pointRadius: hl(2, 6) }] },
-    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend() },
+    options: { ...monthClick, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend() },
       scales: { x: axisOpts({ ticks: { maxRotation: 55 } }), y: axisOpts({ num: true, fmt: v => v + '%', min: 80, max: 100 }), y1: { position: 'right', ticks: { color: bc('--b-mute'), callback: v => (+v.toFixed(2)) + ' d' }, grid: { drawOnChartArea: false }, border: { display: false } } } } }));
   const cats = d.deviation_categories;
   const dev = chartBox(`Deviations opened by category — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: cats.map(c => c.label), datasets: [{ label: P.label, data: cats.map(c => c.value), backgroundColor: bc('--b-a5'), borderRadius: 4 }, ...(P.prev_label ? [{ label: P.prev_label, data: cats.map(c => c.prev), backgroundColor: bc('--b-a4'), borderRadius: 4 }] : [])] },
-    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: legend() }, scales: { x: axisOpts({}), y: axisOpts({ num: true, fmt: v => Number.isInteger(v) ? v : '' }) } } }));
+    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, onHover: hover, onClick: (e, els) => { if (els.length) askAgent(`Why did ${cats[els[0].index].label} deviations ${cats[els[0].index].value >= cats[els[0].index].prev ? 'increase' : 'change'} in ${P.label}, and who raised them?`); }, plugins: { legend: legend() }, scales: { x: axisOpts({}), y: axisOpts({ num: true, fmt: v => Number.isInteger(v) ? v : '' }) } } }));
   const M = d.methods;
   const meth = chartBox(`Avg turnaround by method (days) — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: M.map(m => m.label), datasets: [{ data: M.map(m => m.tat), backgroundColor: M.map(m => m.on_time != null && m.on_time < 85 ? bc('--b-bad') : bc('--b-a1')), borderRadius: 4 }] },
-    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x.toFixed(2)} days · ${M[c.dataIndex].on_time ?? '—'}% on time · ${M[c.dataIndex].tests} tests` } } }, scales: { x: axisOpts({ num: true, fmt: v => (+v.toFixed(2)) + ' d' }), y: axisOpts({ noGrid: true }) } } }));
+    options: { indexAxis: 'y', onHover: hover, onClick: (e, els) => { if (els.length) askAgent(`Why is ${M[els[0].index].label} turnaround ${M[els[0].index].on_time != null && M[els[0].index].on_time < 85 ? 'so slow' : 'what it is'} in ${P.label}? Check on-time delivery.`); }, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x.toFixed(2)} days · ${M[c.dataIndex].on_time ?? '—'}% on time · ${M[c.dataIndex].tests} tests` } } }, scales: { x: axisOpts({ num: true, fmt: v => (+v.toFixed(2)) + ' d' }), y: axisOpts({ noGrid: true }) } } }));
   const it = el('div', { class: 'bcard s6' }, el('h3', {}, `Instruments — ${P.label}`), el('table', { class: 'btab inst' },
     el('thead', {}, el('tr', {}, ...['Instrument', 'Tests', 'Utilization', 'OOS %', 'Δ pp'].map((h, i) => el('th', { class: i === 1 || i === 3 || i === 4 ? 'num' : '' }, h)))),
-    el('tbody', {}, ...d.instruments.map(r => el('tr', {}, el('td', { title: `${r.type} · ${r.lab}` }, r.instrument), el('td', { class: 'num' }, r.tests.toLocaleString()),
+    el('tbody', {}, ...d.instruments.map(r => el('tr', { class: 'click', title: 'Click to ask the analyst about this instrument', onclick: () => askAgent(`What happened with ${r.instrument} in ${P.label}? Check its OOS rate and downtime.`) }, el('td', { title: `${r.type} · ${r.lab}` }, r.instrument), el('td', { class: 'num' }, r.tests.toLocaleString()),
       el('td', {}, el('span', { class: 'dtrack' }, el('div', { class: 'dbar', style: `width:${Math.max(2, r.utilization)}%;background:${r.utilization >= 95 ? bc('--b-bad') : bc('--b-a1')}` })), r.utilization.toFixed(0) + '%'),
       el('td', { class: 'num ' + (r.oos_rate >= 10 ? 'bad' : '') }, r.oos_rate.toFixed(1)),
       el('td', { class: 'num ' + dirClass(r.oos_delta, 'down') }, r.oos_delta == null ? '—' : `${r.oos_delta > 0 ? '+' : ''}${r.oos_delta.toFixed(1)}`))))));
@@ -241,7 +276,7 @@ function renderBI(d) {
         const a = c.rate == null ? 0 : Math.min(c.rate / 25, 1) * .8;
         return el('td', { class: 'cell' + (c.rate == null ? ' na' : ''), style: c.rate == null ? '' : `background:${rgba('--b-bad-rgb', a.toFixed(2))}`, title: `${c.oos} OOS of ${c.tests} tests` }, c.rate == null ? '—' : c.rate.toFixed(1) + '%');
       }))))));
-  $('#bi-g').replaceChildren(volume, delivery, dev, meth, it, heat);
+  $('#bi-g').replaceChildren(volume, delivery, dev, meth, it, heat); stagger($('#bi-g'));
 }
 async function loadBI() {
   const c = C();
@@ -262,8 +297,9 @@ async function loadBI() {
   } catch (e) { showError($('#bi-g'), 'Could not load the dashboard: ' + e.message, loadBI); }
 }
 const skeleton2 = () => [1, 2, 3, 4].map(() => el('div', { class: 'skel', style: 'height:92px' }));
-['#f-month', '#f-lab', '#f-svc'].forEach(s => { $(s).onchange = () => { C().biDirty = true; loadBI().then(() => { C().biDirty = false; }); }; });
-$('#f-reset').onclick = () => { $('#f-lab').value = ''; $('#f-svc').value = ''; $('#f-month').value = '2025-03'; C().biDirty = true; loadBI().then(() => { C().biDirty = false; }); };
+function reloadBI() { C().biDirty = true; return loadBI().then(() => { C().biDirty = false; }); }
+['#f-month', '#f-lab', '#f-svc'].forEach(s => { $(s).onchange = reloadBI; });
+$('#f-reset').onclick = () => { $('#f-lab').value = ''; $('#f-svc').value = ''; $('#f-month').value = '2025-03'; reloadBI(); };
 $('#f-ask').onclick = () => { const P = C().bi?.period; if (!P) return; askAgent(P.prev_label ? `What changed in lab operations in ${P.label} compared with ${P.prev_label}? Check the OOS rate, on-time delivery and deviations.` : `Summarize lab performance in ${P.label}`); };
 
 /* ===================== lab data review ===================== */
@@ -339,7 +375,7 @@ async function loadOverview() {
     if (!p.issues.length) top.push({ level: 'info', text: 'No data-quality findings. Nice and clean.' });
     $('#ov-ins').replaceChildren(...top.map(insightRow));
     $('#ov-g').replaceChildren(...(p.charts.length ? p.charts.map(specCard) : [el('div', { class: 'bcard s12 kp' }, 'Not enough varied numeric, category or date columns to draw automatic charts. Use the Analyze tab or the Data tab.')]));
-    $('#ov-tables').replaceChildren(...p.tables.map(columnProfile));
+    $('#ov-tables').replaceChildren(...p.tables.map(columnProfile)); stagger($('#ov-k')); stagger($('#ov-g'));
   } catch (e) { showError($('#ov-g'), 'Could not profile this dataset: ' + e.message, loadOverview); }
 }
 $('#ov-ask').onclick = () => askAgent('Give me an overview of this data: key totals, and anything unusual I should know about.');
@@ -352,7 +388,7 @@ function renderReview(p) {
   const s = p.summary, sev = s.issues_by_severity;
   $('#rv-k').replaceChildren(kc('Findings', String(s.issues), s.issues ? '' : 'good'), kc('Critical', String(sev.Critical), sev.Critical ? 'bad' : 'good'), kc('Major', String(sev.Major), sev.Major ? 'bad' : 'good'), kc('Minor', String(sev.Minor)), kc('Cells filled', s.completeness_pct.toFixed(1) + '%', s.completeness_pct >= 95 ? 'good' : ''));
   const root = $('#rv-body');
-  if (!p.issues.length) { root.replaceChildren(el('div', { class: 'bcard kp' }, '✓ No findings. Every check passed on this data.')); return; }
+  if (!p.issues.length) { root.replaceChildren(emptyState('market-research', 'All clear', 'Every check passed on this data.')); return; }
   const draw = () => {
     const list = p.issues.filter(i => (rvFilter === 'All' || i.severity === rvFilter) && (!rvText || JSON.stringify(i).toLowerCase().includes(rvText)));
     body.replaceChildren(el('table', { class: 'btab' }, el('thead', {}, el('tr', {}, ...['Severity', 'Where', 'Check', 'Affected', 'What it means', ''].map((h, i) => el('th', { class: i === 3 ? 'num' : '' }, h)))),
@@ -378,7 +414,7 @@ async function loadTables() {
 function paintTables() {
   const t = C().tables;
   $('#tables').replaceChildren(...t.map(x => { const b = el('button', { class: 'chip', 'aria-pressed': String(curTable === x.name), onclick: () => { curTable = x.name; tstate = { offset: 0, sort: null, desc: false }; $$('#tables .chip').forEach(c => c.setAttribute('aria-pressed', c === b)); showTable(); } }, `${x.name} (${x.rows.toLocaleString()})`); return b; }));
-  if (!curTable || !t.some(x => x.name === curTable)) { curTable = null; $('#datagrid').replaceChildren(el('div', { class: 'empty' }, 'Choose a table to browse it like a spreadsheet.')); if (t.length === 1) $('#tables .chip').click(); } else showTable();
+  if (!curTable || !t.some(x => x.name === curTable)) { curTable = null; $('#datagrid').replaceChildren(emptyState('data', 'Browse your tables', 'Choose a table above to explore it like a spreadsheet.')); if (t.length === 1) $('#tables .chip').click(); } else showTable();
 }
 async function showTable() {
   const { offset, sort, desc } = tstate, L = 100;
@@ -440,7 +476,7 @@ function paintChips() {
 function setBusy(b) { $('#go').disabled = b; $('#stop').hidden = !b; $('#go').textContent = b ? 'Working…' : 'Analyze'; }
 function runQuestion(q) {
   if (S.es) S.es.close();
-  const log = $('#log'); log.replaceChildren(); setBusy(true); remember(q);
+  const log = $('#log'); log.replaceChildren(); $('#an-empty').replaceChildren(); setBusy(true); remember(q);
   const run = S.run = { q, events: [], answer: '', t0: performance.now() };
   let cur = null;
   const es = S.es = new EventSource('/api/ask?' + new URLSearchParams({ q, dataset: S.dataset }));
@@ -480,7 +516,7 @@ function paintDatasetList() {
       clearTimeout(timer);
       try { await api(`/api/datasets/${d.id}`, { method: 'DELETE' }); delete S.cache[d.id]; const was = S.dataset === d.id; await refreshDatasets(was ? 'lab' : S.dataset); toast(`Deleted “${d.name}”`, 'ok', 3000); if (was) applyDataset(); } catch (e) { toast('Could not delete: ' + e.message, 'err'); }
     };
-    return el('div', { class: 'drow' }, icon('sheet'), el('div', { class: 't' }, el('b', {}, d.name), el('small', {}, `${d.tables.length} table${d.tables.length === 1 ? '' : 's'} · ${d.tables.reduce((a, t) => a + t.rows, 0).toLocaleString()} rows · ${fmtBytes(d.bytes)} · added ${when(d.created)}`)),
+    return el('div', { class: 'drow' }, pic('data', '', 30), el('div', { class: 't' }, el('b', {}, d.name), el('small', {}, `${d.tables.length} table${d.tables.length === 1 ? '' : 's'} · ${d.tables.reduce((a, t) => a + t.rows, 0).toLocaleString()} rows · ${fmtBytes(d.bytes)} · added ${when(d.created)}`)),
       el('button', { class: 'btn sm', type: 'button', onclick: () => { S.dataset = d.id; $('#ds-select').value = d.id; store.set('dataset', d.id); dlg.close(); applyDataset(); } }, 'Open'), del);
   }) : [el('div', { class: 'note' }, 'Nothing uploaded yet. Your uploads will appear here.')]));
 }
@@ -527,12 +563,12 @@ function applyDataset() {
   const m = meta(); S.kind = m.kind || 'lab'; store.set('dataset', S.dataset);
   if (S.es) S.es.close(); setBusy(false); $('#log').replaceChildren();
   curTable = null; dqRule = null; rvFilter = 'All'; rvText = '';
-  buildTabs(); $('#ds-icon').replaceChildren(icon(S.kind === 'lab' ? 'flask' : 'sheet'));
+  buildTabs(); $('#ds-icon').replaceChildren(pic(S.kind === 'lab' ? 'lab_operations' : 'data', 'ti', 24));
   const lab = S.kind === 'lab';
   $('#bi-lab').hidden = !lab; $('#bi-custom').hidden = lab; $('#dq-lab').hidden = !lab; $('#dq-custom').hidden = lab;
   $('#q').placeholder = lab ? 'Ask a question about lab operations, e.g. why did OOS rise in March?' : `Ask a question about “${m.name}”…`;
   $('#an-notice').replaceChildren(S.config.demo && !lab ? el('div', { class: 'notice' }, 'Demo mode can’t answer questions about your own data (its answers are scripted for the built-in lab data). The Overview, Data Review and Data tabs work now; to ask questions, start the server with a real model, e.g. ', el('code', {}, 'python -m analyst.server --provider ollama'), '.') : '');
-  paintChips(); showTab(TABS.includes(S.tab) ? S.tab : 'bi');
+  paintChips(); $('#an-empty').replaceChildren(emptyState('analyze', 'Ask anything about this data', 'Pick a suggestion below, or press / to jump here from anywhere.')); showTab(TABS.includes(S.tab) ? S.tab : 'bi');
 }
 $('#ds-select').onchange = e => { S.dataset = e.target.value; applyDataset(); };
 
@@ -541,9 +577,8 @@ $('#btn-theme').onclick = () => { const dark = (document.documentElement.dataset
 $('#btn-print').onclick = () => window.print();
 $$('.theme-sel').forEach(s => { s.replaceChildren(...BI_THEMES.map(([v, n]) => el('option', { value: v }, n))); s.onchange = () => { setBiTheme(s.value); refreshTab(); }; });
 (async function init() {
-  $('#logo').replaceChildren(icon('logo'));
-  $('#ico-upload').replaceChildren(icon('upload')); $('#btn-print').replaceChildren(icon('print')); $('#ico-drop').replaceChildren(icon('upload', true));
-  applyUiTheme(); const t = store.get('bi.theme', 'th-mint'); setBiTheme(BI_THEMES.some(x => x[0] === t) ? t : 'th-mint');
+  $('#ico-upload').replaceChildren(icon('upload')); $('#btn-print').replaceChildren(icon('print')); $('#ico-search').replaceChildren(icon('search'));
+  applyUiTheme(); const t = store.get('bi.theme2', 'th-glass'); setBiTheme(BI_THEMES.some(x => x[0] === t) ? t : 'th-glass');
   const hash = location.hash.slice(1); S.tab = TABS.includes(hash) ? hash : 'bi';
   try {
     S.config = await api('/api/config');
@@ -552,3 +587,54 @@ $$('.theme-sel').forEach(s => { s.replaceChildren(...BI_THEMES.map(([v, n]) => e
     await refreshDatasets(); applyDataset();
   } catch (e) { document.querySelector('main').prepend(el('div', { class: 'banner' }, 'Could not reach the server: ' + e.message)); }
 })();
+
+
+/* ===================== interaction polish ===================== */
+let spotRaf = 0;
+document.addEventListener('pointermove', e => {
+  if (spotRaf) return;
+  spotRaf = requestAnimationFrame(() => {
+    spotRaf = 0;
+    const t = e.target.closest && e.target.closest('.card,.step,.answer,.bcard,.drow,.insight');
+    if (t) { const r = t.getBoundingClientRect(); t.style.setProperty('--mx', (e.clientX - r.left) + 'px'); t.style.setProperty('--my', (e.clientY - r.top) + 'px'); }
+    const a = $('.aurora'); if (a) { a.style.setProperty('--px', ((e.clientX / innerWidth - .5) * -28).toFixed(1) + 'px'); a.style.setProperty('--py', ((e.clientY / innerHeight - .5) * -28).toFixed(1) + 'px'); }
+  });
+}, { passive: true });
+
+/* ---------- command palette (Cmd/Ctrl+K) ---------- */
+const pal = $('#pal'); let palItems = [], palSel = 0;
+function palCommands(q) {
+  const cmds = [];
+  TABS.forEach(t => cmds.push({ label: `Go to ${tabLabel(t)}`, sub: 'Navigate', img: IMG[t], run: () => showTab(t) }));
+  S.datasets.filter(d => d.id !== S.dataset).forEach(d => cmds.push({ label: `Switch to ${d.name}`, sub: 'Dataset', img: d.kind === 'lab' ? 'lab_operations' : 'data', run: () => { S.dataset = d.id; $('#ds-select').value = d.id; applyDataset(); } }));
+  cmds.push({ label: 'Upload Excel or CSV…', sub: 'Data', svg: 'upload', run: openDialog }, { label: 'Toggle light / dark', sub: 'Appearance', svg: 'moon', run: () => $('#btn-theme').click() }, { label: 'Print / save as PDF', sub: 'Export', svg: 'print', run: () => window.print() });
+  BI_THEMES.forEach(([v, n]) => cmds.push({ label: `Dashboard theme: ${n}`, sub: 'Appearance', svg: 'sun', run: () => { setBiTheme(v); refreshTab(); } }));
+  if (S.kind === 'lab' && C().biOpts) C().biOpts.months.forEach(m => cmds.push({ label: `Show ${new Date(m + '-15').toLocaleString('en', { month: 'long', year: 'numeric' })}`, sub: 'Month', img: 'dashboard', run: () => { $('#f-month').value = m; showTab('bi'); reloadBI(); } }));
+  const text = q.trim(), terms = text.toLowerCase().split(/\s+/).filter(Boolean);
+  const out = cmds.filter(c => terms.every(t => (c.label + ' ' + c.sub).toLowerCase().includes(t)));
+  if (text.length >= 3) {      // a short query is probably a command search; a sentence is probably a question
+    const ask = { label: `Ask the analyst: ${text}`, sub: 'Analyze', img: 'analyze', run: () => askAgent(text) };
+    if (out.length && terms.length < 3) out.push(ask); else out.unshift(ask);
+  }
+  return out.slice(0, 40);
+}
+function palRender() {
+  const q = $('#pal-q').value; palItems = palCommands(q); palSel = Math.min(palSel, Math.max(0, palItems.length - 1));
+  $('#pal-list').replaceChildren(...(palItems.length ? palItems.map((c, i) => el('li', { role: 'option', 'aria-selected': String(i === palSel), onclick: () => palRun(i), onmousemove: () => { if (palSel !== i) { palSel = i; palMark(); } } }, c.img ? pic(c.img) : icon(c.svg), el('span', {}, c.label), el('span', { class: 'sub' }, c.sub))) : [el('li', { 'aria-selected': 'false' }, 'No matches. Type a question (3+ letters) to ask the analyst.')]));
+}
+function palMark() { $$('#pal-list li').forEach((li, i) => li.setAttribute('aria-selected', String(i === palSel))); $('#pal-list li[aria-selected=true]')?.scrollIntoView({ block: 'nearest' }); }
+function palRun(i) { const c = palItems[i]; if (!c) return; pal.close(); c.run(); }
+function openPalette() { if (!pal.open) { $('#pal-q').value = ''; palSel = 0; pal.showModal(); palRender(); $('#pal-q').focus(); } }
+$('#pal-q').oninput = () => { palSel = 0; palRender(); };
+$('#pal-q').onkeydown = e => {
+  if (e.key === 'ArrowDown') { e.preventDefault(); palSel = Math.min(palItems.length - 1, palSel + 1); palMark(); }
+  else if (e.key === 'ArrowUp') { e.preventDefault(); palSel = Math.max(0, palSel - 1); palMark(); }
+  else if (e.key === 'Enter') { e.preventDefault(); palRun(palSel); }
+};
+pal.addEventListener('click', e => { if (e.target === pal) pal.close(); });
+$('#btn-pal').onclick = openPalette;
+document.addEventListener('keydown', e => {
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); pal.open ? pal.close() : openPalette(); return; }
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
+  if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !document.querySelector('dialog[open]')) { e.preventDefault(); showTab('analyze'); $('#q').focus(); }
+});
