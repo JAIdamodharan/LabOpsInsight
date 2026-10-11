@@ -207,6 +207,10 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
         version = int(max(p.stat().st_mtime for p in STATIC.rglob("*") if p.is_file()))
         return HTMLResponse((STATIC / "index.html").read_text().replace("__V__", str(version)), headers={"Cache-Control": "no-store"})
 
+    @app.get("/favicon.ico", include_in_schema=False)
+    def favicon():
+        return FileResponse(STATIC / "brand" / "favicon.ico", media_type="image/x-icon")
+
     @app.get("/artifacts/{name}")
     def artifact(name: str, user: dict = Depends(require("read"))):
         path = (art_root / name).resolve()

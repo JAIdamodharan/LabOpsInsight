@@ -86,3 +86,27 @@ def test_rescues_tool_call_written_as_text():
     # unknown tool names and ordinary JSON answers are left alone
     assert from_openai_response(completion('{"name": "bob"}'), ["run_sql"]).stop_reason == "end_turn"
     assert from_openai_response(completion("plain answer"), ["run_sql"]).stop_reason == "end_turn"
+
+
+def test_xai_preset_needs_key_and_an_explicit_model(monkeypatch):
+    monkeypatch.delenv("XAI_API_KEY", raising=False)
+    with pytest.raises(SystemExit, match="XAI_API_KEY"):
+        llm.make_client("xai", model="some-model")
+    monkeypatch.setenv("XAI_API_KEY", "xai-test")
+    with pytest.raises(SystemExit, match="--model"):
+        llm.make_client("xai")                                   # no guessed default: model names change
+    c, model = llm.make_client("xai", model="some-model")
+    assert model == "some-model" and str(c.http.base_url).rstrip("/") == "https://api.x.ai/v1"
+
+
+@pytest.mark.parametrize("fake", ["paste-your-key-here", "your-groq-key", "<key>", "short", "xxxxxxxxxxxxxxxxxxxxxxxx", "gsk_changeme_changeme_changeme"])
+def test_placeholder_keys_are_rejected_with_a_helpful_message(monkeypatch, fake):
+    monkeypatch.setenv("GROQ_API_KEY", fake)
+    with pytest.raises(SystemExit, match="placeholder text, not a real key"):
+        llm.make_client("groq")
+
+
+def test_a_realistic_key_is_accepted(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6")
+    client, model = llm.make_client("groq")
+    assert model and client.http.headers["authorization"].startswith("Bearer gsk_")

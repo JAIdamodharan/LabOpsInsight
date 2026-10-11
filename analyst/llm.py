@@ -24,6 +24,7 @@ PRESETS = {
     "ollama": Preset("http://localhost:11434/v1", None, "llama3.2", "free, local; needs `ollama serve`"),
     "groq": Preset("https://api.groq.com/openai/v1", "GROQ_API_KEY", "llama-3.3-70b-versatile", "free tier, rate limited"),
     "gemini": Preset("https://generativelanguage.googleapis.com/v1beta/openai", "GEMINI_API_KEY", "gemini-2.5-flash", "free tier, rate limited"),
+    "xai": Preset("https://api.x.ai/v1", "XAI_API_KEY", "", "Grok (xAI); pass --model with a model name from your xAI console"),
     "openrouter": Preset("https://openrouter.ai/api/v1", "OPENROUTER_API_KEY", "meta-llama/llama-3.3-70b-instruct:free", "has :free models"),
 }
 
@@ -125,6 +126,11 @@ class OpenAICompatClient:
             return from_openai_response(r.json(), [t["name"] for t in tools])
 
 
+def looks_like_placeholder(key: str) -> bool:
+    k = key.strip().lower()
+    return len(k) < 20 or any(w in k for w in ("paste", "your-", "your_", "<", "here", "xxxx", "changeme", "example", "placeholder"))
+
+
 def make_client(provider: str = "anthropic", model: str | None = None, base_url: str | None = None):
     """Return (client, model). provider is 'anthropic', a PRESETS name, or 'openai' with --base-url."""
     if provider == "anthropic":
@@ -139,6 +145,9 @@ def make_client(provider: str = "anthropic", model: str | None = None, base_url:
     key = os.environ.get(key_env) if key_env else None
     if key_env and not key and (p is None or p.key_env):
         raise SystemExit(f"set {key_env} for provider '{provider}' (free keys: see README)")
+    if key and looks_like_placeholder(key):
+        raise SystemExit(f"{key_env} is set to '{key[:24]}', which is placeholder text, not a real key. Copy the actual key from your provider's console "
+                         f"and run: export {key_env}=\"<the real key>\"")
     return OpenAICompatClient(url, key), model or (p.model if p else None) or _need_model()
 
 

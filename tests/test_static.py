@@ -120,3 +120,8 @@ def test_logout_clears_client_side_state():
     clear = js[js.index("function clearClientState()"):js.index("/* ---- sign-in / first-run screen ---- */")]
     for needle in ("abortRun()", "S.user = null", "S.cache = {}", "recent.", "dash.v1", "killCharts"):
         assert needle in clear, needle
+
+
+def test_favicon_is_served_at_the_default_browser_path(c):
+    r = c.get("/favicon.ico")
+    assert r.status_code == 200 and r.headers["content-type"] == "image/x-icon" and r.content[:4] == b"\x00\x00\x01\x00"
