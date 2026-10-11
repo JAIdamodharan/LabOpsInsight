@@ -41,7 +41,27 @@ python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
 .venv/bin/python -m pytest                                 # 120+ tests, no API key needed
 ```
 Tabs: **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, instrument table, OOS heatmap, 3 themes),
-**Data Review** (rule results + downloadable query list per rule), **Analyze** (the agent), **Data** (raw table browser), **Pinned**.
+**Data Review** (rule results + downloadable query list per rule), **Analyze** (the agent, with Copy answer / Download report), **Data** (raw table browser), **Pinned**.
+There is a light/dark toggle, and Print gives a clean PDF of any dashboard.
+
+## Use your own Excel data
+Click **Upload Excel** (or drop a file anywhere on the page). `.xlsx` and `.csv` are accepted; each sheet becomes a table and the first row is read
+as the column headers. Headers are cleaned to `snake_case`, duplicates are suffixed, and the types are inferred. **Numbers stored as text are kept as text and flagged**,
+not silently converted. Download the example workbook from the dialog to see the format; it contains realistic mistakes (duplicate rows, `N/A` in a numeric column, a price typo...).
+
+| For an uploaded dataset | What you get | Needs a model? |
+|---|---|---|
+| **Overview** | row / column / completeness / duplicate KPIs, auto-generated charts (trend by month, average by category, distribution), per-column profile | no |
+| **Data Review** | generic checks GQ-001..009 (missing values, duplicates, numbers stored as text, inconsistent spelling or spaces, outliers, negative quantities, future dates, constant columns) with severity, examples and a CSV export | no |
+| **Data** | sortable, paged table browser | no |
+| **Analyze** | the same agent, with a domain-neutral prompt and a `data_quality` tool that runs the generic review | **yes** (`--provider ollama` is free) |
+
+Demo mode only scripts answers for the built-in lab data, and says so on uploads instead of faking it.
+
+**Upload safety** (it is a local app, but uploads are untrusted input): `.xlsm`/`.xls` rejected; limits on size (15 MB, enforced while streaming), expanded size (zip bombs),
+sheets (10), rows (200k), columns (100) and cells (3M); `defusedxml` guards against XML bombs; formulas are never evaluated; hidden sheets are skipped; every dataset
+is its own read-only DuckDB file with external file access disabled; dataset ids are random hex and never used as paths; uploads and deletes need a custom header (blocks cross-site requests)
+and a Host allowlist blocks DNS rebinding. Nothing leaves your computer.
 
 `--demo` uses a scripted model that runs **real** SQL and data-quality checks for four investigations (OOS, on-time delivery,
 deviations, data quality) and declines anything else. For free-form questions use a real model:
@@ -73,7 +93,9 @@ Default model names can be retired by providers; pass `--model` to override.
   tool calls that weak models write as text and a guard against answering over an unresolved error.
 
 ## Known limitations (be honest about these)
-- Synthetic data: it demonstrates method, not results on real lab data. Real LIMS/ELN exports would need an ingestion and mapping layer.
+- The built-in data is synthetic: it demonstrates method, not results on real lab data. Uploaded workbooks get the generic Overview / Data Review, but the lab dashboard, the lab rules (DQ-001..010) and the scripted demo are specific to the built-in lab schema; mapping an arbitrary LIMS export onto them would need a column-mapping step that does not exist yet.
+- Uploads are stored unencrypted under `data/uploads` and are visible to anyone with access to this app; there are no user accounts.
+- Excel reading: formulas show their last saved value (a formula that was never calculated shows blank); merged cells keep only their top-left value; the first non-empty row is always the header; dates stored as text stay text.
 - DQ-004 only catches scale errors that push a result beyond 3x the upper spec limit; near-zero values slip through.
 - "Utilization" assumes 20 available hours per weekday per instrument; real utilization needs scheduled-time and downtime data.
 - The agent has **not** yet been benchmarked with a real model on the lab question set (the earlier 3B-model baseline was for a retired retail dataset and is
@@ -82,7 +104,7 @@ Default model names can be retired by providers; pass `--model` to override.
 - Not validated for regulated (GxP / 21 CFR Part 11) use: no audit trail, e-signatures or access control.
 
 ## Layout
-`analyst/` agent, DB guardrails, charts, dashboard, data review, LLM adapter, server, UI · `scripts/make_data.py` data generator ·
+`analyst/` agent, DB guardrails, charts, dashboard, lab data review (`dq.py`), generic profiling and review (`profile.py`), safe Excel/CSV ingest (`ingest.py`), dataset registry (`datasets.py`), LLM adapter, server, UI (`static/index.html`, `style.css`, `app.js`) · `scripts/make_data.py` data generator ·
 `eval/` benchmark · `sandbox/` Docker image for the optional Python tool · `tests/`
 
 ## Results to fill in after your own runs

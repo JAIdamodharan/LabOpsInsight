@@ -5,30 +5,39 @@ from typing import Iterator
 
 import anthropic
 
-from . import dq
+from . import dq, profile
 from .charts import TYPES as CHART_TYPES, ChartError, build_chart
 from .db import Database, QueryRejected
 
 MODEL = os.environ.get("ANALYST_MODEL", "claude-sonnet-5-5")
 
-SYSTEM = """You are an autonomous senior data analyst supporting an analytical / QC laboratory in a CRO-CDMO style environment. Answer the user's question by investigating the lab database with the run_sql tool.
-
-Domain glossary (use these definitions unless the user says otherwise):
+LAB_GLOSSARY = """You are supporting an analytical / QC laboratory in a CRO-CDMO style environment. Domain glossary (use these definitions unless the user says otherwise):
 - test = one analytical test on one sample (tests table). status is 'Pass' or 'OOS'. OOS = out of specification: result_value outside spec_low..spec_high. OOS rate = OOS tests / tests.
 - turnaround time (TAT) = completed_date - samples.received_date, in days. A test is on time if completed_date <= samples.due_date. Use only rows with completed_date >= start_date and due_date >= received_date for TAT / on-time (the others are data errors).
 - utilization = sum(run_hours) / available hours (20 h per weekday per instrument). instrument_events lists Preventive Maintenance, Calibration and Breakdown periods.
 - deviation = a quality event (deviations table) with category, severity, lab, raised-by analyst; open = closed_date IS NULL.
 - Month of a test = month of completed_date. Anonymised client codes and analyst IDs only.
+- Break "why" questions down by instrument, lab, method, analyst/team and service line, and check instrument_events around the dates. Next-step examples: calibration records, instrument logs, training records."""
 
-Method:
+GENERIC_NOTES = """The user uploaded their own workbook(s). Each sheet became a table (names normalised to snake_case; reserved words get a trailing underscore); column names were normalised the same way. Do not assume a business domain: infer meaning from names and values, state your assumptions, and only ask what a column means if the answer depends on it. Numbers stored as text appear as VARCHAR: use TRY_CAST(col AS DOUBLE) when you need them numeric, and say so. Treat blanks as missing, not zero."""
+
+METHOD = """Method:
 1. Call get_schema first. Never guess column or table names.
-2. Form hypotheses, then test them with SQL. For "why did X change" questions, quantify the change, then break it down by every available dimension (time, instrument, lab, method, analyst/team, service line) to find where it is concentrated, compare with a baseline period, and check instrument_events around the dates.
-3. DuckDB SQL: string literals use SINGLE quotes ('Lab B'); double quotes denote identifiers. Dates are DATE columns (e.g. completed_date BETWEEN '2025-03-01' AND '2025-03-31').
+2. Form hypotheses, then test them with SQL. For "why did X change" questions, quantify the change, then break it down by every available dimension (time and each categorical column) to find where it is concentrated, and compare with a baseline period.
+3. DuckDB SQL: string literals use SINGLE quotes ('North'); double quotes denote identifiers. Dates are DATE columns (e.g. order_date BETWEEN '2025-03-01' AND '2025-03-31').
 4. Sanity-check results (empty results, implausible values, duplicates, join fan-out). If a query errors, read the error and fix it.
-5. GxP mindset: report numbers as recorded, never silently drop or "fix" records. Call data_quality when a result/date-based number looks odd and before concluding on one; mention material data-quality issues as caveats. Never claim a root cause the data cannot prove: say what the data shows, what you infer, and what an investigator should verify next (e.g. calibration records, instrument logs, training records). The scientists decide; you advise.
+5. Report numbers as recorded, never silently drop or "fix" records. Call data_quality when a number looks odd and before concluding on one; mention material data-quality issues as caveats. Never claim a cause the data cannot prove: say what the data shows, what you infer, and what should be verified next. The people who own the data decide; you advise.
 6. When a visual helps, call the chart tool (the user sees an interactive chart; SQL results already show as sortable tables). Pick the type: bar/hbar to compare categories, line/area for trends over time, pie/doughnut only for parts of a whole with at most 6-8 slices, scatter for two numeric variables, kpi for headline numbers (one SQL row, one column per metric). The chart tool runs its own SQL: x is the category/time column, y the numeric column(s), series optionally splits one y into several lines/bars. Do not chart more than 2-3 times per question; the written answer matters most.
 7. For statistics (significance, correlation, drift) or custom plots, use run_python if available. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results.
 8. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats and recommended next verification steps."""
+
+
+def build_system(domain: str = "lab") -> str:
+    intro = "You are an autonomous senior data analyst. Answer the user's question by investigating the database with the run_sql tool."
+    return "\n\n".join([intro, LAB_GLOSSARY if domain == "lab" else GENERIC_NOTES, METHOD])
+
+
+SYSTEM = build_system("lab")
 
 MAX_NUDGES = 2
 NUDGE = ("Your last tool call failed and you have not resolved it. Do not answer yet: call the tool again with a corrected "
@@ -106,13 +115,15 @@ class RunStats:
 
 class Analyst:
     def __init__(self, db: Database, client=None, model: str = MODEL,
-                 max_steps: int = 15, max_tokens_budget: int = 150_000, sandbox=None):
+                 max_steps: int = 15, max_tokens_budget: int = 150_000, sandbox=None, domain: str = "lab"):
         self.db = db
         self.client = client or anthropic.Anthropic()
         self.model = model
         self.max_steps = max_steps
         self.max_tokens_budget = max_tokens_budget
         self.sandbox = sandbox
+        self.system = build_system(domain)
+        self.quality = dq.as_text if domain == "lab" else profile.as_text
         self.tools = TOOLS + [DQ_TOOL, CHART_TOOL] + ([PYTHON_TOOL] if sandbox else [])
         self._extra: dict = {}
 
@@ -121,7 +132,7 @@ class Analyst:
         if name == "get_schema":
             return self.db.schema(), False
         if name == "data_quality":
-            return dq.as_text(self.db), False
+            return self.quality(self.db), False
         if name == "chart":
             stats.chart_calls += 1
             try:
@@ -178,7 +189,7 @@ class Analyst:
 
             stats.steps += 1
             resp = self.client.messages.create(
-                model=self.model, max_tokens=4096, system=SYSTEM, tools=self.tools, messages=messages,
+                model=self.model, max_tokens=4096, system=self.system, tools=self.tools, messages=messages,
             )
             stats.input_tokens += resp.usage.input_tokens
             stats.output_tokens += resp.usage.output_tokens

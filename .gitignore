@@ -5,3 +5,4 @@ data/*.duckdb
 .env
 artifacts/
 eval/results/
+data/uploads/

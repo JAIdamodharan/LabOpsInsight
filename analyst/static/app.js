@@ -1,0 +1,554 @@
+'use strict';
+/* ===================== helpers ===================== */
+const $ = (s, r = document) => r.querySelector(s), $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) { if (k === 'class') e.className = v; else if (k.startsWith('on')) e[k] = v; else if (v !== null && v !== undefined) e.setAttribute(k, v); }
+  kids.flat().forEach(c => { if (c !== null && c !== undefined && c !== false) e.append(c); });
+  return e;
+};
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const isNumStr = v => typeof v === 'number' || (typeof v === 'string' && /^-?\d+(\.\d+)?$/.test(v));
+const fmtNum = (v, col) => { const n = Number(v); if (/(^|_)id$/i.test(col) || !isFinite(n)) return String(v); return n.toLocaleString(undefined, { maximumFractionDigits: 2 }); };
+const fnum = v => v == null ? '' : Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 });
+const compact = v => Math.abs(v) >= 1e6 ? +(v / 1e6).toFixed(1) + 'M' : Math.abs(v) >= 1e3 ? +(v / 1e3).toFixed(1) + 'K' : v;
+const store = { get(k, d = null) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { } } };
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const ICON = {
+  logo: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/>',
+  bi: '<rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/>',
+  dq: '<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/><path d="M9 12l2 2 4-4"/>',
+  analyze: '<path d="M21 15a2 2 0 0 1-2 2H8l-5 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+  data: '<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 4v16"/>',
+  pins: '<path d="M12 17v5M9 3h6l-1 7 3 3v2H7v-2l3-3z"/>',
+  upload: '<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>',
+  print: '<path d="M6 9V3h12v6M6 18H4v-7h16v7h-2"/><rect x="6" y="14" width="12" height="7"/>',
+  sheet: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8M12 11v10"/>',
+  flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/>',
+};
+const icon = (n, big) => { const s = el('span'); s.innerHTML = `<svg class="i" viewBox="0 0 24 24"${big ? ' style="width:30px;height:30px"' : ''}>${ICON[n]}</svg>`; return s.firstChild; };  // static, trusted markup only
+
+function toast(msg, kind = 'info', ms = 5000) {
+  const t = el('div', { class: 'toast ' + kind, role: kind === 'err' ? 'alert' : 'status' }, msg);
+  $('#toasts').append(t); setTimeout(() => t.remove(), ms);
+}
+async function api(path, { method = 'GET', headers = {} } = {}) {
+  const r = await fetch(path, { method, headers: { ...headers, ...(method !== 'GET' ? { 'X-Requested-With': 'labops' } : {}) } });
+  if (!r.ok) { let m = r.statusText; try { m = (await r.json()).detail || m; } catch { } throw new Error(m); }
+  return r.json();
+}
+
+/* ===================== state ===================== */
+const S = { config: {}, datasets: [], dataset: 'lab', kind: 'lab', tab: 'bi', cache: {}, es: null, run: null };
+const C = () => (S.cache[S.dataset] ??= {});
+const meta = () => S.datasets.find(d => d.id === S.dataset) || {};
+const qs = (path, extra = {}) => `${path}?${new URLSearchParams({ dataset: S.dataset, ...extra })}`;
+const LAB_EXAMPLES = ['Why was the OOS rate on HPLC-03 so high in Mar 2025?', 'Why did Related Substances on-time delivery drop in Feb 2025?', 'Why did Documentation deviations increase in Apr 2025, and who raised them?', 'Which records need data review?'];
+
+/* ===================== theme ===================== */
+function applyUiTheme(t) {
+  if (t) { document.documentElement.dataset.theme = t; store.set('ui.theme', t); }
+  const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')) === 'dark';
+  $('#btn-theme').replaceChildren(icon(dark ? 'sun' : 'moon'));
+}
+const BI_THEMES = [['th-mint', 'Mint'], ['th-corp', 'Corporate'], ['th-navy', 'Navy']];
+function setBiTheme(t) {
+  $$('.bi').forEach(b => { b.className = 'bi ' + t; });
+  $$('.theme-sel').forEach(s => { s.value = t; });
+  store.set('bi.theme', t);
+}
+const bc = v => getComputedStyle($('#bi')).getPropertyValue(v).trim();
+const rgba = (rgbVar, a) => `rgba(${bc(rgbVar)},${a})`;
+
+/* ===================== tabs ===================== */
+const TABS = ['bi', 'dq', 'analyze', 'data', 'pins'];
+function tabLabel(t) { return { bi: S.kind === 'lab' ? 'Dashboard' : 'Overview', dq: 'Data Review', analyze: 'Analyze', data: 'Data', pins: 'Pinned' }[t]; }
+function buildTabs() {
+  $$('#tabs button').forEach(b => {
+    const t = b.dataset.tab;
+    b.replaceChildren(...[icon(t), el('span', {}, tabLabel(t)), t === 'pins' ? el('span', { class: 'n', id: 'pincount', hidden: '' }, '0') : null].filter(Boolean));
+    b.onclick = () => showTab(t);
+    b.onkeydown = e => { const i = TABS.indexOf(t); if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') { const n = TABS[(i + (e.key === 'ArrowRight' ? 1 : TABS.length - 1)) % TABS.length]; showTab(n); $(`[data-tab=${n}]`).focus(); } };
+  });
+  savePins();
+}
+const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, analyze: () => { } };
+function showTab(t) {
+  S.tab = t;
+  $$('#tabs button').forEach(b => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
+  TABS.forEach(x => { $('#tab-' + x).hidden = x !== t; });
+  try { history.replaceState(null, '', '#' + t); } catch { }
+  loaders[t]();
+}
+function refreshTab() { showTab(S.tab); }
+
+/* ===================== skeleton / errors ===================== */
+function skeleton(root) { root.replaceChildren(el('div', { class: 'skel-row' }, el('div', { class: 'skel' }), el('div', { class: 'skel' }), el('div', { class: 'skel' }), el('div', { class: 'skel' })), el('div', { class: 'skel tall' })); }
+function showError(root, msg, retry) { root.replaceChildren(el('div', { class: 'banner' }, msg, ' ', retry ? el('button', { class: 'link', onclick: retry }, 'Retry') : null)); }
+
+/* ===================== spreadsheet-style grid ===================== */
+function csvCell(v) { let s = v == null ? '' : String(v); if (!isNumStr(s) && /^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }
+function downloadCsv(name, cols, rows) {
+  const blob = new Blob([[cols, ...rows].map(r => r.map(csvCell).join(',')).join('\n')], { type: 'text/csv' });
+  const a = el('a', { href: URL.createObjectURL(blob), download: name + '.csv' }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function grid(cols, rows, { onSort, name = 'data', note = '', sortBy = null, sortDesc = false } = {}) {
+  const numeric = cols.map((_, i) => rows.length > 0 && rows.every(r => r[i] == null || isNumStr(r[i])));
+  let sortCol = sortBy ? cols.indexOf(sortBy) : -1, desc = sortDesc, q = '';
+  const info = el('span'), filter = el('input', { type: 'text', placeholder: 'Filter rows…', 'aria-label': 'Filter rows' });
+  const thead = el('thead'), tbody = el('tbody');
+  const view = () => {
+    let r = rows.filter(row => !q || row.some(c => String(c ?? '').toLowerCase().includes(q)));
+    if (sortCol >= 0 && !onSort) r = [...r].sort((a, b) => { const x = a[sortCol], y = b[sortCol]; if (x == null) return 1; if (y == null) return -1; const c = numeric[sortCol] ? Number(x) - Number(y) : String(x).localeCompare(String(y)); return desc ? -c : c; });
+    return r;
+  };
+  const paint = () => {
+    const r = view();
+    tbody.replaceChildren(...r.map(row => el('tr', {}, ...row.map((c, i) => el('td', { class: numeric[i] ? 'n' : '' }, c == null ? '' : numeric[i] ? fmtNum(c, cols[i]) : String(c))))));
+    thead.replaceChildren(el('tr', {}, ...cols.map((c, i) => el('th', { class: numeric[i] ? 'n' : '', title: 'Click to sort', onclick: () => { desc = sortCol === i ? !desc : false; sortCol = i; if (onSort) onSort(c, desc); paint(); } }, c + (sortCol === i ? (desc ? ' ▼' : ' ▲') : '')))));
+    info.textContent = (q ? `${r.length} of ${rows.length}` : `${rows.length}`) + ' rows' + (note ? ' · ' + note : '');
+  };
+  filter.oninput = () => { q = filter.value.trim().toLowerCase(); paint(); };
+  paint();
+  return el('div', { class: 'grid' },
+    el('div', { class: 'gbar' }, filter, info, el('span', { class: 'sp' }), el('button', { class: 'link', onclick: () => downloadCsv(name, cols, view()) }, 'Download CSV')),
+    el('div', { class: 'gscroll' }, el('table', {}, thead, tbody)));
+}
+
+/* ===================== charts for Analyze + Pinned ===================== */
+const PALETTE = ['#6ea8fe', '#f59e0b', '#34d399', '#f472b6', '#a78bfa', '#fb7185', '#22d3ee', '#a3e635', '#94a3b8', '#fbbf24', '#2dd4bf', '#e879f9'];
+let pins = store.get('dash.v1', []);
+const savePins = () => { store.set('dash.v1', pins); const n = $('#pincount'); if (n) { n.textContent = pins.length; n.hidden = !pins.length; } };
+const pinKey = s => JSON.stringify([s.type, s.title, s.labels, s.datasets, s.cards]);
+function drawChart(canvas, s) {
+  const mute = css('--mute'), line = css('--line'), text = css('--text');
+  const multi = s.datasets.length > 1, round = s.type === 'pie' || s.type === 'doughnut';
+  const type = { hbar: 'bar', area: 'line' }[s.type] || s.type;
+  const datasets = s.datasets.map((d, i) => {
+    const c = PALETTE[i % PALETTE.length];
+    if (round) return { label: d.label, data: d.data, backgroundColor: s.labels.map((_, j) => PALETTE[j % PALETTE.length]), borderColor: css('--panel'), borderWidth: 2 };
+    if (s.type === 'scatter') return { label: d.label, data: d.data, backgroundColor: c, pointRadius: 4 };
+    if (type === 'line') return { label: d.label, data: d.data, borderColor: c, backgroundColor: c + (s.type === 'area' ? '44' : ''), fill: s.type === 'area', tension: .25, pointRadius: 3, spanGaps: true };
+    return { label: d.label, data: d.data, backgroundColor: c, borderRadius: 4 };
+  });
+  const axis = title => ({ ticks: { color: mute }, grid: { color: line }, title: { display: !!title, text: title || '', color: mute } });
+  return new Chart(canvas, { type, data: { labels: s.labels, datasets }, options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, indexAxis: s.type === 'hbar' ? 'y' : 'x',
+    plugins: { legend: { display: multi || round, labels: { color: text } }, tooltip: { callbacks: { label: c => { const v = c.parsed.y ?? c.parsed.x ?? c.parsed; const n = typeof v === 'object' ? '' : v; return `${c.dataset.label || c.label}: ${Number(n).toLocaleString(undefined, { maximumFractionDigits: 2 })}`; } } } },
+    scales: round ? {} : { x: axis(s.type === 'hbar' ? s.ylabel : s.xlabel), y: axis(s.type === 'hbar' ? s.xlabel : s.ylabel) } } });
+}
+function chartCard(s, { dash = false } = {}) {
+  const head = el('div', { class: 'chead' }, el('h3', {}, s.title));
+  const card = el('div', { class: 'card' }, head);
+  const pinBtn = el('button', { class: 'link' });
+  const sync = () => { pinBtn.textContent = dash ? 'Unpin' : pins.some(p => pinKey(p) === pinKey(s)) ? 'Pinned ✓' : 'Pin to dashboard'; };
+  pinBtn.onclick = () => { const i = pins.findIndex(p => pinKey(p) === pinKey(s)); if (i >= 0) pins.splice(i, 1); else if (!dash) pins.push(s); savePins(); sync(); if (dash) renderPins(); };
+  sync();
+  if (s.type === 'kpi') {
+    card.append(el('div', { class: 'kpis' }, ...s.cards.map(c => el('div', { class: 'kpi' }, el('div', { class: 'v' }, typeof c.value === 'number' ? c.value.toLocaleString(undefined, { maximumFractionDigits: 2 }) : String(c.value)), el('div', { class: 'l' }, c.label)))));
+    head.append(pinBtn); return card;
+  }
+  if (typeof Chart === 'undefined') {
+    const cols = ['label', ...s.datasets.map(d => d.label)];
+    card.append(el('div', { class: 'sum' }, 'Chart library failed to load; showing the data instead.'), grid(cols, (s.labels || []).map((l, i) => [l, ...s.datasets.map(d => d.data[i])]), { name: s.title }));
+    head.append(pinBtn); return card;
+  }
+  const canvas = el('canvas', { role: 'img', 'aria-label': s.title });
+  head.append(el('button', { class: 'link', onclick: () => { const a = el('a', { href: canvas.toDataURL('image/png'), download: s.title.replace(/\W+/g, '_') + '.png' }); a.click(); } }, 'PNG'), pinBtn);
+  card.append(el('div', { class: 'cv' }, canvas));
+  requestAnimationFrame(() => drawChart(canvas, s));
+  return card;
+}
+function renderPins() {
+  $('#dash').replaceChildren(...(pins.length ? pins.map(s => chartCard(s, { dash: true })) : [el('div', { class: 'empty' }, 'Nothing pinned yet. Ask a question, then click “Pin to dashboard” on a chart.')]));
+}
+
+/* ===================== themed (BI) chart helpers ===================== */
+const bcharts = [];
+const killCharts = () => bcharts.splice(0).forEach(c => c.destroy());
+const axisOpts = (extra = {}) => ({ ticks: { color: bc('--b-mute'), ...(extra.num ? { callback: extra.fmt || (v => compact(v)) } : {}), ...(extra.ticks || {}) }, grid: { color: bc('--b-border'), drawOnChartArea: !extra.noGrid }, border: { display: false }, ...(extra.min !== undefined ? { min: extra.min } : {}), ...(extra.max !== undefined ? { max: extra.max } : {}) });
+const legend = () => ({ labels: { color: bc('--b-text'), usePointStyle: true, boxWidth: 8 } });
+function chartBox(title, cls, build) {
+  const canvas = el('canvas'), card = el('div', { class: 'bcard ' + cls }, el('h3', {}, title), el('div', { class: 'bcv' }, canvas));
+  if (typeof Chart === 'undefined') card.append(el('div', { class: 'kp' }, 'Chart library failed to load (offline?).'));
+  else requestAnimationFrame(() => bcharts.push(build(canvas)));
+  return card;
+}
+function kc(label, value, cls, sub) { return el('div', { class: 'bcard kcard' }, el('h3', {}, label), el('div', { class: 'kv ' + (cls || '') }, value), sub ? el('div', { class: 'kp' }, sub) : null); }
+function insightRow(i) {
+  const row = el('div', { class: 'insight ' + i.level }, el('span', {}, i.text));
+  if (i.ask) row.append(el('button', { class: 'link', onclick: () => askAgent(i.ask) }, 'Investigate →'));
+  else if (i.goto) row.append(el('button', { class: 'link', onclick: () => showTab(i.goto) }, 'Open Data Review →'));
+  return row;
+}
+function askAgent(q) { $('#q').value = q; showTab('analyze'); $('#f').requestSubmit(); }
+
+/* ===================== lab dashboard ===================== */
+const cnt = v => v >= 1e4 ? `${(v / 1e3).toFixed(1)}K` : Math.round(v).toLocaleString();
+const FMT = { count: cnt, pct: v => v.toFixed(1) + '%', days: v => v.toFixed(2) + ' d' };
+function dirClass(delta, good) { if (delta == null || Math.abs(delta) < 0.05) return 'flat'; return (delta > 0) === (good === 'up') ? 'good' : 'bad'; }
+function kpiCard(k, prevLabel) {
+  const cls = dirClass(k.delta, k.good), arrow = k.delta == null || Math.abs(k.delta) < 0.05 ? '' : (k.delta > 0 ? '↑' : '↓');
+  const d = k.delta == null ? '—' : `${k.delta > 0 ? '+' : ''}${k.delta.toFixed(1)}${k.delta_kind === 'pp' ? ' pp' : '%'}`;
+  return el('div', { class: 'bcard kcard' }, el('h3', {}, k.label), el('div', { class: 'kv' }, FMT[k.fmt](k.value), el('span', { class: 'arrow ' + cls }, arrow)),
+    el('div', { class: 'kp' }, k.prev == null ? 'no prior period' : `${prevLabel}: ${FMT[k.fmt](k.prev)} · `, el('b', { class: cls }, k.prev == null ? '' : d)));
+}
+const gaugeColor = v => v >= 92 ? '--b-good' : v >= 85 ? '--b-warn' : '--b-bad';
+function gaugeCard(g, prevLabel) {
+  const canvas = el('canvas'), cv = gaugeColor(g.value);
+  const card = el('div', { class: 'bcard gauge' }, el('h3', {}, g.label), el('div', { class: 'gwrap' }, canvas, el('div', { class: 'gval', style: `color:${bc(cv)}` }, g.value.toFixed(1) + '%')), el('div', { class: 'gprev' }, g.prev == null ? '' : `${prevLabel}: ${g.prev.toFixed(1)}%`));
+  if (typeof Chart !== 'undefined') requestAnimationFrame(() => bcharts.push(new Chart(canvas, { type: 'doughnut', data: { datasets: [{ data: [g.value, 100 - g.value], backgroundColor: [bc(cv), bc('--b-track')], borderWidth: 0 }] },
+    options: { rotation: -90, circumference: 180, cutout: '68%', responsive: true, maintainAspectRatio: false, animation: { duration: 500 }, plugins: { legend: { display: false }, tooltip: { enabled: false } } } })));
+  return card;
+}
+function renderBI(d) {
+  C().bi = d; killCharts();
+  const f = d.filters, P = d.period, T = d.trend, sel = T.selected;
+  $('#bi-h').textContent = `Lab Operations — ${P.label}`;
+  $('#bi-sub').textContent = (P.prev_label ? `vs ${P.prev_label}` : 'first month in data') + ` · ${f.lab || 'All labs'} · ${f.service_line || 'All service lines'} · synthetic, anonymised data`;
+  $('#bi-ins').replaceChildren(...d.insights.map(i => insightRow({ ...i, goto: i.ask ? null : 'dq' })));
+  $('#bi-k').replaceChildren(...d.kpis.map(x => kpiCard(x, P.prev_label)), ...d.gauges.map(x => gaugeCard(x, P.prev_label)));
+  const hl = (base, hi) => T.labels.map((_, i) => i === sel ? hi : base);
+  const volume = chartBox('Tests completed & OOS rate', 's7', cv => new Chart(cv, { data: { labels: T.labels, datasets: [
+    { type: 'bar', label: 'Tests completed', data: T.tests, yAxisID: 'y', backgroundColor: hl(bc('--b-a4'), bc('--b-a5')), borderRadius: 3 },
+    { type: 'line', label: 'OOS rate (%)', data: T.oos_rate, yAxisID: 'y1', borderColor: bc('--b-bad'), backgroundColor: bc('--b-bad'), tension: .25, pointRadius: hl(3, 7), pointHoverRadius: 7 }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend(), tooltip: { callbacks: { label: c => c.dataset.yAxisID === 'y1' ? `OOS rate: ${c.parsed.y.toFixed(2)}%` : `Tests: ${c.parsed.y.toLocaleString()}` } } },
+      scales: { x: axisOpts({ ticks: { maxRotation: 55 } }), y: axisOpts({ num: true }), y1: { position: 'right', min: 0, ticks: { color: bc('--b-mute'), callback: v => v + '%' }, grid: { drawOnChartArea: false }, border: { display: false } } } } }));
+  const delivery = chartBox('On-time delivery & turnaround', 's5', cv => new Chart(cv, { type: 'line', data: { labels: T.labels, datasets: [
+    { label: 'On-time delivery (%)', data: T.on_time, yAxisID: 'y', borderColor: bc('--b-a1'), backgroundColor: bc('--b-a1'), tension: .25, pointRadius: hl(3, 7) },
+    { label: 'Avg turnaround (days)', data: T.tat, yAxisID: 'y1', borderColor: bc('--b-a3'), backgroundColor: bc('--b-a3'), borderDash: [5, 4], tension: .25, pointRadius: hl(2, 6) }] },
+    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend() },
+      scales: { x: axisOpts({ ticks: { maxRotation: 55 } }), y: axisOpts({ num: true, fmt: v => v + '%', min: 80, max: 100 }), y1: { position: 'right', ticks: { color: bc('--b-mute'), callback: v => (+v.toFixed(2)) + ' d' }, grid: { drawOnChartArea: false }, border: { display: false } } } } }));
+  const cats = d.deviation_categories;
+  const dev = chartBox(`Deviations opened by category — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: cats.map(c => c.label), datasets: [{ label: P.label, data: cats.map(c => c.value), backgroundColor: bc('--b-a5'), borderRadius: 4 }, ...(P.prev_label ? [{ label: P.prev_label, data: cats.map(c => c.prev), backgroundColor: bc('--b-a4'), borderRadius: 4 }] : [])] },
+    options: { responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: legend() }, scales: { x: axisOpts({}), y: axisOpts({ num: true, fmt: v => Number.isInteger(v) ? v : '' }) } } }));
+  const M = d.methods;
+  const meth = chartBox(`Avg turnaround by method (days) — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: M.map(m => m.label), datasets: [{ data: M.map(m => m.tat), backgroundColor: M.map(m => m.on_time != null && m.on_time < 85 ? bc('--b-bad') : bc('--b-a1')), borderRadius: 4 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x.toFixed(2)} days · ${M[c.dataIndex].on_time ?? '—'}% on time · ${M[c.dataIndex].tests} tests` } } }, scales: { x: axisOpts({ num: true, fmt: v => (+v.toFixed(2)) + ' d' }), y: axisOpts({ noGrid: true }) } } }));
+  const it = el('div', { class: 'bcard s6' }, el('h3', {}, `Instruments — ${P.label}`), el('table', { class: 'btab inst' },
+    el('thead', {}, el('tr', {}, ...['Instrument', 'Tests', 'Utilization', 'OOS %', 'Δ pp'].map((h, i) => el('th', { class: i === 1 || i === 3 || i === 4 ? 'num' : '' }, h)))),
+    el('tbody', {}, ...d.instruments.map(r => el('tr', {}, el('td', { title: `${r.type} · ${r.lab}` }, r.instrument), el('td', { class: 'num' }, r.tests.toLocaleString()),
+      el('td', {}, el('span', { class: 'dtrack' }, el('div', { class: 'dbar', style: `width:${Math.max(2, r.utilization)}%;background:${r.utilization >= 95 ? bc('--b-bad') : bc('--b-a1')}` })), r.utilization.toFixed(0) + '%'),
+      el('td', { class: 'num ' + (r.oos_rate >= 10 ? 'bad' : '') }, r.oos_rate.toFixed(1)),
+      el('td', { class: 'num ' + dirClass(r.oos_delta, 'down') }, r.oos_delta == null ? '—' : `${r.oos_delta > 0 ? '+' : ''}${r.oos_delta.toFixed(1)}`))))));
+  const H = d.heatmap;
+  const heat = el('div', { class: 'bcard s6' }, el('h3', {}, 'OOS rate by instrument, last 6 months (ignores filters)'),
+    el('table', { class: 'btab heat' }, el('thead', {}, el('tr', {}, el('th', {}, 'Instrument'), ...H.months.map(m => el('th', { class: 'num' }, m)))),
+      el('tbody', {}, ...H.rows.map(row => el('tr', {}, el('td', { title: row.lab }, row.instrument), ...row.cells.map(c => {
+        const a = c.rate == null ? 0 : Math.min(c.rate / 25, 1) * .8;
+        return el('td', { class: 'cell' + (c.rate == null ? ' na' : ''), style: c.rate == null ? '' : `background:${rgba('--b-bad-rgb', a.toFixed(2))}`, title: `${c.oos} OOS of ${c.tests} tests` }, c.rate == null ? '—' : c.rate.toFixed(1) + '%');
+      }))))));
+  $('#bi-g').replaceChildren(volume, delivery, dev, meth, it, heat);
+}
+async function loadBI() {
+  const c = C();
+  if (c.bi && !c.biDirty) return renderBI(c.bi);
+  if (!c.bi) { $('#bi-k').replaceChildren(...skeleton2()); $('#bi-g').replaceChildren(); }
+  const p = new URLSearchParams({ dataset: S.dataset });
+  [['month', '#f-month'], ['lab', '#f-lab'], ['service_line', '#f-svc']].forEach(([k, s]) => { const v = $(s).value; if (v) p.set(k, v); });
+  try {
+    const d = await api('/api/dashboard?' + p);
+    if (!c.biOpts) {
+      c.biOpts = d.options;
+      $('#f-month').replaceChildren(...d.options.months.map(m => el('option', { value: m }, new Date(m + '-15').toLocaleString('en', { month: 'short', year: 'numeric' }))));
+      $('#f-lab').replaceChildren(el('option', { value: '' }, 'All labs'), ...d.options.labs.map(x => el('option', { value: x }, x)));
+      $('#f-svc').replaceChildren(el('option', { value: '' }, 'All service lines'), ...d.options.service_lines.map(x => el('option', { value: x }, x)));
+      $('#f-month').value = d.filters.month;
+    }
+    renderBI(d);
+  } catch (e) { showError($('#bi-g'), 'Could not load the dashboard: ' + e.message, loadBI); }
+}
+const skeleton2 = () => [1, 2, 3, 4].map(() => el('div', { class: 'skel', style: 'height:92px' }));
+['#f-month', '#f-lab', '#f-svc'].forEach(s => { $(s).onchange = () => { C().biDirty = true; loadBI().then(() => { C().biDirty = false; }); }; });
+$('#f-reset').onclick = () => { $('#f-lab').value = ''; $('#f-svc').value = ''; $('#f-month').value = '2025-03'; C().biDirty = true; loadBI().then(() => { C().biDirty = false; }); };
+$('#f-ask').onclick = () => { const P = C().bi?.period; if (!P) return; askAgent(P.prev_label ? `What changed in lab operations in ${P.label} compared with ${P.prev_label}? Check the OOS rate, on-time delivery and deviations.` : `Summarize lab performance in ${P.label}`); };
+
+/* ===================== lab data review ===================== */
+let dqRule = null;
+async function loadDQ() {
+  const c = C();
+  if (c.dq) return renderDQ(c.dq);
+  skeleton($('#dq-g'));
+  try { c.dq = await api('/api/dq'); renderDQ(c.dq); } catch (e) { showError($('#dq-g'), 'Could not load the data review: ' + e.message, loadDQ); }
+}
+function renderDQ(s) {
+  const crit = s.issues_by_severity.Critical;
+  $('#dq-k').replaceChildren(kc('Clean test records', s.clean_pct.toFixed(1) + '%', s.clean_pct >= 99 ? 'good' : 'bad'), kc('Records needing review', s.flagged_tests.toLocaleString()), kc('Critical issues', crit.toLocaleString(), crit ? 'bad' : 'good'), kc('Rules failing', `${s.open_rules} of ${s.rules.length}`, s.open_rules ? 'bad' : 'good'));
+  const tbl = el('div', { class: 'bcard s12' }, el('h3', {}, 'Checks'), el('table', { class: 'btab' },
+    el('thead', {}, el('tr', {}, ...['Rule', 'Check', 'ALCOA+', 'Severity', 'Issues', '% of records', 'Result', ''].map((h, i) => el('th', { class: i === 4 || i === 5 ? 'num' : '' }, h)))),
+    el('tbody', {}, ...s.rules.map(r => el('tr', { class: dqRule === r.id ? 'sel' : '', title: r.description }, el('td', {}, r.id), el('td', {}, r.title), el('td', {}, r.alcoa),
+      el('td', {}, el('span', { class: 'pill ' + r.severity }, r.severity)), el('td', { class: 'num' }, r.count.toLocaleString()), el('td', { class: 'num' }, r.pct.toFixed(2) + '%'),
+      el('td', {}, el('span', { class: 'pill ' + r.status }, r.status)), el('td', {}, r.count ? el('button', { class: 'link', onclick: () => showRule(r.id) }, 'View query list') : ''))))));
+  $('#dq-g').replaceChildren(tbl, el('div', { id: 'dq-list', class: 's12' }));
+  if (dqRule) showRule(dqRule, true);
+}
+async function showRule(id, quiet) {
+  dqRule = id;
+  try {
+    const d = await api(`/api/dq/${encodeURIComponent(id)}?limit=200`);
+    $$('#dq-g .btab tbody tr').forEach(tr => tr.classList.toggle('sel', tr.firstChild.textContent === id));
+    const box = el('div', { class: 'bcard', style: 'margin-top:10px' }, el('h3', {}, `${d.rule.id} · ${d.rule.title}: ${d.total} record${d.total === 1 ? '' : 's'}` + (d.total > d.limit ? ` (showing first ${d.limit})` : '')),
+      el('div', { class: 'kp', style: 'text-align:left;margin-bottom:6px' }, 'Each row is a query to raise with the owning lab. Nothing has been changed in the source data.'), grid(d.columns, d.rows, { name: `${d.rule.id}_queries` }));
+    $('#dq-list').replaceChildren(box); if (!quiet) box.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  } catch (e) { toast('Could not load that query list: ' + e.message, 'err'); }
+}
+
+/* ===================== overview + review for uploaded data ===================== */
+async function getProfile() { const c = C(); if (!c.profile) c.profile = await api(qs('/api/profile')); return c.profile; }
+const when = iso => { try { return new Date(iso).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' }); } catch { return ''; } };
+const SEV_LEVEL = { Critical: 'bad', Major: 'warn', Minor: 'info' };
+function askForIssue(i) { return `Check "${i.title.toLowerCase()}" in ${i.table}${i.column ? '.' + i.column : ''} and tell me how it affects the numbers.`; }
+function specCard(spec) {
+  return chartBox(spec.title, 's6', cv => {
+    const pal = [bc('--b-a1'), bc('--b-a5'), bc('--b-a4'), bc('--b-a3'), bc('--b-a2')], isLine = spec.type === 'line', hb = spec.type === 'hbar';
+    return new Chart(cv, { type: hb ? 'bar' : spec.type, data: { labels: spec.labels, datasets: spec.datasets.map((d, i) => ({ label: d.label, data: d.data, backgroundColor: isLine ? pal[i % 5] + '55' : pal[i % 5], borderColor: pal[i % 5], borderRadius: 4, tension: .25, pointRadius: isLine ? 2 : 0, fill: isLine })) },
+      options: { indexAxis: hb ? 'y' : 'x', responsive: true, maintainAspectRatio: false, animation: { duration: 400 }, plugins: { legend: { display: spec.datasets.length > 1, ...legend() }, tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Number(c.parsed.y ?? c.parsed.x).toLocaleString(undefined, { maximumFractionDigits: 2 })}` } } },
+        scales: { x: axisOpts(hb ? { num: true } : { ticks: { maxRotation: 45, autoSkip: true } }), y: axisOpts(hb ? { noGrid: true } : { num: true }) } } });
+  });
+}
+function columnProfile(t) {
+  const row = c => {
+    let vals;
+    if (c.kind === 'numeric') vals = el('span', {}, `${fnum(c.min)} – ${fnum(c.max)} · mean ${fnum(c.mean)} · median ${fnum(c.median)}`);
+    else if (c.kind === 'date') vals = el('span', {}, `${(c.min || '').slice(0, 10)} → ${(c.max || '').slice(0, 10)}`);
+    else if (c.top) vals = el('div', { class: 'topvals' }, ...c.top.map(([v, n]) => el('span', {}, el('b', {}, String(v)), ` ${n.toLocaleString()}`)));
+    else vals = el('span', { class: 'mute' }, `${c.distinct.toLocaleString()} distinct values`);
+    const filled = 100 - c.null_pct;
+    return el('tr', {}, el('td', {}, c.name), el('td', {}, c.type.toLowerCase()), el('td', {}, el('span', { class: 'dtrack' }, el('div', { class: 'dbar', style: `width:${Math.max(2, filled)}%;background:${filled < 80 ? bc('--b-bad') : bc('--b-a1')}` })), filled.toFixed(0) + '%'), el('td', { class: 'num' }, c.distinct.toLocaleString()), el('td', { class: 'wrap' }, vals));
+  };
+  return el('div', { class: 'bcard s12', style: 'margin-top:10px' }, el('details', t.name === C().profile.tables[0].name ? { open: '' } : {}, el('summary', {}, `${t.name} · ${t.rows.toLocaleString()} rows · ${t.columns.length} columns`),
+    el('div', { style: 'margin-top:8px;overflow-x:auto' }, el('table', { class: 'btab' }, el('thead', {}, el('tr', {}, ...['Column', 'Type', 'Filled', 'Distinct', 'Values'].map((h, i) => el('th', { class: i === 3 ? 'num' : '' }, h)))), el('tbody', {}, ...t.columns.map(row))))));
+}
+async function loadOverview() {
+  const c = C(), m = meta();
+  if (!c.profile) skeleton($('#ov-g'));
+  try {
+    const p = await getProfile(); killCharts();
+    const s = p.summary, sev = s.issues_by_severity;
+    $('#ov-h').textContent = m.name || 'Your data';
+    $('#ov-sub').textContent = `${s.tables} table${s.tables === 1 ? '' : 's'} · ${s.rows.toLocaleString()} rows · ${s.columns} columns · added ${when(m.created)} · stored on this computer only`;
+    $('#ov-notes').replaceChildren(...(m.warnings && m.warnings.length ? [el('div', { class: 'bcard', style: 'margin-bottom:10px' }, el('details', {}, el('summary', {}, `Import notes (${m.warnings.length})`), el('ul', { style: 'margin:8px 0 0;padding-left:18px;color:var(--b-mute)' }, ...m.warnings.map(w => el('li', {}, w)))))] : []));
+    const worst = sev.Critical ? 'bad' : sev.Major ? 'bad' : sev.Minor ? 'flat' : 'good';
+    $('#ov-k').replaceChildren(kc('Rows', s.rows.toLocaleString()), kc('Columns', String(s.columns)), kc('Cells filled', s.completeness_pct.toFixed(1) + '%', s.completeness_pct >= 95 ? 'good' : s.completeness_pct >= 80 ? '' : 'bad'),
+      kc('Duplicate rows', s.duplicate_rows.toLocaleString(), s.duplicate_rows ? 'bad' : 'good'), kc('Review findings', String(s.issues), worst, s.issues ? `${sev.Critical} critical · ${sev.Major} major · ${sev.Minor} minor` : 'all clear'));
+    const top = p.issues.slice(0, 3).map(i => ({ level: SEV_LEVEL[i.severity], text: `${i.title}${i.column ? ' in ' + i.table + '.' + i.column : ' in ' + i.table}: ${i.detail}`, ask: askForIssue(i) }));
+    if (p.issues.length > 3) top.push({ level: 'info', text: `${p.issues.length - 3} more finding${p.issues.length - 3 === 1 ? '' : 's'} in the data review.`, goto: 'dq' });
+    if (!p.issues.length) top.push({ level: 'info', text: 'No data-quality findings. Nice and clean.' });
+    $('#ov-ins').replaceChildren(...top.map(insightRow));
+    $('#ov-g').replaceChildren(...(p.charts.length ? p.charts.map(specCard) : [el('div', { class: 'bcard s12 kp' }, 'Not enough varied numeric, category or date columns to draw automatic charts. Use the Analyze tab or the Data tab.')]));
+    $('#ov-tables').replaceChildren(...p.tables.map(columnProfile));
+  } catch (e) { showError($('#ov-g'), 'Could not profile this dataset: ' + e.message, loadOverview); }
+}
+$('#ov-ask').onclick = () => askAgent('Give me an overview of this data: key totals, and anything unusual I should know about.');
+let rvFilter = 'All', rvText = '';
+async function loadReview() {
+  const root = $('#rv-body'); if (!C().profile) skeleton(root);
+  try { renderReview(await getProfile()); } catch (e) { showError(root, 'Could not review this dataset: ' + e.message, loadReview); }
+}
+function renderReview(p) {
+  const s = p.summary, sev = s.issues_by_severity;
+  $('#rv-k').replaceChildren(kc('Findings', String(s.issues), s.issues ? '' : 'good'), kc('Critical', String(sev.Critical), sev.Critical ? 'bad' : 'good'), kc('Major', String(sev.Major), sev.Major ? 'bad' : 'good'), kc('Minor', String(sev.Minor)), kc('Cells filled', s.completeness_pct.toFixed(1) + '%', s.completeness_pct >= 95 ? 'good' : ''));
+  const root = $('#rv-body');
+  if (!p.issues.length) { root.replaceChildren(el('div', { class: 'bcard kp' }, '✓ No findings. Every check passed on this data.')); return; }
+  const draw = () => {
+    const list = p.issues.filter(i => (rvFilter === 'All' || i.severity === rvFilter) && (!rvText || JSON.stringify(i).toLowerCase().includes(rvText)));
+    body.replaceChildren(el('table', { class: 'btab' }, el('thead', {}, el('tr', {}, ...['Severity', 'Where', 'Check', 'Affected', 'What it means', ''].map((h, i) => el('th', { class: i === 3 ? 'num' : '' }, h)))),
+      el('tbody', {}, ...list.map(i => el('tr', {}, el('td', {}, el('span', { class: 'pill ' + i.severity }, i.severity)), el('td', {}, i.table + (i.column ? '.' + i.column : '')), el('td', {}, `${i.id} · ${i.title}`),
+        el('td', { class: 'num' }, `${i.count.toLocaleString()} (${i.pct}%)`), el('td', { class: 'wrap' }, i.detail, i.examples.length ? el('span', { class: 'ex' }, 'e.g. ' + i.examples.slice(0, 3).join(' · ')) : null),
+        el('td', {}, el('button', { class: 'link', onclick: () => askAgent(askForIssue(i)) }, 'Ask')))))), list.length ? null : el('div', { class: 'kp', style: 'padding:14px' }, 'No findings match.'));
+  };
+  const body = el('div', { style: 'overflow-x:auto' });
+  const chips = ['All', 'Critical', 'Major', 'Minor'].map(k => el('button', { class: 'chip', 'aria-pressed': String(rvFilter === k), onclick: e => { rvFilter = k; chips.forEach(c => c.setAttribute('aria-pressed', c === e.currentTarget)); draw(); } }, k === 'All' ? `All (${p.issues.length})` : `${k} (${sev[k]})`));
+  const search = el('input', { type: 'text', placeholder: 'Search findings…', 'aria-label': 'Search findings', style: 'height:30px;font-size:12.5px;width:200px', oninput: e => { rvText = e.target.value.trim().toLowerCase(); draw(); } });
+  const csv = el('button', { class: 'link', onclick: () => downloadCsv('data_review_findings', ['severity', 'rule', 'table', 'column', 'check', 'affected_rows', 'affected_pct', 'detail', 'examples'], p.issues.map(i => [i.severity, i.id, i.table, i.column || '', i.title, i.count, i.pct, i.detail, i.examples.join(' | ')])) }, 'Download findings CSV');
+  root.replaceChildren(el('div', { class: 'bcard' }, el('div', { class: 'chips', style: 'margin:0 0 10px' }, ...chips, el('span', { class: 'sp' }), search, csv), body));
+  draw();
+}
+
+/* ===================== data browser ===================== */
+let curTable = null, tstate = { offset: 0, sort: null, desc: false };
+async function loadTables() {
+  const c = C();
+  if (c.tables) return paintTables();
+  try { c.tables = await api(qs('/api/tables')); paintTables(); } catch (e) { showError($('#datagrid'), 'Could not load tables: ' + e.message, loadTables); }
+}
+function paintTables() {
+  const t = C().tables;
+  $('#tables').replaceChildren(...t.map(x => { const b = el('button', { class: 'chip', 'aria-pressed': String(curTable === x.name), onclick: () => { curTable = x.name; tstate = { offset: 0, sort: null, desc: false }; $$('#tables .chip').forEach(c => c.setAttribute('aria-pressed', c === b)); showTable(); } }, `${x.name} (${x.rows.toLocaleString()})`); return b; }));
+  if (!curTable || !t.some(x => x.name === curTable)) { curTable = null; $('#datagrid').replaceChildren(el('div', { class: 'empty' }, 'Choose a table to browse it like a spreadsheet.')); if (t.length === 1) $('#tables .chip').click(); } else showTable();
+}
+async function showTable() {
+  const { offset, sort, desc } = tstate, L = 100;
+  try {
+    const d = await api(qs(`/api/table/${encodeURIComponent(curTable)}`, { limit: L, offset, ...(sort ? { sort, desc } : {}) }));
+    const last = Math.min(offset + d.rows.length, d.total);
+    const pager = el('div', { class: 'gbar', style: 'border:0;padding:8px 0' }, el('button', { class: 'link', disabled: offset === 0 ? '' : null, onclick: () => { tstate.offset = Math.max(0, offset - L); showTable(); } }, '← Prev'), el('span', {}, `${d.total ? offset + 1 : 0}–${last} of ${d.total.toLocaleString()}`),
+      el('button', { class: 'link', disabled: last >= d.total ? '' : null, onclick: () => { tstate.offset = offset + L; showTable(); } }, 'Next →'), el('span', { class: 'sp' }), el('span', {}, sort ? `sorted by ${sort} ${desc ? 'desc' : 'asc'} (whole table)` : 'click a header to sort the whole table'));
+    $('#datagrid').replaceChildren(pager, grid(d.columns, d.rows, { name: d.name, sortBy: sort, sortDesc: desc, onSort: (c, ds) => { tstate.sort = c; tstate.desc = ds; tstate.offset = 0; showTable(); } }));
+  } catch (e) { showError($('#datagrid'), 'Could not load the table: ' + e.message, showTable); }
+}
+$('#clearpins').onclick = () => { pins.length = 0; savePins(); renderPins(); };
+
+/* ===================== analyze ===================== */
+function md(s) {
+  const h = esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').replace(/`(.+?)`/g, '<code>$1</code>');
+  return h.split(/\n{2,}/).map(p => /^\s*- /m.test(p) ? '<ul>' + p.split('\n').filter(x => x.trim()).map(x => `<li>${x.replace(/^\s*- /, '')}</li>`).join('') + '</ul>' : `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+}
+const LABELS = { get_schema: 'Schema', run_sql: 'SQL', run_python: 'Python', chart: 'Chart', data_quality: 'Data review' };
+function addStep(ev) {
+  const code = ev.input.sql || ev.input.code || '';
+  const head = ev.name === 'chart' ? `${ev.input.type || ''}: ${ev.input.title || ''}` : ev.name === 'data_quality' ? 'run rule-based data review' : code.split('\n')[0] || 'inspect tables';
+  const d = el('details', { class: 'step', open: '' }, el('summary', {}, el('span', { class: 'tag' }, LABELS[ev.name] || ev.name), el('span', { class: 'sum' }, head), el('span', { class: 'spin' })), el('div', { class: 'body' }, code ? el('pre', {}, code) : null, el('div', { class: 'res' })));
+  $('#log').append(d); d.scrollIntoView({ block: 'nearest' }); return d;
+}
+function finishStep(d, ev) {
+  d.querySelector('.spin')?.remove();
+  const res = d.querySelector('.res');
+  if (ev.is_error) { d.querySelector('.tag').classList.add('err'); res.append(el('div', { class: 'err-text' }, ev.text)); return; }
+  if (ev.table) res.append(grid(ev.table.columns, ev.table.rows, { name: 'query_result', note: ev.table.truncated ? 'truncated at 200' : '' }));
+  else if (ev.chart) { res.append(chartCard(ev.chart)); d.querySelector('pre')?.remove(); }
+  else res.append(el('pre', {}, ev.text));
+  (ev.files || []).filter(f => f.endsWith('.png')).forEach(f => res.append(el('img', { src: '/artifacts/' + encodeURIComponent(f), alt: 'chart', style: 'max-width:100%;border-radius:8px;margin-top:10px;background:#fff' })));
+  d.open = ev.name !== 'get_schema';
+}
+function reportMarkdown(run) {
+  const m = meta(), L = [`# ${run.q}`, '', `*Dataset: ${m.name || S.dataset} · ${new Date().toLocaleString()}*`, ''];
+  run.events.forEach(ev => {
+    if (ev.kind === 'tool_call') { const code = ev.input.sql || ev.input.code; L.push(`### ${LABELS[ev.name] || ev.name}${ev.name === 'chart' ? ': ' + (ev.input.title || '') : ''}`); if (code) L.push('```' + (ev.input.sql ? 'sql' : 'python'), code, '```'); }
+    if (ev.kind === 'tool_result' && !ev.is_error && ev.name !== 'get_schema' && ev.name !== 'chart') L.push('```', ev.text.slice(0, 1500), '```');
+    if (ev.kind === 'tool_result' && ev.is_error) L.push(`> Error: ${ev.text.slice(0, 300)}`);
+  });
+  L.push('', '## Answer', '', run.answer, '', '---', '*Generated by LabOps Insight. Verify important figures against the source data.*');
+  return L.join('\n');
+}
+function answerActions(run) {
+  return el('div', { class: 'stats no-print', style: 'margin:10px 0 0' },
+    el('button', { class: 'btn sm', onclick: async () => { try { await navigator.clipboard.writeText(run.answer); toast('Answer copied', 'ok', 2000); } catch { toast('Copy failed: select the text and copy manually', 'warn'); } } }, 'Copy answer'),
+    el('button', { class: 'btn sm', onclick: () => { const a = el('a', { href: URL.createObjectURL(new Blob([reportMarkdown(run)], { type: 'text/markdown' })), download: 'investigation.md' }); a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); } }, 'Download report (.md)'));
+}
+const recentKey = () => 'recent.' + S.dataset;
+function remember(q) { const r = [q, ...store.get(recentKey(), []).filter(x => x !== q)].slice(0, 5); store.set(recentKey(), r); paintChips(); }
+function paintChips() {
+  const ex = S.kind === 'lab' ? LAB_EXAMPLES : (meta().examples || []), rec = store.get(recentKey(), []);
+  const mk = t => el('button', { type: 'button', class: 'chip', onclick: () => { $('#q').value = t; $('#f').requestSubmit(); } }, t);
+  const fresh = rec.filter(r => !ex.includes(r));
+  $('#chips').replaceChildren(...ex.map(mk), ...(fresh.length ? [el('span', { class: 'lbl', style: 'margin-left:8px' }, 'Recent:'), ...fresh.map(mk)] : []));
+}
+function setBusy(b) { $('#go').disabled = b; $('#stop').hidden = !b; $('#go').textContent = b ? 'Working…' : 'Analyze'; }
+function runQuestion(q) {
+  if (S.es) S.es.close();
+  const log = $('#log'); log.replaceChildren(); setBusy(true); remember(q);
+  const run = S.run = { q, events: [], answer: '', t0: performance.now() };
+  let cur = null;
+  const es = S.es = new EventSource('/api/ask?' + new URLSearchParams({ q, dataset: S.dataset }));
+  const end = () => { es.close(); setBusy(false); };
+  es.onmessage = m => {
+    const ev = JSON.parse(m.data); run.events.push(ev);
+    if (ev.kind === 'tool_call') cur = addStep(ev);
+    else if (ev.kind === 'tool_result' && cur) finishStep(cur, ev);
+    else if (ev.kind === 'answer') { run.answer = ev.text; log.append(el('section', { class: 'answer' })); const a = log.lastChild; a.innerHTML = `<h2>Answer</h2>${md(ev.text)}`; a.append(answerActions(run)); }
+    else if (ev.kind === 'stopped') log.append(el('div', { class: 'banner' }, `Stopped early: ${ev.reason} limit reached. The agent did not finish.`));
+    else if (ev.kind === 'error') { log.append(el('div', { class: 'banner' }, ev.message)); end(); }
+    else if (ev.kind === 'done') { log.insertAdjacentHTML('beforeend', `<div class="stats"><span><b>${((performance.now() - run.t0) / 1000).toFixed(1)}s</b> elapsed</span><span><b>${ev.steps}</b> steps</span><span><b>${ev.sql_calls}</b> SQL (${ev.sql_errors} errors)</span><span><b>${ev.chart_calls}</b> charts</span><span><b>${ev.python_calls}</b> Python</span><span><b>${(ev.in_tok + ev.out_tok).toLocaleString()}</b> tokens</span></div>`); end(); }
+  };
+  es.onerror = () => { if ($('#go').disabled) { log.append(el('div', { class: 'banner' }, 'Connection lost or server busy.')); end(); } };
+}
+$('#f').onsubmit = e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) runQuestion(q); };
+$('#stop').onclick = () => { if (S.es) S.es.close(); setBusy(false); $('#log').append(el('div', { class: 'banner' }, 'Stopped. The analysis was cancelled in this view.')); };
+
+/* ===================== datasets + upload dialog ===================== */
+const dlg = $('#dlg');
+function fmtBytes(b) { return b > 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB'; }
+async function refreshDatasets(selectId) {
+  S.datasets = await api('/api/datasets');
+  const stored = selectId || store.get('dataset', 'lab');
+  S.dataset = S.datasets.some(d => d.id === stored) ? stored : 'lab';
+  $('#ds-select').replaceChildren(...S.datasets.map(d => el('option', { value: d.id }, d.name)));
+  $('#ds-select').value = S.dataset;
+  paintDatasetList();
+}
+function paintDatasetList() {
+  const ups = S.datasets.filter(d => d.kind === 'custom');
+  $('#dlist').replaceChildren(...(ups.length ? ups.map(d => {
+    const del = el('button', { class: 'btn sm danger', type: 'button' }, 'Delete');
+    let armed = false, timer;
+    del.onclick = async () => {
+      if (!armed) { armed = true; del.textContent = 'Click again to confirm'; timer = setTimeout(() => { armed = false; del.textContent = 'Delete'; }, 3500); return; }
+      clearTimeout(timer);
+      try { await api(`/api/datasets/${d.id}`, { method: 'DELETE' }); delete S.cache[d.id]; const was = S.dataset === d.id; await refreshDatasets(was ? 'lab' : S.dataset); toast(`Deleted “${d.name}”`, 'ok', 3000); if (was) applyDataset(); } catch (e) { toast('Could not delete: ' + e.message, 'err'); }
+    };
+    return el('div', { class: 'drow' }, icon('sheet'), el('div', { class: 't' }, el('b', {}, d.name), el('small', {}, `${d.tables.length} table${d.tables.length === 1 ? '' : 's'} · ${d.tables.reduce((a, t) => a + t.rows, 0).toLocaleString()} rows · ${fmtBytes(d.bytes)} · added ${when(d.created)}`)),
+      el('button', { class: 'btn sm', type: 'button', onclick: () => { S.dataset = d.id; $('#ds-select').value = d.id; store.set('dataset', d.id); dlg.close(); applyDataset(); } }, 'Open'), del);
+  }) : [el('div', { class: 'note' }, 'Nothing uploaded yet. Your uploads will appear here.')]));
+}
+const upMsg = (kind, text) => { $('#up-msg').replaceChildren(text ? el('div', { class: kind === 'err' ? 'err-box' : 'ok-box' }, text) : ''); };
+function uploadFile(file) {
+  return new Promise((resolve, reject) => {
+    const x = new XMLHttpRequest(); x.open('POST', '/api/datasets');
+    x.setRequestHeader('X-Filename', encodeURIComponent(file.name)); x.setRequestHeader('X-Requested-With', 'labops');
+    x.upload.onprogress = e => { if (e.lengthComputable) $('#prog > i').style.width = (100 * e.loaded / e.total) + '%'; };
+    x.onload = () => { let b = {}; try { b = JSON.parse(x.responseText); } catch { } x.status < 300 ? resolve(b) : reject(new Error(b.detail || `Upload failed (${x.status})`)); };
+    x.onerror = () => reject(new Error('Network error: is the server still running?'));
+    x.send(file);
+  });
+}
+async function handleFile(file) {
+  upMsg(); const ext = (file.name.match(/\.[^.]+$/) || [''])[0].toLowerCase();
+  if (!['.xlsx', '.csv'].includes(ext)) return upMsg('err', ext === '.xls' ? 'Legacy .xls files are not supported. Open it in Excel and choose Save As → .xlsx.' : ext === '.xlsm' ? 'Macro-enabled workbooks are not accepted. Save a copy as a plain .xlsx.' : 'Only .xlsx and .csv files are supported.');
+  const max = S.config.max_upload_mb || 15;
+  if (file.size > max * 1e6) return upMsg('err', `That file is ${(file.size / 1e6).toFixed(1)} MB; the limit is ${max} MB. Remove unused sheets or old rows and try again.`);
+  $('#prog').hidden = false; $('#prog > i').style.width = '0'; $('#drop').style.pointerEvents = 'none';
+  try {
+    const m = await uploadFile(file);
+    await refreshDatasets(m.id); store.set('dataset', m.id);
+    dlg.close(); applyDataset(); showTab('bi');
+    toast(`Imported “${m.name}”: ${m.tables.length} table${m.tables.length === 1 ? '' : 's'}, ${m.tables.reduce((a, t) => a + t.rows, 0).toLocaleString()} rows.` + (m.warnings.length ? ` ${m.warnings.length} import note${m.warnings.length === 1 ? '' : 's'} on the Overview.` : ''), 'ok', 7000);
+  } catch (e) { upMsg('err', e.message); }
+  finally { $('#prog').hidden = true; $('#drop').style.pointerEvents = ''; $('#file').value = ''; }
+}
+function openDialog() { upMsg(); paintDatasetList(); $('#max-mb').textContent = S.config.max_upload_mb || 15; if (!dlg.open) dlg.showModal(); }
+$('#btn-upload').onclick = openDialog;
+$('#dlg-x').onclick = () => dlg.close();
+dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
+$('#drop').onclick = () => $('#file').click();
+$('#drop').onkeydown = e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); $('#file').click(); } };
+$('#file').onchange = e => { if (e.target.files[0]) handleFile(e.target.files[0]); };
+['dragenter', 'dragover'].forEach(t => $('#drop').addEventListener(t, e => { e.preventDefault(); $('#drop').classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => $('#drop').addEventListener(t, e => { e.preventDefault(); $('#drop').classList.remove('over'); }));
+$('#drop').addEventListener('drop', e => { const f = e.dataTransfer.files[0]; if (f) handleFile(f); });
+window.addEventListener('dragover', e => { if (e.dataTransfer && [...e.dataTransfer.types].includes('Files')) e.preventDefault(); });
+window.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length && !e.defaultPrevented) { e.preventDefault(); openDialog(); handleFile(e.dataTransfer.files[0]); } });
+
+/* ===================== switching datasets ===================== */
+function applyDataset() {
+  const m = meta(); S.kind = m.kind || 'lab'; store.set('dataset', S.dataset);
+  if (S.es) S.es.close(); setBusy(false); $('#log').replaceChildren();
+  curTable = null; dqRule = null; rvFilter = 'All'; rvText = '';
+  buildTabs(); $('#ds-icon').replaceChildren(icon(S.kind === 'lab' ? 'flask' : 'sheet'));
+  const lab = S.kind === 'lab';
+  $('#bi-lab').hidden = !lab; $('#bi-custom').hidden = lab; $('#dq-lab').hidden = !lab; $('#dq-custom').hidden = lab;
+  $('#q').placeholder = lab ? 'Ask a question about lab operations, e.g. why did OOS rise in March?' : `Ask a question about “${m.name}”…`;
+  $('#an-notice').replaceChildren(S.config.demo && !lab ? el('div', { class: 'notice' }, 'Demo mode can’t answer questions about your own data (its answers are scripted for the built-in lab data). The Overview, Data Review and Data tabs work now; to ask questions, start the server with a real model, e.g. ', el('code', {}, 'python -m analyst.server --provider ollama'), '.') : '');
+  paintChips(); showTab(TABS.includes(S.tab) ? S.tab : 'bi');
+}
+$('#ds-select').onchange = e => { S.dataset = e.target.value; applyDataset(); };
+
+/* ===================== header + init ===================== */
+$('#btn-theme').onclick = () => { const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')) === 'dark'; applyUiTheme(dark ? 'light' : 'dark'); refreshTab(); };
+$('#btn-print').onclick = () => window.print();
+$$('.theme-sel').forEach(s => { s.replaceChildren(...BI_THEMES.map(([v, n]) => el('option', { value: v }, n))); s.onchange = () => { setBiTheme(s.value); refreshTab(); }; });
+(async function init() {
+  $('#logo').replaceChildren(icon('logo'));
+  $('#ico-upload').replaceChildren(icon('upload')); $('#btn-print').replaceChildren(icon('print')); $('#ico-drop').replaceChildren(icon('upload', true));
+  applyUiTheme(); const t = store.get('bi.theme', 'th-mint'); setBiTheme(BI_THEMES.some(x => x[0] === t) ? t : 'th-mint');
+  const hash = location.hash.slice(1); S.tab = TABS.includes(hash) ? hash : 'bi';
+  try {
+    S.config = await api('/api/config');
+    $('#model').textContent = S.config.demo ? 'DEMO · scripted model' : S.config.model; if (S.config.demo) $('#model').classList.add('demo');
+    $('#py').textContent = S.config.python ? 'python sandbox on' : 'python sandbox off';
+    await refreshDatasets(); applyDataset();
+  } catch (e) { document.querySelector('main').prepend(el('div', { class: 'banner' }, 'Could not reach the server: ' + e.message)); }
+})();
