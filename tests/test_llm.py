@@ -110,3 +110,57 @@ def test_a_realistic_key_is_accepted(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "gsk_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6")
     client, model = llm.make_client("groq")
     assert model and client.http.headers["authorization"].startswith("Bearer gsk_")
+
+
+# ---- model discovery + helpful errors ----
+def _models_transport(ids):
+    return httpx.MockTransport(lambda req: httpx.Response(200, json={"data": [{"id": i} for i in ids]}) if req.url.path.endswith("/models") else httpx.Response(404))
+
+
+def test_list_models_sorts_and_hides_non_chat_models(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6")
+    ids = ["whisper-large-v3", "openai/gpt-oss-120b", "llama-guard-4", "llama-3.1-8b-instant", "playai-tts"]
+    assert llm.list_models("groq", transport=_models_transport(ids)) == ["llama-3.1-8b-instant", "openai/gpt-oss-120b"]
+    assert len(llm.list_models("groq", show_all=True, transport=_models_transport(ids))) == 5
+
+
+def test_list_models_needs_a_real_key_and_a_compatible_provider(monkeypatch):
+    monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    with pytest.raises(SystemExit, match="not set"):
+        llm.list_models("groq", transport=_models_transport([]))
+    monkeypatch.setenv("GROQ_API_KEY", "paste-your-key-here")
+    with pytest.raises(SystemExit, match="placeholder"):
+        llm.list_models("groq", transport=_models_transport([]))
+    with pytest.raises(SystemExit, match="OpenAI-compatible"):
+        llm.list_models("anthropic")
+
+
+def test_list_models_surfaces_a_rejected_key(monkeypatch):
+    monkeypatch.setenv("GROQ_API_KEY", "gsk_" + "a1B2c3D4e5F6g7H8i9J0k1L2m3N4o5P6")
+    t = httpx.MockTransport(lambda req: httpx.Response(401, json={"error": {"message": "Invalid API Key"}}))
+    with pytest.raises(SystemExit, match="401"):
+        llm.list_models("groq", transport=t)
+
+
+def test_model_not_found_error_tells_the_user_how_to_fix_it():
+    body = {"error": {"message": "The model `gone-model` does not exist or you do not have access to it.", "code": "model_not_found"}}
+    c = OpenAICompatClient("http://x/v1", transport=httpx.MockTransport(lambda req: httpx.Response(404, json=body)))
+    with pytest.raises(RuntimeError) as e:
+        c.messages.create(model="gone-model", max_tokens=5, system="s", tools=TOOLS, messages=[{"role": "user", "content": "q"}])
+    msg = str(e.value)
+    assert "gone-model" in msg and "analyst.llm models" in msg and "--model" in msg and "ANALYST_MODEL" in msg
+
+
+def test_analyst_model_from_dotenv_becomes_the_cli_default(tmp_path, monkeypatch):
+    import argparse
+    for k in ("ANALYST_MODEL", "ANALYST_PROVIDER"):
+        monkeypatch.delenv(k, raising=False)
+    p = tmp_path / ".env"
+    p.write_text("ANALYST_MODEL=openai/gpt-oss-120b\nANALYST_PROVIDER=groq\n")
+    p.chmod(0o600)
+    monkeypatch.chdir(tmp_path)
+    ap = argparse.ArgumentParser()
+    llm.add_cli_args(ap)
+    a = ap.parse_args([])
+    assert a.model == "openai/gpt-oss-120b" and a.provider == "groq"
+    monkeypatch.delenv("ANALYST_MODEL"); monkeypatch.delenv("ANALYST_PROVIDER")

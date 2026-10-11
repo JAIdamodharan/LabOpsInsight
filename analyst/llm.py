@@ -123,6 +123,10 @@ class OpenAICompatClient:
                 wait = float(r.headers.get("retry-after") or 0) or min(2 ** attempt * 2, 30)
                 time.sleep(min(wait, 60))  # free tiers rate-limit; back off instead of failing the run
                 continue
+            if r.status_code == 404 and "model" in r.text.lower():
+                raise RuntimeError(f"The model '{model}' is not available for this key ({r.status_code}). Providers retire model names, or restrict them per project. "
+                                   f"List what your account can use:  .venv/bin/python -m analyst.llm models --provider <name>  "
+                                   f"then pass --model NAME, or put ANALYST_MODEL=NAME in your .env file.")
             if r.status_code >= 400:
                 raise RuntimeError(f"{r.status_code} from {self.http.base_url}: {r.text[:300]}")
             return from_openai_response(r.json(), [t["name"] for t in tools])
@@ -188,7 +192,51 @@ def _need_model():
 
 
 def add_cli_args(ap) -> None:
+    load_dotenv()                      # so ANALYST_PROVIDER / ANALYST_MODEL in .env become the defaults below
     ap.add_argument("--provider", default=os.environ.get("ANALYST_PROVIDER", "anthropic"),
                     help="anthropic | ollama | groq | gemini | openrouter | openai (with --base-url)")
     ap.add_argument("--model", default=os.environ.get("ANALYST_MODEL"))
     ap.add_argument("--base-url")
+
+
+NON_CHAT = ("whisper", "tts", "guard", "embed", "orpheus", "playai", "transcri", "moderation")
+
+
+def list_models(provider: str, base_url: str | None = None, show_all: bool = False, transport=None) -> list[str]:
+    """Ask an OpenAI-compatible provider which model ids this key can use (prints nothing secret)."""
+    load_dotenv()
+    p = PRESETS.get(provider)
+    if provider == "anthropic" or (p is None and not base_url):
+        raise SystemExit("Listing models works for OpenAI-compatible providers: " + ", ".join(PRESETS) + ", or openai with --base-url.")
+    url = base_url or p.base_url
+    key_env = p.key_env if p else "OPENAI_API_KEY"
+    key = os.environ.get(key_env) if key_env else None
+    if key_env and not key:
+        raise SystemExit(f"{key_env} is not set. Put it in your .env file (see .env.example).")
+    if key and looks_like_placeholder(key):
+        raise SystemExit(f"{key_env} holds placeholder text, not a real key.")
+    with httpx.Client(base_url=url.rstrip("/"), headers={"Authorization": f"Bearer {key}"} if key else {}, timeout=30, transport=transport) as http:
+        r = http.get("/models")
+    if r.status_code >= 400:
+        raise SystemExit(f"{r.status_code} from {url}: {r.text[:200]}")
+    ids = sorted(m["id"] for m in r.json().get("data", []) if isinstance(m, dict) and "id" in m)
+    return ids if show_all else [i for i in ids if not any(w in i.lower() for w in NON_CHAT)]
+
+
+def main(argv=None) -> None:
+    import argparse
+    ap = argparse.ArgumentParser(prog="python -m analyst.llm", description="Model helpers.")
+    sub = ap.add_subparsers(dest="cmd", required=True)
+    m = sub.add_parser("models", help="list the chat models your API key can use")
+    m.add_argument("--provider", default="groq")
+    m.add_argument("--base-url")
+    m.add_argument("--all", action="store_true", help="include speech / guard / embedding models")
+    a = ap.parse_args(argv)
+    ids = list_models(a.provider, a.base_url, a.all)
+    print(f"{len(ids)} model(s) available to your key on '{a.provider}':")
+    print("\n".join("  " + i for i in ids))
+    print("\nUse one with:  --model NAME   (or ANALYST_MODEL=NAME in .env). Pick one that supports tool calling; large instruct models work best.")
+
+
+if __name__ == "__main__":
+    main()

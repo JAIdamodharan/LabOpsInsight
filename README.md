@@ -128,6 +128,12 @@ deviations, data quality) and declines anything else. For free-form questions us
 ```
 Default model names can be retired by providers; pass `--model` to override.
 
+**If a provider says "model not found"** (names get retired, or restricted per project), ask your own key what it can use, then set one:
+```bash
+.venv/bin/python -m analyst.llm models --provider groq
+```
+and put `ANALYST_MODEL=<name>` (and optionally `ANALYST_PROVIDER=groq`) in `.env`, or pass `--model <name>`.
+
 **Keeping your API key (do this once).** `export KEY=...` only lasts for the one terminal window it was typed in, which is why a new tab says "not set". Instead:
 ```bash
 cp .env.example .env && chmod 600 .env
