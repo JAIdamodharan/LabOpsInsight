@@ -113,7 +113,7 @@ def _print_wait(wait: float, attempt: int, of: int, status: int) -> None:
 
 
 # tried in this order when a preset's default model is not available to the user's key (and they did not choose one themselves)
-PREFERRED = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.6-27b", "qwen/qwen3-32b", "openai/gpt-oss-20b", "minimaxai/minimax-m2.7", "llama-3.1-8b-instant"]
+PREFERRED = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b", "qwen/qwen3.6-27b", "qwen/qwen3-32b", "openai/gpt-oss-20b", "minimaxai/minimax-m2.7", "llama-3.1-8b-instant"]
 
 
 class OpenAICompatClient:
