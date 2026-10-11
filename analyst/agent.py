@@ -39,6 +39,7 @@ def build_system(domain: str = "lab") -> str:
 
 SYSTEM = build_system("lab")
 
+MODEL_ROWS = 40          # rows of a SQL result the model gets back (the user's grid still shows everything)
 MAX_NUDGES = 2
 NUDGE = ("Your last tool call failed and you have not resolved it. Do not answer yet: call the tool again with a corrected "
          "query (use the tool-calling interface, not a code block) and get real results first.")
@@ -151,7 +152,7 @@ class Analyst:
             try:
                 res = self.db.run(args.get("sql", ""))
                 self._extra = {"table": {"columns": res.columns, "rows": res.rows, "truncated": res.truncated}}
-                return res.to_text(), False
+                return res.to_text(MODEL_ROWS), False
             except QueryRejected as e:
                 stats.sql_errors += 1
                 return f"REJECTED: {e}", True

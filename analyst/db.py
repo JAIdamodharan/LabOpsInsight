@@ -21,16 +21,21 @@ class QueryResult:
     rows: list[tuple]
     truncated: bool
 
-    def to_text(self) -> str:
+    def to_text(self, max_rows: int | None = None, max_chars: int = 6000) -> str:
+        """Plain-text table. With max_rows, only that many rows are shown (used for what the *model* sees, to save tokens)."""
         if not self.columns:
             return "(no columns)"
+        rows = self.rows if max_rows is None else self.rows[:max_rows]
         lines = [" | ".join(self.columns)]
-        lines += [" | ".join("NULL" if v is None else str(v) for v in r) for r in self.rows]
-        if self.truncated:
+        lines += [" | ".join("NULL" if v is None else str(v) for v in r) for r in rows]
+        if max_rows is not None and len(self.rows) > max_rows:
+            lines.append(f"... showing {max_rows} of {len(self.rows)}{'+' if self.truncated else ''} rows (the user sees them all). Aggregate, filter or LIMIT instead of listing rows.")
+        elif self.truncated:
             lines.append(f"... truncated to {MAX_ROWS} rows; aggregate or filter instead")
         if not self.rows:
             lines.append("(0 rows)")
-        return "\n".join(lines)
+        text = "\n".join(lines)
+        return text if len(text) <= max_chars else text[:max_chars] + "\n... (output shortened)"
 
 
 class Database:

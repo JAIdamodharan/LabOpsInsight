@@ -128,6 +128,8 @@ deviations, data quality) and declines anything else. For free-form questions us
 ```
 Default model names can be retired by providers; pass `--model` to override.
 
+**Free-tier rate limits.** Free plans cap requests and tokens per minute. When a provider answers "429", the app waits (honouring `Retry-After`, up to 60 s, 4 retries) and *says so*: the terminal prints `note: the provider is rate limiting you ... waiting 12s before retry 1/4`, and the web page shows a live countdown instead of a frozen "Working…". Closing the page or pressing Stop cancels a wait immediately, and the server sends keepalive pings so long waits never drop the connection. To stay under token limits the model is sent at most 40 rows of any SQL result (you still see the whole table). If you hit limits often, pick a smaller or higher-limit model with `ANALYST_MODEL`, or wait a minute between questions. Do not press keys in the terminal while a command is running: Ctrl+C there cancels it.
+
 **Automatic model fallback.** If you did not choose a model and the preset default is not available to your key, the app asks the provider which models your key can use, picks the best chat model (preferring large instruct models with tool calling), prints a one-line note saying which one, and carries on. A model you choose yourself (`--model` or `ANALYST_MODEL`) is never replaced silently.
 
 **If a provider says "model not found"** (names get retired, or restricted per project), ask your own key what it can use, then set one:

@@ -694,7 +694,15 @@ function paintChips() {
   $('#chips').replaceChildren(...ex.map(mk), ...(fresh.length ? [el('span', { class: 'lbl', style: 'margin-left:8px' }, 'Recent:'), ...fresh.map(mk)] : []));
 }
 function setBusy(b) { $('#go').disabled = b || !can('ask'); $('#stop').hidden = !b; $('#go').textContent = b ? 'Working…' : 'Analyze'; }
-function abortRun() { if (S.abort) { S.abort.abort(); S.abort = null; } }
+let waitTimer = 0;
+function clearWait() { clearInterval(waitTimer); waitTimer = 0; $('#wait-note')?.remove(); }
+function showWait(ev) {                                        // live notice while the model provider rate-limits us (so a wait never looks like a freeze)
+  clearWait(); let left = Number(ev.seconds) || 5;
+  const note = el('div', { class: 'notice', id: 'wait-note', role: 'status' });
+  const paint = () => { note.textContent = `${ev.status === 429 ? 'The model provider is rate limiting this request (normal on free tiers)' : 'The model provider returned an error'}. Retrying in ${left}s (attempt ${num(ev.attempt)} of ${num(ev.of)})…`; };
+  paint(); $('#log').append(note); waitTimer = setInterval(() => { left = Math.max(0, left - 1); paint(); }, 1000);
+}
+function abortRun() { clearWait(); if (S.abort) { S.abort.abort(); S.abort = null; } }
 async function streamAsk(q, onEvent, signal) {            // fetch-based SSE: unlike EventSource it exposes 401/429 and can really be cancelled
   bar(1);
   try {
@@ -715,7 +723,8 @@ async function runQuestion(q) {
   const run = S.run = { q, events: [], answer: '', t0: performance.now() };
   let cur = null; const ctl = S.abort = new AbortController();
   const handle = ev => {
-    run.events.push(ev);
+    if (ev.kind === 'waiting') return showWait(ev);
+    clearWait(); run.events.push(ev);
     if (ev.kind === 'tool_call') cur = addStep(ev);
     else if (ev.kind === 'tool_result' && cur) finishStep(cur, ev);
     else if (ev.kind === 'answer') { run.answer = ev.text; log.append(el('section', { class: 'answer' })); const a = log.lastChild; a.innerHTML = `<h2>Answer</h2>${md(ev.text)}`; a.append(answerActions(run)); }
@@ -727,7 +736,7 @@ async function runQuestion(q) {
   catch (e) {
     if (e.name === 'AbortError') return;
     log.append(el('div', { class: 'banner' }, e.status === 429 ? e.message : e.status === 401 ? 'Your session has ended. Please sign in again.' : e.status === 403 ? 'Your role cannot run analyses.' : `Could not run the analysis: ${e.message}`));
-  } finally { if (S.abort === ctl) { S.abort = null; setBusy(false); } }
+  } finally { clearWait(); if (S.abort === ctl) { S.abort = null; setBusy(false); } }
 }
 $('#f').onsubmit = e => { e.preventDefault(); const q = $('#q').value.trim(); if (q) runQuestion(q); };
 $('#stop').onclick = () => { abortRun(); setBusy(false); $('#log').append(el('div', { class: 'banner' }, 'Stopped. The analysis was cancelled in this view.')); };

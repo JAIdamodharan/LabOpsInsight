@@ -4,6 +4,7 @@ agent code is unchanged and benchmarks are comparable across providers."""
 import json
 import os
 import sys
+import threading
 import time
 import uuid
 from dataclasses import dataclass
@@ -106,6 +107,11 @@ def from_openai_response(data: dict, tool_names=()) -> NS:
               usage=NS(input_tokens=u.get("prompt_tokens", 0), output_tokens=u.get("completion_tokens", 0)))
 
 
+def _print_wait(wait: float, attempt: int, of: int, status: int) -> None:
+    why = "rate limiting you (normal on free tiers)" if status == 429 else f"returned HTTP {status}"
+    print(f"note: the provider is {why}; waiting {wait:.0f}s before retry {attempt}/{of}. Press Ctrl+C to cancel.", file=sys.stderr, flush=True)
+
+
 # tried in this order when a preset's default model is not available to the user's key (and they did not choose one themselves)
 PREFERRED = ["openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.6-27b", "qwen/qwen3-32b", "openai/gpt-oss-20b", "minimaxai/minimax-m2.7", "llama-3.1-8b-instant"]
 
@@ -118,6 +124,8 @@ class OpenAICompatClient:
         self.max_retries = max_retries
         self.auto_model = auto_model          # True only when the model came from a preset default, never when the user chose it
         self.model_used: str | None = None
+        self.on_wait = None                   # optional hook(seconds, attempt, of, status); default prints a note to stderr
+        self.cancel: threading.Event | None = None   # when set (by the server), waits end early and the call is abandoned
         self.messages = NS(create=self._create)
 
     def _pick_available_model(self) -> str | None:
@@ -134,8 +142,17 @@ class OpenAICompatClient:
         for attempt in range(self.max_retries + 1):
             r = self.http.post("/chat/completions", json=body)
             if r.status_code in (429, 500, 502, 503) and attempt < self.max_retries:
-                wait = float(r.headers.get("retry-after") or 0) or min(2 ** attempt * 2, 30)
-                time.sleep(min(wait, 60))  # free tiers rate-limit; back off instead of failing the run
+                try:
+                    wait = float(r.headers.get("retry-after") or 0) or min(2 ** attempt * 2, 30)
+                except ValueError:
+                    wait = min(2 ** attempt * 2, 30)
+                wait = min(wait, 60)  # free tiers rate-limit; back off (visibly) instead of failing the run
+                (self.on_wait or _print_wait)(wait, attempt + 1, self.max_retries, r.status_code)
+                if self.cancel is not None:
+                    if self.cancel.wait(wait):
+                        raise RuntimeError("cancelled")
+                else:
+                    time.sleep(wait)
                 continue
             if r.status_code == 404 and "model" in r.text.lower() and self.auto_model and not self.model_used:
                 pick = self._pick_available_model()

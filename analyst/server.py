@@ -15,6 +15,7 @@ import argparse
 import hashlib
 import json
 import os
+import queue
 import re
 import threading
 from pathlib import Path
@@ -42,6 +43,7 @@ from .sandbox import DockerSandbox, LocalSandbox
 STATIC = Path(__file__).parent / "static"
 COOKIE = "labops_session"
 MAX_QUESTION = 500
+KEEPALIVE_S = 10
 MAX_CONCURRENT = 2
 MAX_PAGE = 200
 XLSX = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -481,29 +483,56 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
         audit(user, "ask", f"dataset={dataset} len={len(q)} sha={hashlib.sha256(q.encode()).hexdigest()[:8]}", request)
 
         def stream():
+            """Run the agent in a worker thread and relay its events, so the browser also gets live 'waiting' notices
+            (provider rate limits) and keepalive pings, and so closing the page or pressing Stop really cancels the work."""
+            events: queue.Queue = queue.Queue()
+            cancel = threading.Event()
+
+            def work():
+                try:
+                    if demo and kind != "lab":
+                        events.put(("raw", {"kind": "answer", "text": DEMO_ONLY_LAB}))
+                        events.put(("raw", {"kind": "done", "steps": 0, "sql_calls": 0, "sql_errors": 0, "python_calls": 0, "chart_calls": 0, "in_tok": 0, "out_tok": 0, "stop": "demo_unsupported"}))
+                        return
+                    sb = make_sb(reg.path(dataset), artifacts_dir) if make_sb else None
+                    c = client or (DemoClient(db, bool(sb)) if demo else None)
+                    agent = Analyst(db, client=c, model=model or MODEL, sandbox=sb, domain=kind)
+                    c = agent.client                                  # hooks for clients that can wait on a rate-limited provider
+                    c.on_wait = lambda secs, attempt, of, status: events.put(("raw", {"kind": "waiting", "seconds": round(secs), "attempt": attempt, "of": of, "status": status}))
+                    c.cancel = cancel
+                    sent = 0
+                    for ev in agent.run(q):
+                        if cancel.is_set():
+                            return
+                        d = dict(ev.data)
+                        if ev.kind == "tool_result" and d["name"] == "run_python":
+                            d["files"] = [Path(f).name for f in agent.last_stats.artifacts[sent:]]
+                            sent = len(agent.last_stats.artifacts)
+                        events.put(("raw", {"kind": ev.kind, **d}))
+                    s = agent.last_stats
+                    events.put(("raw", {"kind": "done", "steps": s.steps, "sql_calls": s.sql_calls, "sql_errors": s.sql_errors, "python_calls": s.python_calls,
+                                        "chart_calls": s.chart_calls, "in_tok": s.input_tokens, "out_tok": s.output_tokens, "stop": s.stop_reason}))
+                except Exception as e:  # surface to the UI instead of a dropped connection
+                    if not cancel.is_set():
+                        events.put(("raw", {"kind": "error", "message": f"{type(e).__name__}: {e}"}))
+                finally:
+                    events.put(("end", None))
+
+            worker = threading.Thread(target=work, daemon=True)
+            worker.start()
             try:
-                if demo and kind != "lab":
-                    yield f"data: {json.dumps({'kind': 'answer', 'text': DEMO_ONLY_LAB})}\n\n"
-                    yield "data: " + json.dumps({"kind": "done", "steps": 0, "sql_calls": 0, "sql_errors": 0, "python_calls": 0, "chart_calls": 0, "in_tok": 0, "out_tok": 0, "stop": "demo_unsupported"}) + "\n\n"
-                    return
-                sb = make_sb(reg.path(dataset), artifacts_dir) if make_sb else None
-                c = client or (DemoClient(db, bool(sb)) if demo else None)
-                agent = Analyst(db, client=c, model=model or MODEL, sandbox=sb, domain=kind)
-                sent = 0
-                for ev in agent.run(q):
-                    d = dict(ev.data)
-                    if ev.kind == "tool_result" and d["name"] == "run_python":
-                        d["files"] = [Path(f).name for f in agent.last_stats.artifacts[sent:]]
-                        sent = len(agent.last_stats.artifacts)
-                    yield f"data: {json.dumps({'kind': ev.kind, **d}, default=str)}\n\n"
-                s = agent.last_stats
-                yield "data: " + json.dumps({"kind": "done", "steps": s.steps, "sql_calls": s.sql_calls,
-                                             "sql_errors": s.sql_errors, "python_calls": s.python_calls, "chart_calls": s.chart_calls,
-                                             "in_tok": s.input_tokens, "out_tok": s.output_tokens,
-                                             "stop": s.stop_reason}) + "\n\n"
-            except Exception as e:  # surface to the UI instead of a dropped connection
-                yield f"data: {json.dumps({'kind': 'error', 'message': f'{type(e).__name__}: {e}'})}\n\n"
-            finally:
+                while True:
+                    try:
+                        what, payload = events.get(timeout=KEEPALIVE_S)
+                    except queue.Empty:
+                        yield ": keepalive\n\n"                       # keeps the connection (and any proxy) alive while the model thinks or waits
+                        continue
+                    if what == "end":
+                        return
+                    yield f"data: {json.dumps(payload, default=str)}\n\n"
+            finally:                                                    # runs on completion, on Stop, and when the browser disconnects
+                cancel.set()
+                worker.join(timeout=2)
                 slots.release()
                 mine.release()
 
