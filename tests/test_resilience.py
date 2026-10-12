@@ -1,4 +1,5 @@
 """Rate-limit waits must be visible and cancellable, long streams must stay alive, and the model must not be flooded with rows."""
+import asyncio
 import json
 import threading
 import time
@@ -112,6 +113,37 @@ def test_agent_errors_still_reach_the_browser_as_an_error_event(path, tmp_path):
 def test_slots_are_released_after_a_stream_so_the_next_question_runs(path, tmp_path):
     c = make(path, tmp_path, Waiter())
     assert [c.get("/api/ask", params={"q": "hello there"}).status_code for _ in range(5)] == [200] * 5
+
+
+def test_disconnecting_mid_analysis_frees_the_lock_at_once(path, tmp_path):
+    """Stop / clicking another example closes the stream; the very next question must not get a 429."""
+    calls = {"n": 0}
+
+    class FirstSlow(Waiter):
+        def _create(self, **kw):
+            calls["n"] += 1
+            time.sleep(3.0 if calls["n"] == 1 else 0.0)
+            return NS(stop_reason="end_turn", content=[NS(type="text", text="done")], usage=NS(input_tokens=1, output_tokens=1))
+
+    app = create_app(path, client=FirstSlow(), artifacts_dir=str(tmp_path / "a"), upload_dir=str(tmp_path / "up"))
+
+    async def first_then_disconnect():
+        scope = {"type": "http", "asgi": {"version": "3.0"}, "http_version": "1.1", "method": "GET", "scheme": "http", "path": "/api/ask",
+                 "raw_path": b"/api/ask", "query_string": b"q=hello+there", "root_path": "", "client": ("127.0.0.1", 5000),
+                 "server": ("testserver", 80), "headers": [(b"host", b"testserver")]}
+
+        async def receive():
+            await asyncio.sleep(0.4)
+            return {"type": "http.disconnect"}
+
+        async def send(msg):
+            pass
+        await app(scope, receive, send)
+
+    t0 = time.perf_counter()
+    asyncio.run(first_then_disconnect())
+    assert time.perf_counter() - t0 < 2.5                                       # returned on disconnect, not after the 3 s model call
+    assert TestClient(app).get("/api/ask", params={"q": "hello there"}).status_code == 200
 
 
 # ---------------- what the model is sent
