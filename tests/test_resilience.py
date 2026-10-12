@@ -10,7 +10,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from analyst import llm, server
-from analyst.agent import TOOLS, Analyst
+from analyst.agent import MODEL_ROWS, TOOLS, Analyst
 from analyst.llm import OpenAICompatClient
 from analyst.server import create_app
 from tests.test_analyst import FakeClient, db, msg, text, tool  # noqa: F401
@@ -152,7 +152,7 @@ def test_the_model_gets_a_trimmed_result_while_the_user_gets_every_row(db):
     ev = [e for e in Analyst(db, client=client).run("q") if e.kind == "tool_result"][0]
     assert len(ev.data["table"]["rows"]) == 120                                    # the grid in the UI shows all of them
     lines = ev.data["text"].splitlines()
-    assert len(lines) <= 1 + 40 + 1 and "showing 40 of 120 rows" in ev.data["text"] and "Aggregate" in ev.data["text"]
+    assert len(lines) <= 1 + MODEL_ROWS + 1 and f"showing {MODEL_ROWS} of 120 rows" in ev.data["text"] and "Aggregate" in ev.data["text"]
 
 
 def test_small_results_are_sent_whole_and_huge_text_is_capped(db):
@@ -160,3 +160,28 @@ def test_small_results_are_sent_whole_and_huge_text_is_capped(db):
     assert "showing" not in small and small.count("\n") == 5
     wide = db.run("SELECT repeat('x', 500) AS c FROM range(30)").to_text(40, max_chars=2000)
     assert len(wide) < 2100 and wide.endswith("(output shortened)")
+
+
+def test_old_tool_results_are_shortened_before_resending_but_recent_ones_stay_whole():
+    from analyst.agent import KEEP_FULL, OLD_RESULT_CHARS, compact
+    big = "x" * 5000
+    msgs = [{"role": "user", "content": "q"}]
+    for i in range(KEEP_FULL + 2):
+        msgs += [{"role": "assistant", "content": []}, {"role": "user", "content": [{"type": "tool_result", "tool_use_id": str(i), "content": big, "is_error": False}]}]
+    out = compact(msgs)
+    lens = [len(m["content"][0]["content"]) for m in out if isinstance(m["content"], list) and m["content"] and "tool_use_id" in m["content"][0]]
+    assert all(n < OLD_RESULT_CHARS + 60 for n in lens[:-KEEP_FULL]) and lens[-KEEP_FULL:] == [5000] * KEEP_FULL
+    assert msgs[2]["content"][0]["content"] == big                                 # the original conversation is untouched
+
+
+def test_a_413_over_the_token_cap_retries_with_a_shorter_reply_instead_of_failing():
+    seen = []
+
+    def handler(req):
+        seen.append(json.loads(req.content)["max_tokens"])
+        if len(seen) == 1:
+            return httpx.Response(413, json={"error": {"message": "Request too large ... tokens per minute (TPM): Limit 8000, Requested 8500"}})
+        return httpx.Response(200, json=completion("ok"))
+    c = OpenAICompatClient("http://x/v1", transport=httpx.MockTransport(handler))
+    assert c.messages.create(model="m", max_tokens=2048, system="s", tools=TOOLS, messages=[{"role": "user", "content": "q"}]).content[0].text == "ok"
+    assert seen == [2048, 1448]

@@ -73,6 +73,7 @@ def test_hard_error_raises(monkeypatch):
 
 def test_make_client_requires_key(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.setattr(llm, "load_dotenv", lambda *a, **kw: [])  # prevent re-reading key from .env on disk
     with pytest.raises(SystemExit, match="GROQ_API_KEY"):
         llm.make_client("groq")
     c, model = llm.make_client("ollama")
@@ -126,6 +127,7 @@ def test_list_models_sorts_and_hides_non_chat_models(monkeypatch):
 
 def test_list_models_needs_a_real_key_and_a_compatible_provider(monkeypatch):
     monkeypatch.delenv("GROQ_API_KEY", raising=False)
+    monkeypatch.setattr(llm, "load_dotenv", lambda *a, **kw: [])  # prevent re-reading key from .env on disk
     with pytest.raises(SystemExit, match="not set"):
         llm.list_models("groq", transport=_models_transport([]))
     monkeypatch.setenv("GROQ_API_KEY", "paste-your-key-here")

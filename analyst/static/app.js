@@ -302,12 +302,13 @@ function buildTabs() {
 }
 function moveInd() { const ind = $('#tab-ind'), b = $('#tabs button[aria-selected=true]'); if (!ind || !b) return; ind.style.width = b.offsetWidth + 'px'; ind.style.left = b.offsetLeft + 'px'; }
 addEventListener('resize', moveInd);
+if (document.fonts && document.fonts.ready) { document.fonts.ready.then(moveInd); }
 const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, analyze: () => { } };
 function showTab(t) {
   S.tab = t;
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   TABS.forEach(x => { $('#tab-' + x).hidden = x !== t; });
-  moveInd();
+  moveInd(); requestAnimationFrame(moveInd);
   if (S.shown !== t) { const sec = $('#tab-' + t); sec.classList.remove('tab-in'); void sec.offsetWidth; sec.classList.add('tab-in'); S.shown = t; }
   try { history.replaceState(null, '', '#' + t); } catch { }
   const p = loaders[t](); trackBusy(p); return p;
@@ -425,7 +426,7 @@ function chartBox(title, cls, build) {
 }
 function kc(label, value, cls, sub) { return el('div', { class: 'bcard kcard' }, el('h3', {}, label), el('div', { class: 'kv ' + (cls || '') }, value), sub ? el('div', { class: 'kp' }, sub) : null); }
 function insightRow(i) {
-  const row = el('div', { class: 'insight ' + i.level }, el('span', {}, i.text));
+  const row = el('div', { class: 'insight ' + i.level }, el('span', { class: 'ins-dot ' + i.level }), el('span', {}, i.text));
   if (i.ask) row.append(el('button', { class: 'link', onclick: () => askAgent(i.ask) }, 'Investigate →'));
   else if (i.goto) row.append(el('button', { class: 'link', onclick: () => showTab(i.goto) }, 'Open Data Review →'));
   return row;

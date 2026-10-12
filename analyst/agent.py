@@ -39,8 +39,11 @@ def build_system(domain: str = "lab") -> str:
 
 SYSTEM = build_system("lab")
 
-MODEL_ROWS = 40          # rows of a SQL result the model gets back (the user's grid still shows everything)
+MODEL_ROWS = 25          # rows of a SQL result the model gets back (the user's grid still shows everything)
 MAX_NUDGES = 2
+REPLY_TOKENS = 2048      # providers count the *requested* reply size against per-minute token limits, so don't ask for more than needed
+KEEP_FULL = 2            # the newest tool-result rounds stay complete; older ones are shortened before being re-sent
+OLD_RESULT_CHARS = 500
 NUDGE = ("Your last tool call failed and you have not resolved it. Do not answer yet: call the tool again with a corrected "
          "query (use the tool-calling interface, not a code block) and get real results first.")
 
@@ -112,6 +115,18 @@ class RunStats:
     charts: list[dict] = field(default_factory=list)
     artifacts: list[str] = field(default_factory=list)
     events: list[Event] = field(default_factory=list)
+
+
+def compact(messages: list) -> list:
+    """Copy of the conversation where tool results older than the last KEEP_FULL rounds are shortened, so every call re-sends less."""
+    idx = [i for i, m in enumerate(messages) if m["role"] == "user" and isinstance(m["content"], list)]
+    old = set(idx[:-KEEP_FULL]) if len(idx) > KEEP_FULL else set()
+    out = []
+    for i, m in enumerate(messages):
+        if i in old:
+            m = {"role": "user", "content": [{**r, "content": r["content"][:OLD_RESULT_CHARS] + ("\n... (older result shortened)" if len(r["content"]) > OLD_RESULT_CHARS else "")} for r in m["content"]]}
+        out.append(m)
+    return out
 
 
 class Analyst:
@@ -190,7 +205,7 @@ class Analyst:
 
             stats.steps += 1
             resp = self.client.messages.create(
-                model=self.model, max_tokens=4096, system=self.system, tools=self.tools, messages=messages,
+                model=self.model, max_tokens=REPLY_TOKENS, system=self.system, tools=self.tools, messages=compact(messages),
             )
             stats.input_tokens += resp.usage.input_tokens
             stats.output_tokens += resp.usage.output_tokens

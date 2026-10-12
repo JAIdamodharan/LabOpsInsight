@@ -3,6 +3,7 @@ any OpenAI-compatible /chat/completions endpoint (Ollama, Groq, Gemini, OpenRout
 agent code is unchanged and benchmarks are comparable across providers."""
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -166,6 +167,11 @@ class OpenAICompatClient:
                 raise RuntimeError(f"The model '{model}' is not available for this key ({r.status_code}). Providers retire model names, or restrict them per project. "
                                    f"List what your account can use:  .venv/bin/python -m analyst.llm models --provider <name>  "
                                    f"then pass --model NAME, or put ANALYST_MODEL=NAME in your .env file.")
+            if r.status_code == 413 and body["max_tokens"] > 600:
+                m = re.search(r"Limit (\d+), Requested (\d+)", r.text)         # per-minute token cap: ask for a shorter reply instead of failing
+                if m:
+                    body["max_tokens"] = max(512, body["max_tokens"] - (int(m.group(2)) - int(m.group(1))) - 100)
+                    continue
             if r.status_code >= 400:
                 raise RuntimeError(f"{r.status_code} from {self.http.base_url}: {r.text[:300]}")
             return from_openai_response(r.json(), [t["name"] for t in tools])
