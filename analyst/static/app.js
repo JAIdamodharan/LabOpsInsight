@@ -32,7 +32,7 @@ const ICON = {
   sheet: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8M12 11v10"/>',
   flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/>',
 };
-const IMG = { bi: 'dashboard', dq: 'market-research', analyze: 'analyze', data: 'data', pins: 'pinned', lab: 'lab_operations', custom: 'data' };
+const IMG = { bi: 'dashboard', dq: 'market-research', predict: 'lab_operations', analyze: 'analyze', data: 'data', pins: 'pinned', lab: 'lab_operations', custom: 'data' };
 const pic = (name, cls = 'ti', size = 22) => el('img', { class: cls, src: `/static/icons/${name}.png`, alt: '', width: size, height: size, draggable: 'false' });
 const emptyState = (img, title, text) => el('div', { class: 'empty-state' }, pic(img, '', 112), el('b', {}, title), el('span', {}, text));
 const monthLabel = m => new Date(m + '-15').toLocaleString('en', { month: 'short', year: 'numeric' });
@@ -289,8 +289,8 @@ const bc = v => getComputedStyle($('#bi')).getPropertyValue(v).trim();
 const rgba = (rgbVar, a) => `rgba(${bc(rgbVar)},${a})`;
 
 /* ===================== tabs ===================== */
-const TABS = ['bi', 'dq', 'analyze', 'data', 'pins'];
-function tabLabel(t) { return { bi: S.kind === 'lab' ? 'Dashboard' : 'Overview', dq: 'Data Review', analyze: 'Analyze', data: 'Data', pins: 'Pinned' }[t]; }
+const TABS = ['bi', 'dq', 'predict', 'analyze', 'data', 'pins'];
+function tabLabel(t) { return { bi: S.kind === 'lab' ? 'Dashboard' : 'Overview', dq: 'Data Review', predict: 'Predict', analyze: 'Analyze', data: 'Data', pins: 'Pinned' }[t]; }
 function buildTabs() {
   $$('#tabs button').forEach(b => {
     const t = b.dataset.tab;
@@ -314,7 +314,7 @@ function moveInd() {
 addEventListener('resize', moveInd);
 window.addEventListener('load', moveInd);
 if (document.fonts && document.fonts.ready) { document.fonts.ready.then(() => { moveInd(); requestAnimationFrame(moveInd); }); }
-const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, analyze: () => { } };
+const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, predict: loadPredict, analyze: () => { } };
 function showTab(t) {
   S.tab = t;
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
@@ -910,3 +910,79 @@ document.addEventListener('keydown', e => {
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || '');
   if (e.key === '/' && !typing && !e.metaKey && !e.ctrlKey && !document.querySelector('dialog[open]')) { e.preventDefault(); showTab('analyze'); $('#q').focus(); }
 });
+
+
+/* ===================== predictions ===================== */
+const pct1 = v => (v * 100).toFixed(1) + '%';
+function metricCard(label, value, note) { return el('div', { class: 'bcard kcard' }, el('h3', {}, label), el('div', { class: 'kv' }, value), el('div', { class: 'kp' }, note)); }
+function forecastCard(k, f, months, future) {
+  const labels = [...months, ...future].map(monthLabel), n = months.length, unit = f.unit === '%' ? '%' : f.unit === 'days' ? ' d' : '';
+  const hist = [...f.history, ...future.map(() => null)];
+  const link = f.history[n - 1], fc = [...months.map((_, i) => i === n - 1 ? link : null), ...f.forecast.map(p => p.value)];
+  const lo = [...months.map((_, i) => i === n - 1 ? link : null), ...f.forecast.map(p => p.lo)], hi = [...months.map((_, i) => i === n - 1 ? link : null), ...f.forecast.map(p => p.hi)];
+  const first = f.forecast[0], card = chartBox(`${f.label}, next ${future.length} months`, 's6', cv => new Chart(cv, { type: 'line', data: { labels, datasets: [
+    { label: 'Actual', data: hist, borderColor: bc('--b-a1'), backgroundColor: bc('--b-a1'), pointRadius: 3, tension: .25 },
+    { label: 'Forecast', data: fc, borderColor: bc('--b-a2'), backgroundColor: bc('--b-a2'), borderDash: [6, 4], pointRadius: 3, tension: .25 },
+    { label: '80% range (low)', data: lo, borderWidth: 0, pointRadius: 0, backgroundColor: 'transparent' },
+    { label: '80% range', data: hi, borderWidth: 0, pointRadius: 0, fill: '-1', backgroundColor: bc('--b-a2') + '33' }] },
+    options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { labels: { color: bc('--b-mute'), filter: it => it.text !== '80% range (low)' } },
+      tooltip: { filter: it => it.dataset.label !== '80% range (low)', callbacks: { label: c => c.parsed.y == null ? null : `${c.dataset.label}: ${f.unit === 'count' ? Math.round(c.parsed.y).toLocaleString() : c.parsed.y.toFixed(2)}${unit}` } } },
+      scales: { x: axisOpts({ ticks: { maxRotation: 45 } }), y: axisOpts({ num: true, fmt: v => (f.unit === 'count' ? compact(v) : v) + unit }) } } }));
+  card.append(el('div', { class: 'kp' }, `Model: ${f.model}. Backtest error ${f.backtest_mae} vs ${f.naive_mae} for "repeat last month". Next month: ${f.unit === 'count' ? Math.round(first.value).toLocaleString() : first.value.toFixed(2)}${unit} (${f.unit === 'count' ? Math.round(first.lo).toLocaleString() : first.lo.toFixed(2)} to ${f.unit === 'count' ? Math.round(first.hi).toLocaleString() : first.hi.toFixed(2)}).`));
+  return card;
+}
+function driftCard(d) {
+  const box = el('div', { class: 'bcard s12' }, el('h3', {}, 'Instrument drift early warning (EWMA control chart)'));
+  if (d.chart && typeof Chart !== 'undefined') {
+    const pts = d.chart.points, cv = el('canvas');
+    box.append(el('div', { class: 'bcv' }, cv));
+    requestAnimationFrame(() => bcharts.push(new Chart(cv, { type: 'line', data: { labels: pts.map(p => p.d), datasets: [
+      { label: `${d.chart.instrument} ${d.chart.method}: running average of results (in standard deviations)`, data: pts.map(p => p.ewma), borderColor: bc('--b-a1'), pointRadius: 0, borderWidth: 2, tension: .2 },
+      { label: 'Upper control limit', data: pts.map(() => d.chart.limit), borderColor: bc('--b-bad'), borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5 },
+      { label: 'Lower control limit', data: pts.map(() => -d.chart.limit), borderColor: bc('--b-bad'), borderDash: [6, 4], pointRadius: 0, borderWidth: 1.5 }] },
+      options: { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { labels: { color: bc('--b-mute') } } },
+        scales: { x: axisOpts({ ticks: { maxTicksLimit: 9, callback(v) { return monthLabel(this.getLabelForValue(v).slice(0, 7)); } } }), y: axisOpts({ num: true, fmt: v => v.toFixed(1) }) } } })));
+  }
+  const rows = d.alarms.map(a => el('tr', {}, el('td', {}, a.instrument), el('td', {}, a.method), el('td', {}, a.first_alarm), el('td', {}, a.last_alarm), el('td', { class: 'num' }, String(a.flagged_tests)),
+    el('td', { class: 'num ' + (Math.abs(a.peak_shift_sd) >= 2 ? 'bad' : 'flat') }, `${a.peak_shift_sd > 0 ? '+' : ''}${a.peak_shift_sd} SD`), el('td', {}, a.active ? 'Active' : 'Cleared')));
+  box.append(rows.length ? el('table', { class: 'btab' }, el('thead', {}, el('tr', {}, ...['Instrument', 'Method', 'First alarm', 'Last alarm', 'Flagged tests', 'Peak shift', 'Status'].map(h => el('th', {}, h)))), el('tbody', {}, ...rows))
+    : el('div', { class: 'kp' }, 'No sustained drift detected.'));
+  box.append(el('div', { class: 'kp' }, `A result stream is flagged when its running average (smoothing ${d.settings.lambda}) stays beyond ${d.settings.sigma_limit} sigma for ${d.settings.min_run}+ consecutive tests. Small shifts such as the lowest rows can be false alarms; the large, long one is a real calibration problem.`));
+  return box;
+}
+function riskCard(r, o) {
+  const m = r.models[r.best], other = Object.keys(r.models).find(k => k !== r.best);
+  const imp = r.importance, box = el('div', { class: 'bcard s12' }, el('h3', {}, 'Late-delivery risk model'));
+  const kp = el('div', { class: 'kgrid k4' }, metricCard('ROC AUC (held-out months)', m.roc_auc.toFixed(3), `1.0 is perfect, 0.5 is a coin flip. Winner: ${r.best}; ${other} scored ${r.models[other].roc_auc.toFixed(3)}.`),
+    metricCard('Precision-recall AUC', m.pr_auc.toFixed(3), `Base rate of late tests in the test period: ${pct1(r.base_rate)}.`),
+    metricCard('Top 10% riskiest tests', pct1(m.top_decile_rate), `${m.lift}x more often late than average.`), metricCard('Validation', `${r.test_rows.toLocaleString()} tests`, `Trained on ${r.train_rows.toLocaleString()} tests up to ${r.train_until}; tested on the later period.`));
+  box.append(kp);
+  const g = el('div', { class: 'bgrid' });
+  g.append(chartBox('What drives late delivery (permutation importance)', 's6', cv => new Chart(cv, { type: 'bar', data: { labels: imp.map(i => i.feature), datasets: [{ data: imp.map(i => i.importance), backgroundColor: bc('--b-a2'), borderRadius: 4 }] },
+    options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: axisOpts({ num: true, fmt: v => v.toFixed(2) }), y: axisOpts({ noGrid: true }) } } })));
+  const sel = (id, opts, label) => el('label', {}, label, el('select', { id }, ...opts.map(v => el('option', { value: v }, v))));
+  const out = el('div', { class: 'score-out', 'aria-live': 'polite' }, 'Pick values to see the predicted chance of a late report.');
+  const days = el('input', { id: 'sc-days', type: 'number', min: '0', max: '60', value: '1', step: '1', 'aria-label': 'Days waiting before testing starts' });
+  const run = async () => {
+    const q = new URLSearchParams({ method: $('#sc-method').value, instrument: $('#sc-inst').value, priority: $('#sc-prio').value, queue_days: days.value || '0' });
+    try { const s = await api('/api/predict/score?' + q); const p = s.late; out.replaceChildren(el('b', { class: p > .5 ? 'bad' : p > .15 ? '' : 'good' }, pct1(p)), el('span', {}, ` chance of a late report (average: ${pct1(s.baseline.late)})`)); }
+    catch (e) { out.replaceChildren(el('span', { class: 'bad' }, e.message)); }
+  };
+  const form = el('div', { class: 'bcard s6' }, el('h3', {}, 'What-if: score a test before it starts'), el('div', { class: 'whatif' }, sel('sc-method', o.methods, 'Method'), sel('sc-inst', o.instruments, 'Instrument'), sel('sc-prio', o.priorities, 'Priority'), el('label', {}, 'Days waiting before start', days)), el('div', {}, el('button', { class: 'btn primary', onclick: run }, 'Score')), out);
+  form.querySelectorAll('select').forEach(x => x.onchange = run); days.onchange = run;
+  g.append(form);
+  g.append(el('div', { class: 'bcard s12' }, el('h3', {}, 'Instruments: predicted vs actual late rate, last 30 days'), el('table', { class: 'btab' }, el('thead', {}, el('tr', {}, ...['Instrument', 'Lab', 'Type', 'Tests', 'Predicted', 'Actual'].map(h => el('th', {}, h)))),
+    el('tbody', {}, ...r.instruments.map(i => el('tr', {}, el('td', {}, i.instrument), el('td', {}, i.lab), el('td', {}, i.type), el('td', { class: 'num' }, String(i.tests)), el('td', { class: 'num' }, pct1(i.risk)), el('td', { class: 'num' }, pct1(i.actual))))))));
+  box.append(g);
+  return box;
+}
+async function loadPredict() {
+  const root = $('#pr-body');
+  if (S.kind !== 'lab') return root.replaceChildren(emptyState('lab_operations', 'Predictions use the lab dataset', 'Switch to "Lab operations" in the dataset picker. For your own uploads, use Overview, Data Review and Analyze.'));
+  if (!C().pred) { skeleton(root); try { C().pred = await api('/api/predict'); } catch (e) { return showError(root, 'Could not load predictions: ' + e.message, loadPredict); } }
+  const d = C().pred; killCharts();
+  const f = d.forecast, grid = el('div', { class: 'bgrid' });
+  ['oos_rate', 'on_time', 'tests', 'tat'].forEach(k => grid.append(forecastCard(k, f.series[k], f.months, f.future)));
+  root.replaceChildren(el('div', { class: 'hint' }, `Data to ${d.as_of}. Intervals are wide on purpose: there are only ${f.months.length} months of history. Planted incidents (e.g. the March HPLC-03 drift) are part of the history, so forecasts treat them as normal variation.`), grid, driftCard(d.drift), riskCard(d.late, d.options));
+  stagger(grid);
+}

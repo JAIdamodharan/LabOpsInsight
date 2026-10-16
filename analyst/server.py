@@ -439,6 +439,33 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
     def dq_summary(dataset: str = LAB_ID, user: dict = Depends(require("read"))):
         return dq.summary(lab_only(dataset, "The lab data-review rules", user))
 
+    # ------------------------------------------------------------ predictions (lab dataset only)
+    pred_cache = {}
+    pred_lock = threading.Lock()
+
+    def predictor(user: dict):
+        from . import predict                                         # scikit-learn is imported lazily so the server starts fast
+        db = lab_only(LAB_ID, "Predictions", user)
+        with pred_lock:
+            if "bundle" not in pred_cache:
+                pred_cache["bundle"] = predict.train(db)
+                pred_cache["forecast"] = predict.forecast(pred_cache["bundle"].frame)
+                pred_cache["drift"] = predict.drift(db)
+        return predict, pred_cache
+
+    @app.get("/api/predict")
+    def predict_all(user: dict = Depends(require("read"))):
+        _, c = predictor(user)
+        return {"forecast": c["forecast"], "drift": c["drift"], "late": c["bundle"].info["late"], "options": c["bundle"].info["options"], "as_of": c["bundle"].info["as_of"]}
+
+    @app.get("/api/predict/score")
+    def predict_score(method: str, instrument: str, priority: str, queue_days: float = 1.0, user: dict = Depends(require("read"))):
+        predict, c = predictor(user)
+        try:
+            return predict.score(c["bundle"], method, instrument, priority, queue_days)
+        except ValueError as e:
+            raise HTTPException(400, str(e))
+
     @app.get("/api/dq/{rule_id}")
     def dq_issues(rule_id: str, limit: int = 200, offset: int = 0, dataset: str = LAB_ID, user: dict = Depends(require("read"))):
         try:

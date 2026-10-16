@@ -7,3 +7,4 @@ scipy
 matplotlib
 openpyxl>=3.1
 defusedxml
+scikit-learn>=1.4

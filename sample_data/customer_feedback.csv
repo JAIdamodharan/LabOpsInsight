@@ -1,0 +1,1501 @@
+ticket_id,opened,channel,topic,resolution_days,csat
+0,2024-10-17,Phone,Billing,2.0,5
+1,2024-11-11,Email,Other,6.2,5
+2,2024-10-18,Phone,Sample query,3.2,5
+3,2024-08-12,Phone,Other,3.1,1
+4,2024-03-10,Email,Sample query,3.2,1
+5,2025-04-28,Email,Other,0.6,1
+6,2024-05-07,Portal,Other,1.2,4
+7,2024-06-04,Email,Billing,5.2,5
+8,2025-05-13,Portal,Other,1.8,5
+9,2024-01-26,Email,Sample query,2.6,4
+10,2024-02-08,Email,Delay,0.9,2
+11,2024-06-06,Phone,Billing,7.9,5
+12,2024-10-31,Phone,Report error,7.9,5
+13,2024-10-14,Portal,Report error,2.4,5
+14,2025-06-10,Portal,Billing,3.3,4
+15,2024-01-29,Phone,Other,7.7,4
+16,2024-07-12,Portal,Other,10.1,3
+17,2025-02-08,Email,Delay,2.8,1
+18,2024-07-06,Phone,Sample query,2.4,3
+19,2024-10-13,Phone,Report error,1.4,1
+20,2024-06-11,Portal,Delay,6.6,1
+21,2024-08-21,Email,Delay,1.8,3
+22,2024-10-18,Email,Report error,3.6,1
+23,2025-06-19,Email,Billing,1.2,5
+24,2025-02-26,Portal,Sample query,4.2,2
+25,2024-01-17,Email,Billing,2.7,2
+26,2025-02-12,Phone,Billing,4.6,2
+27,2024-05-01,Portal,Report error,0.4,3
+28,2024-09-29,Portal,Billing,3.7,1
+29,2024-10-31,Portal,Delay,1.7,2
+30,2024-02-05,Email,Other,3.5,1
+31,2025-02-03,Phone,Billing,1.6,3
+32,2024-01-01,Email,Report error,4.0,5
+33,2024-11-14,Phone,Delay,4.1,1
+34,2025-06-05,Phone,Other,3.6,5
+35,2025-04-24,Portal,Billing,2.0,5
+36,2024-03-23,Portal,Other,0.9,5
+37,2024-01-10,Phone,Other,4.5,3
+38,2024-03-04,Phone,Report error,2.4,5
+39,2024-06-20,Phone,Sample query,0.3,5
+40,2025-02-06,Email,Billing,2.5,2
+41,2025-04-21,Email,Report error,8.8,4
+42,2025-01-18,Email,Report error,1.0,5
+43,2024-06-26,Phone,Other,5.3,4
+44,2024-02-16,Phone,Report error,4.1,2
+45,2025-05-25,Portal,Delay,0.6,3
+46,2024-08-02,Phone,Report error,5.1,4
+47,2024-05-18,Phone,Delay,2.9,5
+48,2025-04-25,Portal,Report error,3.8,1
+49,2025-05-05,Email,Delay,1.3,3
+50,2024-02-27,Email,Report error,1.6,1
+51,2024-03-08,Portal,Billing,3.7,2
+52,2025-02-15,Portal,Delay,5.3,5
+53,2024-07-14,Email,Other,10.5,3
+54,2024-06-04,Phone,Other,3.8,2
+55,2024-01-23,Email,Other,5.8,1
+56,2024-11-02,Email,Report error,2.9,5
+57,2024-04-28,Portal,Delay,1.5,3
+58,2025-01-10,Portal,Sample query,1.3,3
+59,2024-12-27,Phone,Report error,7.1,3
+60,2024-07-17,Portal,Sample query,2.9,1
+61,2025-01-06,Portal,Report error,2.9,1
+62,2024-04-29,Portal,Other,2.4,1
+63,2025-01-26,Email,Sample query,8.4,1
+64,2024-03-05,Email,Report error,1.2,2
+65,2024-12-25,Email,Other,0.8,4
+66,2024-09-13,Portal,Other,3.0,2
+67,2024-12-26,Email,Sample query,0.3,2
+68,2025-03-20,Portal,Report error,2.9,2
+69,2025-05-27,Email,Delay,2.6,2
+70,2025-01-05,Phone,Other,3.7,2
+71,2024-10-17,Portal,Report error,1.7,1
+72,2024-04-14,Email,Other,4.1,4
+73,2025-04-30,Email,Other,9.6,3
+74,2024-05-10,Phone,Other,6.7,2
+75,2025-04-13,Email,Billing,2.4,3
+76,2025-04-25,Phone,Other,7.3,2
+77,2024-04-05,Phone,Other,4.0,2
+78,2024-11-16,Portal,Other,2.6,1
+79,2025-04-21,Phone,Billing,9.0,3
+80,2024-12-15,Phone,Delay,5.0,1
+81,2024-08-08,Phone,Sample query,6.2,1
+82,2024-01-25,Phone,Billing,5.6,1
+83,2024-06-04,Phone,Report error,2.8,2
+84,2024-12-16,Email,Billing,5.1,2
+85,2025-01-07,Phone,Other,2.3,4
+86,2024-12-18,Phone,Sample query,3.2,4
+87,2024-10-20,Email,Sample query,5.5,4
+88,2025-02-17,Email,Sample query,5.2,2
+89,2024-02-04,Portal,Report error,0.8,3
+90,2024-06-18,Portal,Billing,7.7,2
+91,2024-03-18,Email,Report error,6.6,4
+92,2024-08-12,Email,Billing,3.7,5
+93,2025-02-12,Phone,Sample query,5.5,3
+94,2024-05-11,Portal,Other,4.5,4
+95,2024-09-28,Email,Report error,1.6,5
+96,2024-01-12,Email,Other,1.6,3
+97,2024-01-03,Portal,Report error,3.9,3
+98,2024-09-27,Phone,Other,2.8,3
+99,2025-02-20,Email,Billing,13.8,2
+100,2024-12-07,Email,Billing,8.6,2
+101,2024-12-12,Phone,Billing,4.3,3
+102,2025-03-23,Portal,Other,2.7,3
+103,2025-06-22,Email,Billing,4.0,4
+104,2024-08-07,Portal,Sample query,4.1,3
+105,2024-12-12,Phone,Delay,1.3,3
+106,2025-02-05,Email,Sample query,1.1,2
+107,2024-06-21,Phone,Delay,0.5,3
+108,2025-04-11,Portal,Delay,5.9,5
+109,2024-11-24,Phone,Delay,3.9,2
+110,2025-04-22,Phone,Sample query,0.5,4
+111,2024-05-08,Email,Other,5.8,3
+112,2025-03-02,Phone,Delay,1.1,4
+113,2025-06-22,Email,Billing,1.1,4
+114,2024-01-31,Portal,Billing,1.9,4
+115,2025-04-28,Email,Other,4.0,2
+116,2024-01-11,Portal,Billing,4.8,2
+117,2025-05-08,Phone,Sample query,1.3,5
+118,2024-07-27,Email,Other,3.6,5
+119,2025-01-26,Portal,Other,0.8,1
+120,2024-04-23,Email,Delay,2.0,4
+121,2025-02-17,Portal,Sample query,2.9,2
+122,2024-01-28,Email,Sample query,2.1,4
+123,2025-02-26,Email,Other,2.1,4
+124,2024-04-29,Portal,Report error,2.2,1
+125,2024-06-13,Portal,Sample query,4.0,2
+126,2024-10-07,Portal,Report error,1.4,2
+127,2025-01-29,Phone,Delay,4.1,5
+128,2025-01-09,Phone,Other,1.3,2
+129,2025-05-20,Portal,Other,1.9,3
+130,2024-01-22,Email,Other,1.6,5
+131,2025-02-19,Portal,Other,4.4,4
+132,2025-01-27,Phone,Delay,2.6,3
+133,2025-03-08,Portal,Sample query,7.7,2
+134,2024-12-26,Email,Sample query,0.2,5
+135,2024-03-14,Phone,Report error,0.8,4
+136,2024-09-23,Phone,Report error,4.0,2
+137,2025-01-05,Portal,Billing,2.1,4
+138,2025-02-18,Portal,Sample query,5.4,3
+139,2025-02-17,Phone,Sample query,1.4,5
+140,2025-01-04,Phone,Report error,1.9,3
+141,2025-01-01,Phone,Billing,2.3,1
+142,2024-09-09,Email,Other,13.1,5
+143,2024-05-24,Phone,Billing,2.5,3
+144,2024-06-30,Phone,Other,4.1,3
+145,2024-09-06,Phone,Other,5.9,3
+146,2025-04-12,Email,Billing,2.8,3
+147,2024-04-04,Email,Sample query,3.4,4
+148,2025-03-08,Phone,Billing,4.7,2
+149,2024-08-25,Portal,Billing,1.9,1
+150,2025-01-06,Phone,Sample query,2.2,4
+151,2024-01-27,Portal,Billing,5.5,4
+152,2024-02-26,Phone,Delay,2.4,3
+153,2025-06-17,Phone,Delay,3.8,1
+154,2024-05-30,Portal,Sample query,1.4,2
+155,2024-08-30,Portal,Report error,3.3,3
+156,2024-01-24,Phone,Delay,3.5,3
+157,2024-12-18,Phone,Sample query,4.5,1
+158,2024-08-13,Portal,Delay,2.0,4
+159,2024-05-26,Phone,Report error,0.4,4
+160,2024-04-05,Email,Report error,3.4,1
+161,2024-06-10,Email,Report error,2.1,2
+162,2025-03-23,Phone,Sample query,0.6,5
+163,2024-10-25,Email,Delay,1.2,5
+164,2024-07-09,Phone,Report error,8.4,2
+165,2024-11-10,Email,Billing,4.0,5
+166,2024-11-26,Phone,Sample query,0.9,1
+167,2025-06-13,Phone,Other,1.0,1
+168,2024-11-18,Phone,Report error,4.2,2
+169,2025-04-16,Phone,Other,5.2,5
+170,2024-01-21,Email,Report error,0.7,5
+171,2025-04-05,Phone,Billing,1.2,2
+172,2025-04-11,Email,Report error,5.2,3
+173,2024-03-13,Portal,Billing,0.4,2
+174,2024-01-30,Portal,Delay,2.6,3
+175,2025-03-01,Portal,Other,3.4,2
+176,2024-10-31,Email,Billing,1.5,3
+177,2025-05-23,Email,Sample query,1.3,4
+178,2024-01-12,Phone,Report error,2.0,3
+179,2024-09-30,Email,Other,4.7,3
+180,2025-05-08,Portal,Other,3.1,3
+181,2024-10-18,Email,Report error,1.5,4
+182,2024-04-25,Phone,Report error,2.5,2
+183,2025-05-16,Email,Sample query,1.9,4
+184,2025-03-02,Email,Delay,10.1,5
+185,2025-05-14,Email,Delay,4.9,4
+186,2024-08-01,Email,Sample query,2.3,5
+187,2024-08-11,Portal,Billing,0.5,5
+188,2024-12-21,Email,Delay,2.1,3
+189,2025-03-05,Email,Sample query,8.2,5
+190,2024-05-20,Email,Billing,2.3,4
+191,2025-05-16,Portal,Other,3.5,5
+192,2025-01-03,Email,Report error,1.9,1
+193,2025-02-08,Phone,Sample query,8.8,1
+194,2024-12-14,Email,Billing,3.9,4
+195,2024-04-03,Phone,Sample query,2.6,1
+196,2025-01-02,Phone,Other,4.1,1
+197,2025-04-30,Email,Report error,14.3,2
+198,2025-04-16,Email,Billing,3.1,2
+199,2024-01-07,Email,Other,0.1,4
+200,2025-04-16,Portal,Other,2.7,4
+201,2024-04-05,Phone,Report error,2.8,5
+202,2024-12-09,Phone,Other,1.4,2
+203,2024-03-10,Portal,Sample query,4.4,2
+204,2025-04-30,Phone,Report error,2.0,3
+205,2025-03-29,Phone,Billing,1.9,3
+206,2024-12-19,Phone,Report error,4.4,2
+207,2024-01-27,Portal,Other,7.0,4
+208,2024-08-08,Phone,Other,1.4,3
+209,2025-03-12,Email,Delay,2.4,1
+210,2025-03-30,Portal,Delay,3.1,5
+211,2025-03-09,Email,Billing,4.9,4
+212,2024-09-03,Phone,Billing,7.5,1
+213,2024-05-14,Portal,Report error,2.7,3
+214,2025-04-15,Phone,Sample query,3.1,3
+215,2024-01-22,Portal,Delay,3.2,2
+216,2024-08-08,Portal,Other,1.6,5
+217,2024-09-02,Email,Report error,5.9,1
+218,2024-05-04,Phone,Delay,7.5,4
+219,2024-04-13,Email,Sample query,1.8,5
+220,2024-01-25,Phone,Billing,3.1,5
+221,2024-02-28,Portal,Other,1.0,4
+222,2025-01-31,Portal,Report error,5.8,1
+223,2024-01-14,Email,Billing,2.5,4
+224,2024-05-30,Email,Other,2.2,2
+225,2024-05-26,Email,Sample query,1.0,1
+226,2025-03-20,Email,Delay,2.3,3
+227,2024-11-24,Portal,Billing,1.0,1
+228,2024-04-08,Phone,Sample query,2.7,2
+229,2024-10-31,Phone,Report error,1.2,2
+230,2025-04-15,Phone,Billing,3.1,3
+231,2024-10-14,Email,Report error,2.1,3
+232,2024-03-09,Email,Delay,3.9,3
+233,2024-05-12,Portal,Report error,3.8,1
+234,2024-04-07,Phone,Sample query,7.7,5
+235,2025-01-14,Portal,Report error,2.2,3
+236,2025-02-05,Email,Report error,2.6,4
+237,2024-01-26,Portal,Other,1.2,4
+238,2024-06-25,Portal,Delay,6.7,3
+239,2024-05-24,Email,Report error,2.7,2
+240,2025-02-16,Portal,Billing,5.9,5
+241,2024-08-31,Phone,Other,2.9,1
+242,2024-10-21,Phone,Other,3.6,1
+243,2025-04-21,Email,Billing,3.5,4
+244,2025-01-04,Portal,Delay,0.3,4
+245,2025-06-07,Phone,Billing,2.5,1
+246,2024-12-04,Email,Billing,3.0,1
+247,2024-02-08,Portal,Other,7.0,4
+248,2024-06-22,Email,Other,4.0,5
+249,2024-07-23,Email,Billing,2.6,4
+250,2025-05-07,Email,Delay,1.9,2
+251,2024-01-30,Email,Report error,2.4,2
+252,2024-01-27,Phone,Report error,3.2,5
+253,2024-04-29,Phone,Other,1.0,3
+254,2024-01-01,Phone,Other,3.1,1
+255,2024-12-14,Portal,Sample query,16.4,4
+256,2024-08-02,Email,Report error,2.9,2
+257,2024-01-04,Email,Billing,1.3,2
+258,2024-11-07,Portal,Other,4.8,2
+259,2025-01-09,Portal,Report error,4.0,5
+260,2025-06-08,Phone,Sample query,3.9,1
+261,2024-11-09,Email,Sample query,8.8,5
+262,2024-05-29,Email,Delay,3.8,4
+263,2024-04-02,Phone,Billing,2.7,4
+264,2024-07-11,Phone,Delay,2.1,3
+265,2025-01-19,Email,Report error,4.3,5
+266,2024-02-13,Portal,Report error,1.6,2
+267,2024-09-11,Portal,Report error,2.3,3
+268,2025-06-08,Portal,Delay,1.7,1
+269,2025-01-05,Email,Other,1.8,4
+270,2024-06-28,Portal,Billing,9.9,3
+271,2024-01-30,Email,Report error,2.6,3
+272,2024-02-16,Phone,Report error,3.2,3
+273,2025-01-12,Portal,Billing,4.6,3
+274,2024-05-14,Phone,Delay,1.2,2
+275,2024-10-15,Email,Delay,3.6,3
+276,2024-01-08,Phone,Billing,0.4,3
+277,2024-09-16,Portal,Billing,4.9,3
+278,2024-05-27,Phone,Sample query,0.8,4
+279,2024-07-31,Phone,Report error,1.6,2
+280,2024-12-03,Phone,Other,0.4,1
+281,2024-01-02,Email,Report error,5.0,3
+282,2024-11-19,Portal,Billing,4.6,4
+283,2024-02-18,Email,Billing,5.1,3
+284,2024-08-07,Email,Report error,2.2,4
+285,2025-06-04,Email,Other,2.2,2
+286,2024-02-19,Phone,Delay,1.5,2
+287,2024-09-05,Phone,Report error,3.8,4
+288,2025-03-08,Email,Other,2.9,2
+289,2025-02-15,Portal,Sample query,1.9,1
+290,2024-07-24,Portal,Sample query,0.2,1
+291,2024-09-04,Phone,Billing,3.3,3
+292,2024-09-04,Phone,Billing,2.7,3
+293,2024-08-12,Portal,Report error,1.6,1
+294,2025-05-30,Portal,Delay,9.3,5
+295,2024-12-28,Email,Delay,2.2,1
+296,2025-06-13,Phone,Sample query,4.8,1
+297,2025-04-10,Email,Billing,2.2,2
+298,2024-10-24,Portal,Billing,2.1,2
+299,2024-06-03,Email,Sample query,2.1,2
+300,2024-04-22,Phone,Sample query,1.6,4
+301,2024-12-26,Portal,Other,3.1,3
+302,2024-04-11,Phone,Other,2.8,5
+303,2024-09-01,Email,Delay,1.4,5
+304,2024-05-05,Phone,Report error,7.7,3
+305,2024-02-04,Email,Billing,5.6,1
+306,2024-06-06,Portal,Billing,0.3,4
+307,2024-08-11,Portal,Report error,3.2,4
+308,2024-11-03,Email,Report error,1.8,3
+309,2025-03-19,Email,Delay,5.2,3
+310,2024-07-27,Phone,Delay,6.7,4
+311,2024-07-23,Email,Other,1.2,5
+312,2024-05-08,Email,Other,3.5,3
+313,2025-05-16,Phone,Sample query,8.3,5
+314,2025-04-16,Phone,Other,5.8,4
+315,2024-09-19,Email,Delay,3.4,4
+316,2024-09-16,Portal,Billing,4.8,3
+317,2024-02-07,Email,Report error,1.7,1
+318,2024-03-22,Portal,Other,2.9,5
+319,2024-09-29,Phone,Sample query,2.1,1
+320,2025-05-13,Portal,Other,5.8,1
+321,2024-05-21,Portal,Delay,1.4,4
+322,2025-03-22,Email,Sample query,3.2,3
+323,2025-01-27,Portal,Sample query,3.1,2
+324,2024-11-16,Phone,Delay,1.9,2
+325,2024-08-18,Portal,Billing,5.0,5
+326,2025-05-24,Phone,Sample query,5.7,3
+327,2025-05-22,Phone,Billing,3.9,2
+328,2024-06-23,Email,Billing,0.8,2
+329,2024-01-19,Portal,Report error,4.6,5
+330,2024-11-16,Email,Report error,0.2,5
+331,2024-07-14,Phone,Billing,0.4,5
+332,2024-05-08,Portal,Billing,3.4,5
+333,2024-01-14,Phone,Other,7.4,5
+334,2025-02-11,Email,Sample query,0.5,2
+335,2024-07-13,Portal,Other,0.7,3
+336,2025-06-02,Portal,Billing,6.5,2
+337,2025-01-08,Portal,Billing,14.2,2
+338,2025-03-29,Email,Delay,10.5,3
+339,2024-11-02,Phone,Report error,4.5,2
+340,2025-04-02,Email,Other,1.7,3
+341,2024-03-05,Phone,Other,0.7,1
+342,2025-05-03,Phone,Billing,2.9,4
+343,2024-01-13,Portal,Billing,3.2,1
+344,2024-05-08,Phone,Other,2.3,2
+345,2025-01-01,Email,Billing,12.1,3
+346,2024-07-08,Email,Delay,4.7,5
+347,2024-01-21,Portal,Report error,5.0,4
+348,2024-09-17,Email,Delay,4.4,4
+349,2024-04-28,Portal,Other,4.8,4
+350,2025-06-18,Portal,Billing,3.8,1
+351,2025-03-31,Portal,Sample query,6.9,5
+352,2025-03-10,Portal,Sample query,6.1,3
+353,2024-10-31,Phone,Billing,5.5,1
+354,2024-09-13,Email,Report error,1.9,4
+355,2025-06-10,Portal,Other,3.7,5
+356,2025-01-05,Portal,Sample query,1.0,2
+357,2025-02-23,Email,Report error,1.9,5
+358,2025-03-07,Portal,Other,0.4,4
+359,2024-06-16,Phone,Other,12.5,5
+360,2024-01-15,Email,Sample query,2.8,5
+361,2024-10-05,Phone,Report error,1.2,4
+362,2024-08-05,Email,Delay,1.7,3
+363,2024-06-28,Phone,Report error,3.8,2
+364,2025-03-03,Email,Sample query,6.9,1
+365,2024-06-24,Phone,Sample query,6.0,3
+366,2024-04-05,Email,Delay,2.8,3
+367,2024-02-25,Email,Sample query,3.9,1
+368,2024-01-23,Phone,Other,3.7,3
+369,2024-02-16,Email,Sample query,11.5,4
+370,2024-07-21,Phone,Billing,1.0,2
+371,2024-06-01,Phone,Other,3.1,2
+372,2024-05-22,Phone,Billing,7.8,2
+373,2024-06-30,Email,Other,2.8,4
+374,2024-08-04,Portal,Other,2.5,3
+375,2025-02-26,Portal,Delay,1.0,4
+376,2024-09-30,Portal,Billing,9.9,5
+377,2025-02-07,Phone,Sample query,3.0,4
+378,2024-08-31,Portal,Delay,3.6,3
+379,2024-01-18,Email,Report error,0.7,2
+380,2024-09-30,Email,Billing,3.8,3
+381,2025-03-08,Phone,Billing,10.7,3
+382,2024-01-29,Email,Other,7.4,5
+383,2025-03-08,Phone,Delay,4.8,3
+384,2024-06-04,Phone,Billing,2.2,2
+385,2024-10-27,Phone,Report error,2.1,1
+386,2024-11-12,Email,Billing,4.5,3
+387,2024-05-23,Email,Report error,6.0,4
+388,2025-01-21,Portal,Delay,0.4,3
+389,2025-02-15,Phone,Other,0.9,3
+390,2024-12-30,Email,Sample query,0.8,3
+391,2024-02-01,Phone,Billing,3.3,1
+392,2024-10-31,Email,Report error,5.0,2
+393,2024-07-08,Portal,Report error,2.8,1
+394,2024-07-22,Portal,Billing,3.0,4
+395,2025-04-14,Phone,Delay,3.4,3
+396,2025-01-03,Email,Billing,1.2,3
+397,2024-02-08,Portal,Delay,0.9,1
+398,2025-04-23,Portal,Delay,5.3,2
+399,2024-04-16,Phone,Billing,1.6,5
+400,2024-10-05,Phone,Billing,3.0,3
+401,2024-12-10,Email,Sample query,7.1,1
+402,2024-08-22,Email,Billing,1.9,5
+403,2024-05-28,Phone,Sample query,7.0,4
+404,2025-03-18,Phone,Report error,2.3,3
+405,2025-02-05,Phone,Other,2.5,5
+406,2024-01-14,Email,Report error,3.1,4
+407,2025-03-31,Portal,Sample query,5.5,4
+408,2024-12-26,Email,Other,8.8,3
+409,2025-06-16,Portal,Other,2.0,4
+410,2024-05-02,Phone,Billing,4.9,2
+411,2025-01-06,Phone,Sample query,1.7,5
+412,2025-03-05,Email,Other,7.5,1
+413,2024-03-20,Email,Billing,5.4,3
+414,2025-01-14,Portal,Sample query,1.9,4
+415,2024-03-16,Phone,Report error,3.3,5
+416,2024-03-09,Portal,Sample query,8.5,5
+417,2024-03-31,Phone,Other,4.7,3
+418,2024-10-08,Portal,Billing,4.1,1
+419,2025-04-01,Email,Delay,8.6,4
+420,2024-04-19,Portal,Sample query,3.7,1
+421,2025-01-31,Phone,Report error,0.7,5
+422,2025-05-29,Portal,Report error,2.3,2
+423,2024-06-01,Portal,Report error,3.6,4
+424,2025-02-21,Email,Report error,1.5,1
+425,2024-06-09,Email,Other,1.7,4
+426,2024-09-25,Phone,Billing,5.0,2
+427,2024-11-29,Email,Delay,1.0,3
+428,2025-05-29,Email,Sample query,3.3,3
+429,2024-09-25,Email,Other,2.0,1
+430,2025-04-10,Email,Report error,6.7,4
+431,2025-01-09,Portal,Sample query,5.4,3
+432,2024-06-10,Phone,Report error,1.3,4
+433,2025-04-13,Portal,Delay,4.6,2
+434,2024-10-01,Phone,Other,3.5,2
+435,2025-03-06,Portal,Billing,2.6,2
+436,2024-10-23,Phone,Billing,3.5,1
+437,2024-07-09,Portal,Other,2.7,5
+438,2025-01-13,Email,Other,5.1,5
+439,2024-08-19,Email,Other,4.3,2
+440,2024-04-29,Email,Sample query,2.5,5
+441,2025-03-29,Portal,Billing,7.3,3
+442,2024-12-10,Portal,Report error,1.2,1
+443,2024-04-12,Email,Sample query,2.0,5
+444,2024-11-16,Email,Delay,2.2,3
+445,2024-04-10,Phone,Billing,3.4,1
+446,2024-01-08,Phone,Billing,0.7,1
+447,2024-01-24,Phone,Report error,7.7,2
+448,2025-03-01,Email,Delay,2.2,3
+449,2024-01-20,Portal,Other,6.0,4
+450,2024-03-01,Portal,Delay,1.1,2
+451,2024-12-20,Phone,Delay,7.0,5
+452,2024-10-28,Portal,Other,4.7,5
+453,2024-02-21,Email,Sample query,2.2,5
+454,2025-03-13,Email,Other,1.7,1
+455,2025-01-18,Portal,Sample query,7.1,3
+456,2024-08-19,Email,Sample query,8.4,5
+457,2024-11-06,Phone,Billing,3.3,4
+458,2024-06-25,Email,Billing,0.3,5
+459,2024-06-18,Portal,Billing,3.2,4
+460,2024-11-24,Email,Billing,6.3,1
+461,2024-11-25,Email,Delay,2.4,4
+462,2024-03-11,Phone,Other,2.6,3
+463,2024-02-24,Email,Other,2.4,5
+464,2024-12-25,Phone,Billing,3.7,5
+465,2024-09-02,Phone,Billing,5.0,2
+466,2024-10-31,Phone,Report error,1.6,2
+467,2024-03-07,Portal,Report error,5.0,2
+468,2025-03-18,Phone,Delay,7.1,5
+469,2024-05-16,Phone,Other,2.6,3
+470,2024-03-25,Portal,Sample query,0.8,1
+471,2024-02-20,Email,Report error,1.1,3
+472,2024-02-21,Portal,Delay,3.3,2
+473,2024-08-31,Email,Report error,7.5,4
+474,2024-08-17,Portal,Report error,0.9,5
+475,2024-12-09,Phone,Sample query,1.3,3
+476,2025-02-23,Email,Other,1.4,4
+477,2025-04-16,Phone,Sample query,4.1,1
+478,2025-03-04,Phone,Billing,4.1,4
+479,2024-09-12,Email,Sample query,1.8,5
+480,2024-07-19,Phone,Delay,2.9,2
+481,2024-10-03,Portal,Billing,1.1,5
+482,2024-03-06,Portal,Delay,2.1,3
+483,2025-06-09,Email,Billing,7.3,5
+484,2024-10-01,Phone,Sample query,1.2,3
+485,2024-12-22,Email,Billing,5.4,1
+486,2025-04-16,Portal,Sample query,3.3,3
+487,2025-01-26,Email,Billing,2.1,5
+488,2025-01-31,Phone,Billing,1.5,5
+489,2024-01-18,Email,Billing,4.5,2
+490,2024-08-08,Portal,Delay,3.4,5
+491,2025-02-05,Portal,Other,5.6,2
+492,2024-09-04,Portal,Billing,2.4,3
+493,2024-02-08,Portal,Report error,2.4,1
+494,2024-10-26,Phone,Billing,1.4,1
+495,2025-05-10,Portal,Report error,0.5,2
+496,2024-07-14,Portal,Delay,3.9,5
+497,2025-03-29,Phone,Delay,4.1,1
+498,2024-08-06,Email,Report error,5.7,1
+499,2025-05-30,Phone,Billing,2.1,5
+500,2024-08-16,Portal,Report error,3.5,5
+501,2024-01-25,Portal,Report error,7.2,4
+502,2025-06-19,Email,Other,0.8,5
+503,2024-08-19,Portal,Other,6.5,4
+504,2024-04-19,Email,Report error,7.5,2
+505,2025-02-10,Portal,Billing,3.1,5
+506,2024-09-15,Phone,Other,6.7,4
+507,2024-06-15,Email,Sample query,5.9,5
+508,2024-06-01,Email,Other,1.7,2
+509,2025-05-03,Phone,Other,1.0,1
+510,2024-05-16,Email,Delay,1.4,2
+511,2024-10-13,Phone,Delay,2.3,4
+512,2025-02-15,Email,Delay,2.6,4
+513,2025-03-23,Phone,Delay,2.1,5
+514,2025-06-03,Phone,Report error,7.7,5
+515,2024-06-10,Email,Sample query,10.5,5
+516,2024-12-19,Email,Report error,5.1,1
+517,2024-06-21,Phone,Sample query,3.9,5
+518,2025-05-18,Phone,Report error,4.1,3
+519,2024-02-02,Phone,Sample query,0.6,3
+520,2025-04-05,Phone,Delay,1.7,2
+521,2024-11-01,Portal,Delay,1.6,1
+522,2024-06-16,Phone,Report error,2.0,2
+523,2025-05-15,Phone,Other,3.3,5
+524,2024-04-27,Phone,Sample query,7.0,2
+525,2024-04-16,Portal,Other,0.6,5
+526,2024-03-21,Portal,Report error,6.8,5
+527,2025-05-11,Portal,Report error,7.3,2
+528,2024-07-28,Portal,Report error,0.6,3
+529,2025-03-29,Phone,Billing,2.5,4
+530,2024-03-24,Email,Sample query,4.3,3
+531,2025-05-24,Email,Other,1.5,5
+532,2024-03-12,Email,Billing,5.0,4
+533,2024-10-13,Portal,Report error,6.7,5
+534,2024-05-02,Phone,Billing,8.9,2
+535,2025-03-11,Email,Delay,9.4,5
+536,2025-03-09,Phone,Delay,4.2,4
+537,2024-02-04,Email,Delay,1.4,3
+538,2024-12-15,Phone,Other,3.2,1
+539,2024-04-25,Email,Delay,1.6,5
+540,2024-09-16,Phone,Sample query,3.5,2
+541,2025-04-04,Phone,Delay,2.0,1
+542,2025-05-10,Phone,Billing,2.1,4
+543,2024-03-26,Email,Report error,0.8,5
+544,2024-02-03,Portal,Other,0.9,5
+545,2024-02-02,Phone,Billing,1.8,1
+546,2024-06-26,Phone,Billing,4.1,2
+547,2024-01-26,Phone,Report error,4.5,3
+548,2025-04-05,Phone,Delay,5.4,4
+549,2024-07-10,Portal,Other,3.5,2
+550,2025-02-11,Email,Sample query,1.7,5
+551,2025-03-13,Email,Report error,2.6,4
+552,2024-03-13,Email,Other,1.6,4
+553,2025-03-20,Email,Report error,1.7,3
+554,2024-10-29,Email,Delay,6.1,2
+555,2024-05-26,Portal,Delay,3.6,4
+556,2024-04-24,Phone,Delay,1.6,3
+557,2024-09-23,Email,Delay,0.8,3
+558,2025-05-06,Phone,Sample query,2.3,5
+559,2025-05-01,Phone,Other,6.6,4
+560,2025-01-24,Phone,Delay,4.1,4
+561,2024-11-07,Portal,Sample query,3.2,5
+562,2024-07-28,Portal,Other,1.6,2
+563,2024-04-15,Email,Billing,3.1,4
+564,2024-03-15,Email,Other,2.3,2
+565,2025-02-03,Phone,Delay,2.1,4
+566,2025-05-24,Email,Delay,8.4,4
+567,2024-11-10,Phone,Other,2.3,4
+568,2024-08-12,Portal,Delay,2.3,4
+569,2024-10-24,Portal,Delay,6.3,1
+570,2024-12-01,Portal,Billing,9.3,1
+571,2024-07-29,Email,Other,4.7,1
+572,2024-07-02,Email,Delay,3.7,3
+573,2024-09-05,Phone,Billing,0.2,2
+574,2024-08-21,Email,Report error,2.7,5
+575,2025-02-04,Portal,Sample query,2.1,2
+576,2024-04-21,Email,Delay,1.4,5
+577,2024-02-29,Phone,Billing,0.2,5
+578,2024-07-19,Phone,Other,5.0,5
+579,2024-07-05,Phone,Other,2.8,4
+580,2024-03-27,Email,Report error,4.6,5
+581,2024-07-14,Email,Billing,1.0,2
+582,2024-11-19,Portal,Other,3.3,1
+583,2025-04-14,Email,Other,3.2,4
+584,2024-01-30,Email,Sample query,2.2,2
+585,2024-10-14,Portal,Delay,1.5,2
+586,2024-11-19,Portal,Report error,2.7,4
+587,2024-05-03,Email,Other,3.2,1
+588,2025-04-03,Email,Delay,3.2,1
+589,2024-06-24,Email,Delay,3.5,2
+590,2024-03-08,Portal,Delay,3.2,1
+591,2024-12-23,Email,Sample query,2.2,5
+592,2024-08-26,Email,Delay,5.9,4
+593,2025-04-06,Phone,Sample query,4.0,2
+594,2024-11-10,Portal,Billing,3.0,2
+595,2024-07-11,Portal,Other,2.4,5
+596,2024-05-19,Phone,Report error,2.5,3
+597,2025-06-19,Portal,Report error,3.2,2
+598,2025-05-01,Phone,Delay,4.6,2
+599,2025-06-23,Phone,Billing,1.3,2
+600,2024-07-13,Portal,Billing,1.4,5
+601,2024-10-14,Portal,Other,4.3,4
+602,2024-02-19,Portal,Report error,2.1,4
+603,2025-04-24,Portal,Other,1.6,2
+604,2024-08-01,Phone,Report error,8.5,3
+605,2025-04-14,Email,Delay,5.7,2
+606,2024-06-02,Email,Delay,3.0,4
+607,2024-07-15,Email,Other,3.5,1
+608,2024-03-16,Email,Sample query,9.2,5
+609,2025-03-28,Email,Billing,6.0,2
+610,2025-03-20,Phone,Report error,1.1,2
+611,2024-11-05,Phone,Billing,5.0,1
+612,2024-03-17,Portal,Billing,3.2,5
+613,2024-07-29,Phone,Billing,1.8,5
+614,2024-04-09,Phone,Other,1.9,4
+615,2024-10-31,Email,Sample query,6.3,5
+616,2024-09-19,Phone,Delay,5.5,4
+617,2025-04-01,Phone,Other,3.0,4
+618,2025-01-12,Phone,Delay,0.4,1
+619,2024-02-05,Email,Other,1.0,2
+620,2024-12-05,Phone,Other,2.6,4
+621,2024-08-27,Portal,Delay,4.8,2
+622,2024-02-14,Portal,Sample query,2.0,3
+623,2024-10-03,Email,Delay,3.7,1
+624,2024-09-05,Email,Other,4.0,1
+625,2024-07-16,Phone,Billing,4.6,4
+626,2024-09-25,Portal,Other,3.8,4
+627,2025-03-22,Portal,Other,1.5,3
+628,2025-01-06,Portal,Other,9.9,4
+629,2024-07-07,Email,Delay,9.0,4
+630,2025-04-30,Email,Delay,8.0,1
+631,2025-05-02,Email,Other,2.0,2
+632,2025-06-02,Email,Report error,3.5,4
+633,2024-03-24,Portal,Report error,1.6,4
+634,2024-07-08,Email,Sample query,10.9,2
+635,2024-05-04,Email,Report error,4.4,4
+636,2024-10-07,Email,Report error,0.8,2
+637,2024-06-25,Phone,Sample query,2.2,4
+638,2025-03-03,Portal,Billing,7.6,1
+639,2024-11-04,Portal,Delay,2.7,2
+640,2024-09-29,Phone,Billing,3.3,3
+641,2024-12-29,Email,Billing,3.9,5
+642,2024-05-13,Portal,Delay,2.4,1
+643,2024-10-03,Email,Billing,4.7,4
+644,2025-02-12,Portal,Sample query,9.5,3
+645,2024-02-13,Portal,Sample query,5.1,1
+646,2025-06-12,Email,Delay,9.5,4
+647,2024-04-20,Portal,Other,5.8,3
+648,2024-04-14,Phone,Sample query,1.6,3
+649,2025-04-25,Phone,Other,5.4,2
+650,2025-05-06,Phone,Report error,2.4,1
+651,2024-08-27,Email,Billing,2.6,1
+652,2024-12-01,Email,Delay,6.9,1
+653,2024-04-13,Phone,Delay,4.4,4
+654,2025-02-28,Email,Sample query,8.6,2
+655,2025-03-21,Email,Billing,2.0,2
+656,2024-04-24,Email,Sample query,0.7,1
+657,2024-08-03,Portal,Billing,6.9,2
+658,2025-03-06,Email,Report error,2.7,5
+659,2024-10-04,Portal,Report error,2.2,2
+660,2024-11-29,Email,Report error,3.3,2
+661,2025-04-07,Phone,Other,3.2,3
+662,2024-09-30,Email,Sample query,4.2,2
+663,2025-03-12,Portal,Billing,1.2,4
+664,2025-05-09,Email,Billing,3.7,5
+665,2025-04-29,Email,Sample query,0.9,2
+666,2024-01-23,Phone,Report error,2.2,2
+667,2025-01-19,Phone,Billing,3.4,4
+668,2025-03-31,Portal,Report error,2.4,1
+669,2024-03-31,Phone,Billing,5.3,3
+670,2024-12-24,Email,Billing,1.5,1
+671,2025-01-16,Phone,Report error,3.7,3
+672,2024-06-05,Portal,Delay,2.3,3
+673,2024-10-09,Portal,Billing,3.0,5
+674,2025-04-08,Email,Other,13.7,3
+675,2024-07-27,Phone,Delay,0.5,5
+676,2025-01-19,Portal,Delay,3.5,5
+677,2024-01-15,Email,Sample query,4.2,5
+678,2025-02-07,Portal,Other,4.1,2
+679,2024-03-09,Portal,Other,1.3,4
+680,2025-05-22,Portal,Delay,1.3,1
+681,2025-04-14,Portal,Sample query,4.8,5
+682,2025-02-24,Email,Delay,3.9,2
+683,2024-09-12,Portal,Billing,3.5,1
+684,2024-04-15,Portal,Report error,4.3,1
+685,2025-02-05,Phone,Sample query,1.9,1
+686,2024-10-18,Email,Billing,6.9,2
+687,2024-01-10,Phone,Billing,2.5,3
+688,2024-11-05,Phone,Delay,1.2,1
+689,2024-09-19,Phone,Billing,3.6,5
+690,2024-12-17,Phone,Billing,3.9,5
+691,2024-06-28,Portal,Delay,3.7,1
+692,2025-03-29,Portal,Report error,7.5,4
+693,2024-04-09,Phone,Other,2.4,2
+694,2024-05-13,Email,Other,5.3,4
+695,2024-08-02,Email,Other,1.6,5
+696,2024-03-06,Phone,Report error,3.4,3
+697,2024-06-14,Email,Other,1.1,2
+698,2024-02-04,Portal,Report error,3.1,1
+699,2025-04-04,Email,Delay,1.3,1
+700,2024-01-01,Portal,Delay,7.4,1
+701,2025-05-21,Portal,Delay,0.1,5
+702,2025-06-23,Phone,Other,4.2,3
+703,2024-01-14,Phone,Billing,9.5,3
+704,2025-04-26,Email,Other,2.3,1
+705,2025-02-05,Email,Delay,7.9,3
+706,2024-02-13,Portal,Billing,8.3,2
+707,2024-06-10,Phone,Other,1.2,1
+708,2024-01-27,Phone,Report error,10.0,5
+709,2025-01-03,Portal,Other,3.1,3
+710,2024-07-24,Portal,Other,2.3,2
+711,2024-09-02,Portal,Sample query,1.4,2
+712,2025-05-01,Portal,Report error,11.0,4
+713,2024-08-21,Phone,Report error,7.4,3
+714,2025-05-06,Phone,Billing,5.9,4
+715,2025-03-09,Portal,Sample query,10.0,3
+716,2025-02-27,Email,Report error,2.5,4
+717,2025-01-19,Email,Report error,5.4,3
+718,2025-06-08,Phone,Billing,5.8,5
+719,2024-08-19,Email,Report error,5.5,4
+720,2024-01-06,Email,Sample query,1.5,4
+721,2024-07-14,Portal,Other,3.0,3
+722,2024-02-28,Phone,Other,3.0,4
+723,2024-02-27,Email,Billing,1.1,1
+724,2025-06-19,Portal,Delay,4.2,3
+725,2024-12-28,Portal,Billing,5.3,1
+726,2024-06-14,Phone,Report error,15.0,5
+727,2024-02-28,Phone,Delay,1.4,5
+728,2024-06-30,Portal,Report error,6.1,5
+729,2024-07-16,Email,Sample query,1.4,4
+730,2024-11-18,Phone,Other,8.0,1
+731,2024-11-08,Phone,Billing,3.4,4
+732,2024-12-19,Email,Other,6.2,4
+733,2025-02-07,Email,Other,1.2,3
+734,2025-01-27,Portal,Delay,2.7,1
+735,2025-02-22,Email,Delay,0.5,5
+736,2025-05-11,Portal,Delay,8.5,5
+737,2024-03-25,Email,Other,6.9,5
+738,2025-01-01,Email,Sample query,2.4,3
+739,2024-09-18,Email,Delay,10.3,5
+740,2024-01-27,Email,Report error,0.8,5
+741,2024-09-20,Phone,Billing,3.3,1
+742,2024-02-14,Email,Delay,1.8,4
+743,2024-04-15,Phone,Delay,5.7,1
+744,2025-02-26,Email,Billing,4.9,4
+745,2024-07-26,Email,Other,4.2,2
+746,2025-03-23,Phone,Delay,9.3,2
+747,2024-02-21,Email,Report error,3.8,2
+748,2025-04-12,Email,Sample query,5.8,4
+749,2025-01-28,Email,Report error,2.2,4
+750,2025-04-30,Phone,Sample query,2.1,4
+751,2025-05-09,Portal,Delay,1.9,5
+752,2024-06-24,Phone,Other,2.3,3
+753,2024-01-07,Portal,Delay,4.7,1
+754,2024-02-26,Email,Sample query,2.4,4
+755,2024-09-20,Portal,Sample query,1.9,4
+756,2024-08-20,Portal,Delay,3.8,1
+757,2024-01-17,Email,Other,3.5,3
+758,2025-04-29,Email,Delay,6.2,3
+759,2025-05-27,Email,Other,2.7,4
+760,2025-06-20,Phone,Sample query,3.7,5
+761,2024-01-03,Phone,Report error,2.3,5
+762,2024-10-01,Email,Sample query,0.6,1
+763,2024-07-10,Phone,Billing,3.5,5
+764,2024-08-27,Portal,Billing,3.6,1
+765,2024-09-27,Portal,Other,1.9,2
+766,2025-06-15,Email,Delay,3.0,4
+767,2024-04-30,Email,Report error,3.2,4
+768,2024-07-03,Phone,Other,1.8,2
+769,2024-05-16,Portal,Report error,1.6,1
+770,2025-01-16,Email,Other,2.2,4
+771,2025-03-02,Phone,Other,2.8,2
+772,2024-02-24,Portal,Billing,2.6,4
+773,2025-03-03,Email,Delay,1.4,5
+774,2024-10-02,Phone,Report error,3.6,2
+775,2024-08-11,Email,Delay,1.4,5
+776,2024-01-06,Email,Other,7.8,1
+777,2025-05-31,Phone,Sample query,2.1,1
+778,2024-11-30,Email,Sample query,5.2,3
+779,2025-02-01,Email,Delay,1.4,2
+780,2024-06-15,Phone,Report error,2.4,3
+781,2025-02-06,Phone,Report error,3.1,2
+782,2024-06-21,Portal,Sample query,4.2,2
+783,2024-03-03,Email,Other,4.8,4
+784,2025-05-10,Email,Report error,7.8,5
+785,2025-04-15,Phone,Other,3.7,3
+786,2024-06-13,Email,Report error,5.4,5
+787,2025-05-26,Email,Delay,4.1,3
+788,2024-10-14,Phone,Delay,7.1,1
+789,2024-06-08,Phone,Report error,3.2,5
+790,2024-04-18,Email,Other,9.6,1
+791,2024-06-28,Phone,Billing,7.2,4
+792,2024-06-18,Email,Report error,5.4,1
+793,2024-05-10,Portal,Sample query,0.4,3
+794,2024-09-02,Phone,Billing,3.7,5
+795,2024-08-19,Phone,Delay,0.4,1
+796,2024-12-21,Email,Sample query,2.1,2
+797,2024-03-10,Email,Report error,2.5,2
+798,2024-09-26,Portal,Sample query,0.3,1
+799,2024-02-02,Email,Report error,3.4,4
+800,2024-08-29,Portal,Sample query,3.5,4
+801,2024-02-25,Phone,Sample query,0.9,3
+802,2024-04-22,Email,Delay,0.9,4
+803,2024-03-25,Portal,Other,9.1,4
+804,2024-04-26,Portal,Billing,3.5,2
+805,2025-01-22,Email,Sample query,9.0,3
+806,2024-03-04,Phone,Sample query,9.7,2
+807,2024-02-10,Portal,Report error,1.4,4
+808,2024-11-04,Email,Billing,3.3,4
+809,2024-05-15,Email,Delay,1.3,2
+810,2024-05-27,Phone,Sample query,0.3,1
+811,2024-07-02,Phone,Delay,2.8,3
+812,2024-10-23,Portal,Delay,3.8,5
+813,2024-06-19,Phone,Sample query,4.8,3
+814,2024-09-01,Phone,Report error,2.0,3
+815,2024-11-28,Phone,Report error,2.0,4
+816,2024-10-28,Portal,Report error,1.7,2
+817,2024-07-18,Email,Billing,2.0,5
+818,2024-12-22,Email,Billing,5.9,3
+819,2025-04-20,Portal,Report error,1.1,4
+820,2024-11-15,Portal,Delay,3.0,3
+821,2025-02-06,Email,Delay,2.9,1
+822,2025-04-25,Portal,Delay,1.7,4
+823,2024-12-27,Portal,Billing,2.8,2
+824,2024-04-02,Portal,Other,4.2,3
+825,2025-05-30,Phone,Delay,4.1,2
+826,2024-01-30,Email,Billing,3.7,1
+827,2024-05-13,Portal,Sample query,6.5,2
+828,2024-07-23,Phone,Other,0.6,1
+829,2024-07-26,Phone,Billing,0.5,4
+830,2024-06-04,Phone,Delay,1.7,5
+831,2024-12-26,Email,Billing,3.7,4
+832,2025-05-03,Email,Report error,5.4,5
+833,2024-06-07,Email,Report error,2.4,1
+834,2024-09-19,Phone,Other,0.7,4
+835,2024-07-02,Phone,Other,1.9,3
+836,2025-04-20,Portal,Sample query,2.4,1
+837,2024-03-20,Phone,Report error,6.4,3
+838,2025-01-13,Phone,Other,5.9,5
+839,2024-03-26,Portal,Sample query,3.3,1
+840,2025-06-19,Phone,Report error,6.4,4
+841,2025-05-07,Phone,Report error,0.9,1
+842,2024-09-11,Phone,Billing,2.7,2
+843,2025-02-25,Phone,Billing,0.7,2
+844,2024-07-06,Portal,Sample query,2.3,5
+845,2024-07-07,Phone,Other,2.4,4
+846,2024-06-09,Portal,Sample query,2.9,2
+847,2025-06-20,Portal,Sample query,3.2,5
+848,2024-04-30,Phone,Delay,1.9,3
+849,2025-05-06,Phone,Sample query,2.4,2
+850,2025-02-10,Email,Delay,2.7,4
+851,2024-05-13,Phone,Report error,0.3,2
+852,2024-10-07,Phone,Delay,4.7,4
+853,2024-05-20,Email,Sample query,4.1,5
+854,2024-03-30,Portal,Report error,1.2,1
+855,2024-03-27,Phone,Billing,4.7,1
+856,2025-04-13,Email,Report error,2.2,3
+857,2025-01-08,Portal,Sample query,3.0,3
+858,2024-08-27,Phone,Billing,1.1,4
+859,2025-01-01,Portal,Sample query,2.7,1
+860,2024-04-20,Portal,Delay,8.0,3
+861,2024-09-16,Phone,Report error,0.8,4
+862,2024-04-03,Phone,Delay,0.9,3
+863,2024-07-05,Phone,Sample query,6.0,4
+864,2024-12-19,Phone,Report error,3.8,4
+865,2025-05-18,Email,Other,7.7,3
+866,2025-06-09,Phone,Billing,4.2,3
+867,2024-07-11,Phone,Other,2.0,4
+868,2024-04-24,Email,Other,2.1,2
+869,2025-03-11,Email,Report error,8.9,5
+870,2024-11-05,Phone,Sample query,0.5,1
+871,2025-05-10,Phone,Delay,0.3,2
+872,2025-06-06,Portal,Sample query,3.3,1
+873,2024-03-23,Phone,Sample query,1.1,1
+874,2025-06-08,Phone,Delay,2.0,5
+875,2024-05-06,Phone,Report error,3.1,2
+876,2024-12-03,Portal,Sample query,4.2,1
+877,2024-11-20,Email,Report error,5.5,1
+878,2025-03-19,Phone,Delay,4.6,3
+879,2025-06-19,Portal,Other,2.9,3
+880,2024-08-17,Email,Delay,1.5,4
+881,2025-02-11,Phone,Billing,3.9,4
+882,2024-12-26,Phone,Other,2.8,1
+883,2025-06-02,Email,Sample query,5.7,3
+884,2024-11-16,Phone,Sample query,3.2,3
+885,2024-10-14,Portal,Report error,0.3,2
+886,2025-03-01,Email,Other,1.5,3
+887,2024-01-04,Email,Sample query,0.3,5
+888,2024-03-14,Email,Billing,2.4,5
+889,2025-04-11,Email,Report error,2.0,3
+890,2024-07-26,Portal,Delay,1.1,3
+891,2025-03-26,Email,Delay,1.6,1
+892,2024-12-17,Phone,Report error,6.1,3
+893,2024-08-22,Portal,Billing,0.7,2
+894,2024-12-13,Email,Report error,3.0,1
+895,2025-01-11,Portal,Report error,2.7,1
+896,2025-05-10,Email,Delay,6.2,5
+897,2024-12-02,Phone,Other,1.2,1
+898,2024-01-25,Portal,Report error,1.2,3
+899,2025-01-21,Email,Billing,1.2,2
+900,2024-10-06,Phone,Other,10.9,3
+901,2025-02-19,Email,Other,5.0,4
+902,2025-01-05,Phone,Billing,2.1,1
+903,2024-05-06,Portal,Other,4.4,5
+904,2025-02-16,Portal,Billing,5.5,4
+905,2024-01-09,Phone,Other,5.4,4
+906,2024-05-07,Email,Sample query,2.8,1
+907,2024-05-27,Email,Delay,3.3,3
+908,2024-07-19,Phone,Sample query,4.7,3
+909,2024-09-08,Portal,Sample query,2.2,2
+910,2024-10-06,Portal,Billing,2.1,4
+911,2024-02-20,Email,Sample query,1.0,4
+912,2025-02-14,Email,Sample query,8.5,3
+913,2024-05-16,Phone,Billing,8.2,2
+914,2024-06-28,Portal,Billing,0.4,4
+915,2024-02-27,Email,Delay,3.4,3
+916,2024-03-12,Phone,Billing,3.5,1
+917,2025-02-16,Email,Report error,1.7,5
+918,2024-08-16,Phone,Sample query,7.9,5
+919,2025-05-17,Portal,Billing,2.0,4
+920,2024-09-21,Phone,Sample query,0.8,4
+921,2025-04-23,Email,Billing,4.7,1
+922,2024-07-12,Portal,Report error,1.5,3
+923,2025-01-02,Phone,Billing,7.5,2
+924,2024-02-17,Portal,Delay,1.4,2
+925,2025-06-02,Portal,Other,3.8,2
+926,2024-08-08,Portal,Other,4.8,4
+927,2024-07-17,Portal,Report error,3.0,2
+928,2024-04-03,Email,Delay,3.4,2
+929,2024-12-01,Portal,Report error,2.7,4
+930,2025-03-19,Phone,Sample query,4.5,1
+931,2025-06-06,Phone,Billing,7.5,5
+932,2024-06-17,Email,Billing,7.3,2
+933,2024-04-11,Email,Billing,2.2,1
+934,2024-05-28,Email,Report error,1.3,1
+935,2025-01-23,Portal,Other,2.6,4
+936,2024-06-29,Phone,Other,3.2,1
+937,2025-03-02,Portal,Report error,5.6,3
+938,2024-09-26,Phone,Other,2.2,1
+939,2024-08-24,Portal,Delay,5.5,5
+940,2025-04-15,Phone,Other,4.7,5
+941,2024-06-19,Portal,Delay,3.1,4
+942,2025-05-03,Phone,Report error,5.2,4
+943,2025-01-18,Portal,Delay,3.9,3
+944,2024-02-19,Portal,Billing,9.6,3
+945,2025-02-20,Email,Billing,0.5,1
+946,2024-07-10,Email,Sample query,5.4,1
+947,2025-01-20,Email,Report error,2.0,1
+948,2025-03-22,Email,Billing,0.6,4
+949,2024-06-07,Portal,Sample query,2.9,4
+950,2024-11-01,Phone,Delay,0.9,2
+951,2024-12-23,Email,Sample query,1.7,2
+952,2024-04-28,Phone,Report error,5.0,1
+953,2024-05-24,Email,Report error,5.1,2
+954,2025-02-21,Phone,Other,4.4,3
+955,2024-07-08,Phone,Billing,9.0,5
+956,2025-01-31,Phone,Billing,0.3,5
+957,2025-05-02,Portal,Other,3.4,4
+958,2024-07-09,Email,Report error,3.7,3
+959,2025-02-11,Email,Sample query,2.5,1
+960,2024-10-27,Portal,Delay,1.0,5
+961,2024-12-14,Email,Report error,4.4,4
+962,2024-02-06,Phone,Other,2.4,5
+963,2024-03-27,Portal,Other,3.7,4
+964,2024-05-09,Portal,Report error,0.7,3
+965,2025-02-21,Phone,Report error,1.3,5
+966,2025-02-27,Email,Billing,4.5,1
+967,2024-12-23,Phone,Delay,3.1,3
+968,2024-11-20,Portal,Other,1.1,1
+969,2024-02-24,Portal,Delay,4.2,2
+970,2025-01-25,Portal,Report error,1.7,1
+971,2025-05-08,Phone,Billing,5.5,4
+972,2024-10-01,Portal,Report error,4.3,5
+973,2024-07-14,Phone,Sample query,5.9,4
+974,2024-05-15,Email,Report error,4.9,4
+975,2024-06-02,Phone,Delay,3.2,5
+976,2024-11-18,Portal,Delay,1.4,5
+977,2024-11-07,Phone,Other,1.2,5
+978,2025-05-05,Portal,Billing,4.6,1
+979,2024-07-17,Email,Billing,2.6,4
+980,2024-08-10,Portal,Report error,7.0,5
+981,2024-08-27,Portal,Other,5.0,5
+982,2025-04-05,Portal,Billing,6.4,4
+983,2024-07-04,Email,Report error,3.2,4
+984,2025-04-30,Portal,Report error,3.9,3
+985,2024-06-05,Phone,Report error,1.7,3
+986,2025-01-05,Portal,Billing,6.1,5
+987,2025-02-10,Email,Sample query,2.7,2
+988,2024-11-21,Email,Report error,1.4,5
+989,2024-08-19,Email,Other,1.4,3
+990,2025-05-15,Phone,Billing,0.4,5
+991,2025-01-30,Portal,Billing,1.2,2
+992,2024-07-21,Portal,Billing,7.0,1
+993,2025-03-28,Phone,Delay,3.9,5
+994,2024-02-11,Phone,Report error,9.7,3
+995,2024-07-05,Email,Report error,0.9,1
+996,2024-01-11,Phone,Other,3.6,5
+997,2024-09-08,Phone,Other,5.6,1
+998,2024-12-06,Portal,Billing,4.5,4
+999,2025-03-21,Email,Report error,2.2,4
+1000,2024-04-29,Email,Billing,3.1,5
+1001,2025-02-28,Email,Report error,2.2,3
+1002,2024-10-06,Email,Delay,2.7,3
+1003,2024-08-09,Phone,Delay,5.0,1
+1004,2024-08-01,Phone,Sample query,2.5,3
+1005,2024-06-22,Portal,Billing,4.6,3
+1006,2024-06-30,Phone,Sample query,3.8,5
+1007,2025-05-05,Portal,Billing,3.3,1
+1008,2025-01-06,Portal,Other,6.0,2
+1009,2024-03-30,Portal,Billing,5.7,1
+1010,2024-04-21,Email,Report error,3.3,4
+1011,2024-04-02,Email,Delay,2.9,5
+1012,2024-12-17,Email,Sample query,1.0,3
+1013,2024-12-10,Portal,Report error,1.9,2
+1014,2024-04-19,Phone,Delay,1.0,2
+1015,2024-07-24,Email,Billing,2.0,5
+1016,2024-05-14,Portal,Delay,1.0,5
+1017,2024-07-31,Phone,Other,1.6,3
+1018,2024-01-26,Phone,Other,0.6,5
+1019,2025-01-01,Portal,Sample query,2.7,2
+1020,2024-07-12,Email,Delay,1.0,2
+1021,2024-01-22,Email,Delay,2.4,5
+1022,2024-11-30,Email,Delay,1.8,1
+1023,2025-03-20,Email,Delay,2.6,1
+1024,2024-07-11,Email,Report error,6.7,4
+1025,2024-06-14,Phone,Report error,2.4,1
+1026,2024-08-19,Portal,Report error,2.9,3
+1027,2024-11-28,Email,Report error,5.0,4
+1028,2025-01-07,Phone,Report error,3.3,3
+1029,2024-06-04,Phone,Other,8.2,5
+1030,2025-01-31,Email,Sample query,6.3,3
+1031,2024-06-11,Portal,Other,10.0,3
+1032,2024-10-03,Phone,Other,0.9,5
+1033,2024-04-27,Email,Sample query,5.0,4
+1034,2024-09-22,Phone,Delay,8.1,3
+1035,2025-04-06,Portal,Report error,3.3,3
+1036,2024-03-24,Phone,Other,4.1,3
+1037,2025-06-02,Phone,Report error,2.5,4
+1038,2024-12-24,Email,Report error,2.9,4
+1039,2025-03-22,Portal,Delay,0.8,4
+1040,2024-02-03,Email,Sample query,6.2,4
+1041,2024-12-12,Email,Sample query,10.3,5
+1042,2025-02-06,Portal,Other,6.9,2
+1043,2025-03-01,Phone,Other,5.5,4
+1044,2025-04-27,Portal,Sample query,5.0,4
+1045,2024-09-28,Email,Delay,1.4,3
+1046,2024-11-17,Portal,Report error,0.8,3
+1047,2024-03-03,Portal,Other,1.6,5
+1048,2024-02-01,Email,Sample query,0.1,2
+1049,2025-04-21,Portal,Other,4.7,1
+1050,2024-11-03,Phone,Sample query,6.7,1
+1051,2024-12-10,Portal,Other,5.8,1
+1052,2024-04-20,Phone,Delay,5.4,1
+1053,2024-08-22,Phone,Other,2.5,5
+1054,2025-01-26,Portal,Billing,8.1,3
+1055,2024-01-05,Portal,Other,2.4,4
+1056,2024-04-01,Portal,Delay,3.1,2
+1057,2024-04-05,Email,Sample query,2.2,4
+1058,2024-10-31,Email,Sample query,4.8,5
+1059,2024-10-11,Phone,Sample query,3.5,1
+1060,2024-02-07,Email,Other,0.6,5
+1061,2024-04-16,Portal,Delay,8.9,1
+1062,2024-11-19,Phone,Report error,1.3,5
+1063,2024-02-10,Email,Report error,2.5,5
+1064,2024-03-19,Email,Sample query,0.8,4
+1065,2024-04-25,Phone,Billing,2.2,4
+1066,2024-02-20,Portal,Delay,2.0,4
+1067,2024-06-07,Phone,Report error,9.6,2
+1068,2024-09-19,Phone,Sample query,7.1,5
+1069,2025-05-04,Email,Other,1.8,5
+1070,2024-11-01,Phone,Report error,0.7,3
+1071,2025-03-09,Phone,Report error,0.6,3
+1072,2025-04-21,Portal,Sample query,1.9,5
+1073,2024-01-17,Phone,Sample query,6.4,4
+1074,2024-11-30,Phone,Report error,1.6,3
+1075,2024-01-03,Email,Delay,4.3,4
+1076,2024-09-23,Email,Other,4.8,4
+1077,2025-03-21,Portal,Sample query,4.3,3
+1078,2025-01-29,Portal,Sample query,2.7,5
+1079,2024-04-22,Email,Billing,1.8,2
+1080,2024-03-13,Email,Delay,3.2,1
+1081,2024-08-03,Email,Other,2.7,5
+1082,2024-09-05,Phone,Report error,0.2,1
+1083,2025-03-17,Email,Sample query,1.3,5
+1084,2024-09-20,Phone,Sample query,0.8,1
+1085,2024-04-06,Portal,Billing,2.6,5
+1086,2024-01-02,Portal,Sample query,1.3,3
+1087,2024-05-18,Email,Delay,4.6,1
+1088,2025-04-02,Portal,Report error,2.7,5
+1089,2025-04-05,Portal,Other,2.2,2
+1090,2024-01-23,Email,Report error,6.4,5
+1091,2025-06-11,Phone,Other,3.0,3
+1092,2024-06-03,Portal,Sample query,0.8,4
+1093,2025-03-07,Portal,Delay,0.5,4
+1094,2024-11-30,Email,Other,0.6,3
+1095,2025-01-18,Phone,Delay,1.1,5
+1096,2024-06-04,Phone,Billing,5.2,2
+1097,2024-05-07,Email,Report error,4.1,5
+1098,2024-09-24,Phone,Sample query,2.4,4
+1099,2025-02-04,Phone,Other,2.4,2
+1100,2024-10-01,Phone,Delay,2.2,5
+1101,2024-07-26,Portal,Sample query,1.0,3
+1102,2025-03-04,Phone,Delay,4.5,2
+1103,2025-01-19,Phone,Delay,1.2,5
+1104,2024-01-25,Phone,Billing,2.6,3
+1105,2024-06-08,Phone,Sample query,4.8,1
+1106,2024-06-19,Phone,Sample query,1.0,1
+1107,2024-11-11,Phone,Delay,1.1,2
+1108,2024-09-12,Portal,Delay,1.2,2
+1109,2025-05-18,Phone,Other,2.2,2
+1110,2025-06-23,Portal,Billing,4.4,2
+1111,2024-04-06,Portal,Report error,5.1,4
+1112,2025-05-14,Email,Billing,0.8,3
+1113,2024-10-26,Email,Other,1.3,4
+1114,2024-11-26,Email,Other,1.0,3
+1115,2024-10-01,Email,Sample query,9.3,1
+1116,2025-04-11,Email,Report error,2.1,2
+1117,2024-11-17,Email,Report error,6.9,3
+1118,2025-01-12,Email,Report error,2.3,3
+1119,2024-08-03,Phone,Delay,2.2,1
+1120,2024-05-25,Phone,Other,2.8,3
+1121,2024-12-04,Portal,Report error,4.2,3
+1122,2025-01-10,Phone,Billing,2.9,4
+1123,2025-05-15,Portal,Sample query,2.4,4
+1124,2024-08-14,Email,Report error,5.8,3
+1125,2024-07-13,Email,Sample query,0.2,5
+1126,2024-11-28,Phone,Report error,7.7,5
+1127,2024-08-05,Portal,Sample query,3.8,2
+1128,2025-02-10,Email,Other,2.2,2
+1129,2024-12-20,Phone,Delay,3.2,3
+1130,2025-03-21,Email,Other,1.3,2
+1131,2025-05-19,Email,Billing,2.3,5
+1132,2025-02-13,Portal,Sample query,3.5,2
+1133,2024-08-30,Portal,Other,0.7,2
+1134,2024-03-06,Phone,Sample query,2.2,1
+1135,2025-03-16,Portal,Report error,3.9,4
+1136,2025-03-20,Email,Delay,2.7,1
+1137,2025-05-11,Email,Delay,2.3,1
+1138,2025-03-06,Phone,Report error,7.5,4
+1139,2025-05-02,Email,Report error,10.9,2
+1140,2024-04-18,Phone,Billing,4.2,4
+1141,2024-01-30,Phone,Report error,1.3,4
+1142,2024-05-15,Email,Billing,5.7,3
+1143,2025-06-13,Email,Other,3.4,4
+1144,2025-05-13,Portal,Sample query,11.0,5
+1145,2024-06-18,Phone,Other,2.5,3
+1146,2024-04-12,Portal,Delay,5.3,4
+1147,2025-05-12,Portal,Sample query,1.4,2
+1148,2025-02-08,Portal,Delay,2.9,2
+1149,2025-03-04,Email,Other,5.4,5
+1150,2025-02-08,Portal,Sample query,2.6,5
+1151,2024-03-30,Portal,Report error,4.1,1
+1152,2024-08-04,Portal,Billing,4.8,2
+1153,2024-08-04,Portal,Billing,1.5,4
+1154,2024-01-03,Email,Sample query,2.6,4
+1155,2025-01-04,Portal,Delay,0.7,5
+1156,2025-05-25,Email,Sample query,3.7,2
+1157,2024-10-14,Phone,Sample query,1.3,3
+1158,2025-03-07,Phone,Other,4.5,4
+1159,2024-08-12,Email,Sample query,2.7,5
+1160,2025-02-03,Portal,Delay,1.4,3
+1161,2024-05-02,Portal,Other,3.5,3
+1162,2024-03-24,Email,Billing,1.4,3
+1163,2025-03-24,Phone,Billing,2.3,3
+1164,2024-01-17,Email,Billing,0.8,4
+1165,2025-06-20,Phone,Report error,3.6,5
+1166,2024-01-10,Portal,Billing,5.3,1
+1167,2024-06-12,Email,Delay,2.6,5
+1168,2024-08-11,Email,Delay,3.1,1
+1169,2025-01-24,Portal,Other,1.0,2
+1170,2024-09-14,Email,Sample query,1.9,4
+1171,2024-08-09,Phone,Delay,3.5,2
+1172,2025-02-22,Email,Other,1.1,2
+1173,2024-02-07,Phone,Other,1.6,4
+1174,2024-12-20,Phone,Report error,9.9,4
+1175,2024-02-20,Phone,Sample query,2.3,2
+1176,2024-10-22,Email,Billing,3.8,5
+1177,2024-09-15,Portal,Delay,2.8,4
+1178,2024-11-24,Portal,Delay,1.7,3
+1179,2024-09-19,Portal,Other,4.0,4
+1180,2024-02-20,Email,Delay,1.7,3
+1181,2025-04-19,Portal,Delay,7.5,4
+1182,2024-02-18,Portal,Sample query,2.3,3
+1183,2024-10-13,Phone,Sample query,3.9,4
+1184,2025-03-17,Portal,Sample query,5.3,4
+1185,2024-12-10,Phone,Other,8.4,2
+1186,2025-01-03,Portal,Delay,2.0,1
+1187,2024-02-22,Email,Sample query,2.8,3
+1188,2024-09-24,Portal,Sample query,3.6,3
+1189,2024-10-25,Email,Report error,6.1,3
+1190,2024-10-13,Portal,Other,3.9,3
+1191,2024-03-11,Phone,Delay,2.2,2
+1192,2024-07-04,Portal,Other,1.7,2
+1193,2025-02-03,Email,Other,5.7,3
+1194,2024-02-06,Phone,Delay,4.8,5
+1195,2025-05-03,Phone,Delay,3.6,1
+1196,2024-11-25,Phone,Other,3.3,4
+1197,2025-05-28,Phone,Other,3.0,1
+1198,2024-10-27,Portal,Delay,4.0,3
+1199,2025-01-01,Phone,Billing,5.5,5
+1200,2024-06-27,Portal,Other,4.5,1
+1201,2024-03-26,Email,Other,4.3,3
+1202,2024-08-24,Phone,Delay,8.0,2
+1203,2025-03-19,Portal,Report error,0.9,5
+1204,2024-03-03,Phone,Report error,2.5,1
+1205,2025-01-14,Phone,Report error,1.1,4
+1206,2024-05-09,Email,Other,3.9,5
+1207,2024-01-09,Portal,Delay,0.4,5
+1208,2025-05-17,Portal,Delay,2.6,3
+1209,2024-02-17,Portal,Billing,0.7,3
+1210,2024-04-14,Phone,Delay,2.0,3
+1211,2025-01-17,Phone,Billing,4.5,1
+1212,2025-02-06,Phone,Report error,4.5,4
+1213,2024-07-30,Email,Sample query,0.2,5
+1214,2025-01-10,Email,Other,3.7,1
+1215,2024-05-02,Portal,Report error,6.6,3
+1216,2024-06-16,Portal,Delay,6.4,1
+1217,2024-11-25,Email,Billing,3.0,5
+1218,2025-05-03,Portal,Other,1.2,1
+1219,2024-12-03,Phone,Other,3.2,1
+1220,2025-05-30,Email,Sample query,2.4,3
+1221,2024-08-26,Phone,Other,5.3,5
+1222,2024-09-24,Phone,Delay,1.1,3
+1223,2024-11-15,Email,Report error,2.1,2
+1224,2024-05-28,Email,Delay,2.8,5
+1225,2025-03-09,Phone,Report error,0.5,5
+1226,2025-04-19,Portal,Delay,2.3,2
+1227,2024-09-14,Portal,Delay,5.7,5
+1228,2024-05-20,Email,Delay,1.0,5
+1229,2025-02-15,Portal,Other,4.0,4
+1230,2025-03-27,Phone,Billing,6.0,3
+1231,2024-08-01,Email,Other,6.1,3
+1232,2024-07-19,Phone,Sample query,3.3,4
+1233,2025-01-19,Email,Sample query,4.8,2
+1234,2025-06-16,Portal,Delay,0.9,3
+1235,2024-10-15,Email,Other,7.5,5
+1236,2025-02-22,Email,Sample query,2.3,1
+1237,2024-09-28,Portal,Billing,2.1,2
+1238,2024-08-27,Portal,Billing,1.6,4
+1239,2024-03-15,Email,Report error,1.3,2
+1240,2024-08-05,Portal,Billing,0.9,2
+1241,2024-04-30,Portal,Delay,4.9,2
+1242,2025-02-17,Phone,Sample query,5.0,3
+1243,2025-02-23,Portal,Other,3.2,4
+1244,2025-01-02,Phone,Other,3.0,3
+1245,2025-01-19,Email,Billing,3.7,5
+1246,2024-10-16,Portal,Other,1.9,5
+1247,2024-05-14,Email,Other,3.3,4
+1248,2024-12-31,Email,Other,2.1,4
+1249,2024-02-13,Email,Report error,2.1,4
+1250,2025-02-06,Phone,Report error,3.1,5
+1251,2024-08-21,Email,Other,1.3,2
+1252,2024-09-05,Email,Sample query,4.5,1
+1253,2024-02-25,Portal,Billing,3.6,2
+1254,2025-06-01,Phone,Report error,6.1,5
+1255,2024-04-28,Phone,Other,0.3,3
+1256,2025-02-06,Phone,Sample query,7.6,5
+1257,2024-04-25,Phone,Other,1.8,5
+1258,2025-05-20,Phone,Delay,4.2,1
+1259,2025-02-04,Email,Sample query,5.9,5
+1260,2024-04-10,Email,Other,2.4,1
+1261,2024-03-07,Portal,Report error,7.0,3
+1262,2025-04-09,Phone,Delay,4.2,1
+1263,2024-03-12,Portal,Billing,2.6,3
+1264,2024-04-03,Email,Sample query,3.4,2
+1265,2024-04-17,Email,Sample query,10.8,2
+1266,2025-03-26,Email,Sample query,2.0,5
+1267,2025-01-05,Email,Delay,2.6,3
+1268,2025-03-16,Email,Sample query,1.6,4
+1269,2024-01-04,Portal,Other,1.0,4
+1270,2024-06-27,Phone,Billing,2.8,5
+1271,2024-12-12,Portal,Delay,1.7,4
+1272,2024-04-12,Phone,Delay,8.9,4
+1273,2024-07-15,Phone,Delay,2.6,3
+1274,2024-10-16,Email,Report error,5.6,4
+1275,2025-04-17,Email,Report error,9.0,4
+1276,2024-07-27,Phone,Other,2.3,2
+1277,2024-02-18,Email,Sample query,4.2,4
+1278,2024-04-11,Email,Other,1.5,1
+1279,2025-03-12,Email,Delay,1.6,1
+1280,2024-04-29,Phone,Other,2.2,4
+1281,2024-09-01,Portal,Report error,2.4,3
+1282,2024-09-21,Email,Billing,7.2,1
+1283,2024-01-14,Portal,Billing,0.8,5
+1284,2024-10-19,Portal,Delay,1.0,5
+1285,2024-09-27,Phone,Billing,8.8,1
+1286,2025-05-17,Email,Billing,4.1,3
+1287,2025-05-22,Phone,Report error,3.7,2
+1288,2024-07-13,Portal,Other,9.6,1
+1289,2024-01-03,Phone,Billing,1.3,2
+1290,2024-01-01,Portal,Other,1.3,2
+1291,2024-03-07,Email,Report error,1.0,1
+1292,2025-05-19,Phone,Delay,10.4,5
+1293,2025-04-18,Phone,Report error,2.2,1
+1294,2024-06-16,Email,Billing,8.4,1
+1295,2025-01-27,Portal,Report error,3.7,3
+1296,2024-03-19,Email,Billing,1.1,1
+1297,2024-06-21,Phone,Billing,1.3,4
+1298,2024-06-24,Phone,Report error,3.3,2
+1299,2025-01-26,Email,Billing,4.1,3
+1300,2025-05-28,Portal,Report error,4.1,2
+1301,2025-03-13,Email,Other,3.0,2
+1302,2024-04-29,Portal,Report error,7.5,2
+1303,2024-11-23,Portal,Delay,5.2,1
+1304,2025-01-07,Email,Billing,3.6,5
+1305,2024-05-17,Portal,Delay,3.7,1
+1306,2024-05-24,Email,Sample query,4.3,5
+1307,2024-09-16,Phone,Other,9.0,4
+1308,2025-04-22,Email,Other,3.2,3
+1309,2025-04-30,Phone,Other,2.0,1
+1310,2025-05-08,Phone,Delay,1.9,3
+1311,2024-11-26,Portal,Other,3.7,1
+1312,2024-11-04,Email,Report error,3.4,2
+1313,2024-08-18,Email,Report error,1.4,2
+1314,2024-12-13,Portal,Other,6.8,1
+1315,2024-04-06,Portal,Report error,0.4,3
+1316,2024-07-14,Email,Other,2.0,2
+1317,2024-11-16,Email,Billing,1.6,2
+1318,2025-03-30,Email,Delay,2.3,1
+1319,2024-07-01,Portal,Sample query,2.4,3
+1320,2024-05-28,Email,Other,3.3,3
+1321,2024-09-11,Email,Report error,2.0,5
+1322,2024-06-17,Email,Billing,0.6,4
+1323,2024-04-13,Email,Delay,6.3,4
+1324,2025-02-07,Portal,Sample query,2.4,3
+1325,2024-07-14,Portal,Report error,3.0,5
+1326,2024-03-14,Portal,Sample query,3.1,4
+1327,2025-05-12,Portal,Report error,1.2,4
+1328,2024-02-05,Phone,Billing,2.8,3
+1329,2024-07-09,Portal,Delay,0.5,4
+1330,2025-04-30,Phone,Report error,2.7,2
+1331,2024-10-09,Phone,Delay,0.9,2
+1332,2025-01-10,Portal,Delay,7.2,4
+1333,2024-07-05,Email,Delay,3.3,1
+1334,2024-02-18,Email,Report error,0.9,4
+1335,2024-07-17,Email,Billing,3.1,5
+1336,2024-04-14,Portal,Sample query,4.7,5
+1337,2024-11-27,Phone,Sample query,8.8,5
+1338,2024-12-31,Portal,Billing,7.9,1
+1339,2024-09-28,Portal,Report error,5.1,4
+1340,2024-04-05,Portal,Sample query,3.7,3
+1341,2024-06-11,Phone,Billing,4.8,5
+1342,2025-01-27,Phone,Billing,4.0,2
+1343,2024-10-21,Phone,Report error,4.6,1
+1344,2024-12-29,Phone,Sample query,6.0,4
+1345,2024-07-12,Phone,Report error,6.2,1
+1346,2024-01-24,Portal,Sample query,3.5,2
+1347,2024-11-04,Portal,Delay,4.4,3
+1348,2025-02-14,Portal,Delay,4.8,3
+1349,2024-06-10,Portal,Billing,3.1,2
+1350,2025-01-21,Portal,Delay,4.1,2
+1351,2024-12-25,Portal,Other,12.6,4
+1352,2024-10-03,Portal,Sample query,2.2,5
+1353,2024-11-27,Portal,Report error,1.7,4
+1354,2024-12-25,Portal,Other,1.3,3
+1355,2025-06-13,Email,Report error,5.5,1
+1356,2024-04-02,Phone,Other,5.8,1
+1357,2024-04-27,Phone,Delay,0.5,3
+1358,2024-09-27,Phone,Billing,9.0,1
+1359,2024-02-12,Email,Billing,4.8,2
+1360,2024-09-08,Phone,Delay,1.8,5
+1361,2025-03-21,Portal,Billing,3.8,5
+1362,2024-11-30,Portal,Sample query,1.9,3
+1363,2024-12-14,Portal,Report error,1.5,3
+1364,2024-10-22,Email,Other,6.2,1
+1365,2024-10-25,Phone,Delay,0.7,4
+1366,2024-11-02,Portal,Delay,2.1,5
+1367,2024-01-23,Phone,Sample query,4.0,4
+1368,2025-01-26,Portal,Report error,0.2,4
+1369,2025-06-08,Portal,Other,2.4,2
+1370,2024-06-10,Portal,Sample query,1.8,3
+1371,2025-02-20,Email,Report error,1.5,3
+1372,2025-04-17,Phone,Sample query,1.2,3
+1373,2024-12-21,Portal,Delay,2.1,3
+1374,2024-12-25,Portal,Other,2.0,1
+1375,2025-05-18,Email,Other,3.0,5
+1376,2024-03-11,Portal,Other,2.2,1
+1377,2024-04-16,Email,Sample query,1.1,1
+1378,2024-05-10,Portal,Report error,1.0,3
+1379,2025-02-03,Portal,Other,1.3,1
+1380,2024-12-23,Email,Delay,2.3,4
+1381,2024-08-01,Portal,Delay,4.2,2
+1382,2024-04-19,Phone,Report error,5.5,4
+1383,2024-08-13,Email,Other,2.9,3
+1384,2024-10-06,Email,Billing,7.0,2
+1385,2024-11-23,Phone,Sample query,11.4,2
+1386,2024-10-31,Portal,Other,1.4,4
+1387,2024-09-25,Phone,Sample query,5.3,3
+1388,2024-11-27,Phone,Billing,8.3,3
+1389,2024-07-15,Phone,Sample query,5.7,2
+1390,2024-02-22,Phone,Other,8.1,3
+1391,2024-06-15,Portal,Report error,5.0,3
+1392,2025-01-18,Portal,Sample query,0.8,1
+1393,2025-01-23,Phone,Report error,1.7,1
+1394,2024-09-26,Email,Delay,4.1,4
+1395,2024-05-13,Phone,Billing,2.1,3
+1396,2024-12-08,Portal,Sample query,2.4,2
+1397,2024-11-11,Email,Report error,2.0,4
+1398,2024-12-14,Email,Report error,10.2,5
+1399,2025-06-18,Phone,Other,6.1,4
+1400,2025-05-14,Portal,Sample query,4.1,4
+1401,2024-08-26,Email,Sample query,4.9,1
+1402,2025-04-21,Phone,Report error,1.9,1
+1403,2024-03-17,Phone,Sample query,2.9,1
+1404,2024-11-01,Email,Billing,2.6,5
+1405,2024-09-27,Email,Other,3.4,1
+1406,2024-11-04,Email,Billing,1.2,1
+1407,2024-04-29,Phone,Other,3.9,1
+1408,2024-02-15,Email,Other,6.0,1
+1409,2024-07-18,Portal,Report error,3.8,5
+1410,2024-11-06,Portal,Report error,2.5,3
+1411,2024-12-24,Portal,Report error,3.6,1
+1412,2025-05-20,Portal,Sample query,3.2,4
+1413,2025-02-03,Phone,Other,0.6,5
+1414,2024-11-10,Email,Other,5.4,5
+1415,2024-10-09,Phone,Other,3.7,3
+1416,2025-01-09,Email,Billing,0.6,2
+1417,2024-04-27,Email,Delay,3.0,4
+1418,2024-06-23,Portal,Other,2.3,1
+1419,2025-04-20,Phone,Delay,1.8,2
+1420,2024-07-10,Phone,Other,3.7,1
+1421,2024-06-05,Portal,Other,4.9,5
+1422,2025-01-27,Portal,Other,10.8,2
+1423,2024-04-29,Portal,Other,3.4,1
+1424,2025-01-02,Portal,Delay,6.8,5
+1425,2025-03-21,Email,Sample query,3.0,4
+1426,2024-01-01,Phone,Other,7.4,4
+1427,2025-03-31,Phone,Billing,3.5,4
+1428,2024-09-12,Email,Sample query,6.3,1
+1429,2025-03-30,Portal,Other,1.6,2
+1430,2024-12-30,Portal,Other,5.3,5
+1431,2024-01-01,Phone,Report error,1.5,4
+1432,2024-05-26,Email,Sample query,4.1,4
+1433,2025-05-31,Email,Other,1.4,5
+1434,2025-06-13,Phone,Billing,1.3,4
+1435,2024-10-04,Portal,Billing,3.4,1
+1436,2024-07-07,Email,Delay,0.4,1
+1437,2024-11-10,Email,Sample query,5.1,4
+1438,2024-11-26,Phone,Delay,7.5,4
+1439,2024-03-12,Email,Sample query,0.7,4
+1440,2025-03-14,Phone,Other,1.6,3
+1441,2024-11-15,Phone,Delay,2.8,5
+1442,2025-01-22,Phone,Report error,6.5,5
+1443,2024-04-21,Portal,Billing,1.8,5
+1444,2024-10-29,Email,Report error,1.0,5
+1445,2025-02-02,Portal,Billing,3.1,3
+1446,2024-11-19,Phone,Sample query,1.4,4
+1447,2024-12-23,Phone,Sample query,6.8,2
+1448,2024-05-26,Portal,Report error,1.5,1
+1449,2024-08-17,Phone,Sample query,1.9,1
+1450,2025-06-12,Phone,Other,13.2,1
+1451,2025-05-17,Email,Delay,3.1,2
+1452,2024-03-17,Phone,Other,1.4,4
+1453,2024-08-22,Email,Report error,2.8,3
+1454,2024-03-18,Portal,Delay,2.7,1
+1455,2024-07-10,Email,Report error,3.3,2
+1456,2024-01-22,Email,Report error,6.5,1
+1457,2024-02-11,Phone,Billing,4.0,3
+1458,2024-01-10,Phone,Billing,0.5,3
+1459,2025-04-18,Email,Sample query,6.4,1
+1460,2024-07-25,Portal,Billing,3.6,2
+1461,2025-04-25,Email,Billing,0.3,3
+1462,2024-09-09,Email,Sample query,0.4,2
+1463,2025-06-14,Phone,Other,7.2,4
+1464,2025-03-15,Email,Report error,1.7,5
+1465,2025-01-31,Portal,Other,1.8,3
+1466,2024-06-08,Email,Delay,2.5,2
+1467,2024-01-13,Email,Sample query,10.0,5
+1468,2025-01-10,Portal,Sample query,9.8,1
+1469,2024-02-17,Portal,Sample query,3.4,4
+1470,2024-05-01,Portal,Billing,2.6,2
+1471,2024-06-10,Portal,Other,6.8,2
+1472,2024-06-26,Phone,Report error,1.0,5
+1473,2025-04-27,Email,Report error,2.6,2
+1474,2025-02-02,Email,Other,1.9,4
+1475,2024-10-06,Email,Billing,0.9,4
+1476,2024-12-16,Email,Other,6.9,2
+1477,2024-09-04,Email,Billing,5.9,5
+1478,2024-09-04,Phone,Report error,2.0,1
+1479,2024-12-27,Portal,Sample query,2.3,5
+1480,2024-08-13,Phone,Delay,1.3,2
+1481,2025-04-26,Email,Billing,2.7,5
+1482,2025-04-01,Email,Billing,4.5,2
+1483,2024-08-15,Phone,Report error,3.2,3
+1484,2025-03-31,Portal,Billing,3.9,4
+1485,2024-05-29,Phone,Other,4.8,3
+1486,2024-02-11,Email,Report error,5.9,1
+1487,2025-06-22,Phone,Billing,2.3,5
+1488,2025-03-10,Portal,Sample query,3.2,3
+1489,2024-10-01,Email,Billing,3.3,1
+1490,2025-03-25,Email,Billing,3.8,1
+1491,2024-07-10,Phone,Delay,1.7,5
+1492,2025-01-20,Email,Other,1.6,3
+1493,2024-11-12,Phone,Report error,4.9,2
+1494,2025-01-03,Phone,Delay,1.9,5
+1495,2025-05-31,Email,Delay,7.7,5
+1496,2024-02-03,Portal,Billing,1.6,2
+1497,2024-05-22,Email,Sample query,3.1,3
+1498,2024-02-17,Portal,Sample query,0.5,1
+1499,2025-06-04,Email,Other,1.3,2

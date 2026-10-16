@@ -530,3 +530,12 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 .hero span{font-size:13.5px;color:rgba(255,255,255,.85)}
 @media (max-width:640px){.hero{height:auto}.hero::after{display:none}.hero div{max-width:none}}
 @media print{.hero{display:none}}
+
+/* tabs: centred; the old sliding indicator is gone (it rendered as a stray bar) */
+.tabs{justify-content:center}
+.tabs .ind{display:none!important}
+.whatif{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin-bottom:12px}
+.whatif label{display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:var(--b-mute);text-transform:uppercase;letter-spacing:.05em}
+.whatif select,.whatif input{height:34px;border-radius:9px;border:1px solid var(--b-border);background:var(--b-card);color:var(--b-text);padding:0 8px;font-size:13px;text-transform:none;letter-spacing:0}
+.score-out{margin-top:12px;font-size:15px;color:var(--b-mute)}
+.score-out b{font-size:28px;margin-right:6px}
