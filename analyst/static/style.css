@@ -539,3 +539,6 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 .whatif select,.whatif input{height:34px;border-radius:9px;border:1px solid var(--b-border);background:var(--b-card);color:var(--b-text);padding:0 8px;font-size:13px;text-transform:none;letter-spacing:0}
 .score-out{margin-top:12px;font-size:15px;color:var(--b-mute)}
 .score-out b{font-size:28px;margin-right:6px}
+
+.hero-narrow::after{width:min(34%,300px)}
+@media (max-width:640px){.hero-narrow::after{display:none}}
