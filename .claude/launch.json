@@ -4,8 +4,31 @@
     {
       "name": "analyst-demo",
       "runtimeExecutable": ".venv/bin/python",
-      "runtimeArgs": ["-m", "analyst.server", "--demo", "--sandbox", "local", "--port", "8000"],
+      "runtimeArgs": [
+        "-m",
+        "analyst.server",
+        "--demo",
+        "--sandbox",
+        "local",
+        "--port",
+        "8000"
+      ],
       "port": 8000
+    },
+    {
+      "name": "analyst-noauth",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "-m",
+        "analyst.server",
+        "--demo",
+        "--sandbox",
+        "local",
+        "--no-auth",
+        "--port",
+        "8010"
+      ],
+      "port": 8010
     }
   ]
 }

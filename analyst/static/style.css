@@ -114,11 +114,11 @@ input:focus,select:focus,textarea:focus{outline:2px solid var(--accent);outline-
 
 /* ============ tabs (with a sliding pill) ============ */
 .tabs{display:flex;gap:2px;margin:16px 0 20px;padding:5px;border-radius:18px;overflow-x:auto;scrollbar-width:none;position:relative;isolation:isolate;justify-content:center;align-self:center;width:100%}
-.tabs .ind{position:absolute;top:5px;bottom:5px;left:0;width:0;border-radius:13px;z-index:1;pointer-events:none;background:var(--accent);box-shadow:0 6px 20px rgba(var(--accent-rgb),.5),inset 0 1px 0 rgba(255,255,255,.45);transition:left .45s cubic-bezier(.34,1.56,.64,1),width .45s cubic-bezier(.34,1.56,.64,1)}
-.tabs button{position:relative;z-index:2;display:flex;align-items:center;gap:8px;white-space:nowrap;background:none;border:0;color:var(--mute);padding:8px 16px;border-radius:13px;font-weight:600;font-size:13.5px;cursor:pointer;transition:color .2s,transform .18s cubic-bezier(.34,1.56,.64,1)}
+.tabs .ind{display:none;position:absolute;top:5px;left:0;width:0;border-radius:13px;background:var(--accent)}
+.tabs button{position:relative;display:flex;align-items:center;gap:8px;white-space:nowrap;background:none;border:0;color:var(--mute);padding:8px 16px;border-radius:13px;font-weight:600;font-size:13.5px;cursor:pointer;transition:color .2s,background .25s ease,transform .18s cubic-bezier(.34,1.56,.64,1),box-shadow .25s ease}
 .tabs button:hover{color:var(--text);transform:translateY(-1px)}
 .tabs button:active{transform:scale(.94)}
-.tabs button[aria-selected=true]{color:var(--on-accent);font-weight:700}
+.tabs button[aria-selected=true]{color:var(--on-accent);background:var(--accent);box-shadow:0 4px 18px rgba(var(--accent-rgb),.45),inset 0 1px 0 rgba(255,255,255,.45);font-weight:700}
 .tabs .n{font-size:11px;font-weight:700;background:var(--accent);color:var(--on-accent);border-radius:99px;padding:0 6px}
 .tabs button[aria-selected=true] .n{background:var(--on-accent);color:var(--accent)}
 section[role=tabpanel].tab-in{animation:tabin .5s cubic-bezier(.34,1.2,.64,1) backwards}
@@ -306,7 +306,7 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 :root[data-theme=light] .insight.bad{background:rgba(var(--b-bad-rgb),.05);border-color:rgba(var(--b-bad-rgb),.18)}
 :root[data-theme=light] .insight.warn{background:rgba(217,142,4,.05);border-color:rgba(217,142,4,.18)}
 :root[data-theme=light] .insight.info{background:rgba(var(--accent-rgb),.05);border-color:rgba(var(--accent-rgb),.18)}
-.ins-dot{width:8px;height:8px;border-radius:50%;flex:none}
+.ins-dot{display:inline-block;width:9px;height:9px;border-radius:50%;flex:none}
 .ins-dot.bad{background:var(--b-bad);box-shadow:0 0 0 3px rgba(var(--b-bad-rgb),.2),0 0 8px rgba(var(--b-bad-rgb),.4)}
 .ins-dot.warn{background:var(--b-warn);box-shadow:0 0 0 3px rgba(217,142,4,.2),0 0 8px rgba(217,142,4,.4)}
 .ins-dot.info{background:var(--b-title);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.2),0 0 8px rgba(var(--accent-rgb),.4)}
@@ -432,3 +432,88 @@ dialog.wide-dlg{width:min(900px,calc(100vw - 24px))}
 .status-dot.off{background:var(--err)}
 .locked-note{border:1px solid var(--warn);border-radius:14px;padding:12px 14px;background:var(--glass);font-size:13.5px}
 @media print{#boot,#auth,#topbar,#busy,.usermenu{display:none!important}}
+
+
+/* =====================================================================
+   Professional layer: calmer surfaces, wider left-aligned layout, clear hierarchy.
+   (Later rules win; the glass tokens above are kept so themes, contrast tests and print still work.)
+   ===================================================================== */
+:root{--card:rgba(18,27,46,.78);--card-line:rgba(255,255,255,.10);--aur-op:.2;--r:14px;--blur:16px;--gut:clamp(16px,3vw,32px)}
+:root[data-theme=light]{--card:rgba(255,255,255,.94);--card-line:rgba(20,50,110,.13);--aur-op:.45}
+@media (prefers-color-scheme:light){:root:not([data-theme]){--card:rgba(255,255,255,.94);--card-line:rgba(20,50,110,.13);--aur-op:.45}}
+main{max-width:1360px;padding:8px var(--gut) 80px}
+
+/* header: one tidy row, brand and dataset on the left, utilities on the right */
+.top{background:var(--card);border-bottom:1px solid var(--card-line);box-shadow:none}
+.top-in{max-width:1360px;padding:10px var(--gut);justify-content:flex-start;gap:10px;flex-wrap:nowrap}
+.brand{margin-right:6px;font-size:16px;white-space:nowrap}
+.logo{width:32px;height:32px;border-radius:9px;box-shadow:none}
+.dsel{height:36px;border-radius:10px;background:transparent;box-shadow:none;border:1px solid var(--card-line)}
+.btn{height:36px;border-radius:10px;box-shadow:none}
+.btn:hover{transform:none}
+.btn.primary{box-shadow:none}
+.btn.primary:hover{box-shadow:none}
+.badge{font-size:11px;padding:2px 9px;background:transparent;border-color:var(--card-line)}
+#py{display:none}
+.top .sp{min-width:8px}
+@media (max-width:1000px){.top-in{flex-wrap:wrap}.badge{display:none}}
+
+/* tabs: underline navigation instead of a boxed pill bar */
+.tabs{background:none;border:0;border-bottom:1px solid var(--card-line);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:0;padding:0;margin:6px 0 18px;justify-content:flex-start;gap:4px;width:100%}
+.tabs button{padding:12px 14px;border-radius:0;font-weight:600;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs button:hover{transform:none;color:var(--text)}
+.tabs button:active{transform:none}
+.tabs button[aria-selected=true]{background:none;color:var(--text);box-shadow:none;border-bottom-color:var(--accent)}
+.tabs img.ti{width:20px;height:20px}
+.tabs .n{background:var(--accent);color:var(--on-accent)}
+.tabs button[aria-selected=true] .n{background:var(--accent);color:var(--on-accent)}
+
+/* surfaces: quiet cards, subtle hover, no bouncing */
+.card,.bcard,.insight,.grid,.askbox,.step,.answer,.drow,.notice{background:var(--card);border:1px solid var(--card-line);box-shadow:0 1px 2px rgba(0,0,0,.12);border-radius:var(--r)}
+.bi.th-glass{--b-card:var(--card);--b-border:var(--card-line)}
+.bcard{padding:16px 18px;animation:none;transition:border-color .15s,box-shadow .15s}
+.bcard:hover{transform:none;border-color:rgba(var(--accent-rgb),.45);box-shadow:0 4px 18px rgba(0,0,0,.18)}
+.card::before,.step::before,.answer::before,.bcard::before,.drow::before,.insight::before{display:none}
+.stagger>*,.insight,section[role=tabpanel].tab-in{animation-duration:.25s}
+.bcard h3{font-size:12.5px;font-weight:600;color:var(--mute);letter-spacing:.01em;margin:0 0 10px}
+.bgrid,.kgrid{gap:16px}
+.bgrid{margin-top:16px}
+
+/* filter bar + title: flat, aligned, scannable */
+.bi.th-glass .bi-bar{background:var(--card);border:1px solid var(--card-line);border-radius:var(--r);padding:12px 16px;box-shadow:none;gap:14px;align-items:flex-end}
+.bi-bar label{font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.05em;gap:5px}
+.bi-bar select{height:34px;min-width:140px;border-radius:9px}
+.bi-title{display:flex;align-items:baseline;flex-wrap:wrap;gap:4px 14px;margin:20px 0 4px}
+.bi-title h2{font-size:22px;font-weight:700}
+.bi-title span{font-size:13px}
+.hint{margin:0 0 16px}
+
+/* insights: slim alert rows */
+.ins{gap:8px;margin-bottom:16px}
+.insight{padding:10px 16px;border-radius:10px;box-shadow:none;font-size:13.5px}
+.insight:hover{transform:none;box-shadow:none}
+
+/* KPI tiles: one consistent grid; label, value + change chip, previous period, sparkline */
+.kgrid,.kgrid.k4,.kgrid.k5{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+.kcard{text-align:left;padding:16px 18px 12px;display:flex;flex-direction:column}
+.kcard .kv{font-size:30px;font-weight:700;letter-spacing:-.02em;display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.kcard .kp{font-size:12.5px;margin-top:2px}
+.dchip{font-size:12px;font-weight:700;padding:2px 8px;border-radius:99px;background:rgba(150,165,200,.16);letter-spacing:0;font-variant-numeric:tabular-nums;white-space:nowrap}
+.dchip.good{background:rgba(var(--b-good-rgb),.16)}
+.dchip.bad{background:rgba(var(--b-bad-rgb),.16)}
+.spark{width:100%;height:36px;margin:10px 0 0}
+.spark polyline{stroke-width:2}
+.kcard.click::after{top:14px;right:16px}
+/* gauges sit in the same grid as the KPI tiles */
+.gauge,.gauge+.gauge{grid-column:auto;grid-row:auto;align-items:flex-start;text-align:left}
+.gwrap{max-width:none;height:96px;margin:0}
+.gval{font-size:22px;bottom:0;text-align:center}
+.gprev{margin:6px 0 0}
+
+/* tables and charts breathe a little more */
+.btab th{font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;padding:8px 10px}
+.btab td{padding:8px 10px}
+.bcv{height:290px}
+.dbar{height:6px}
+
+@media (max-width:900px){.kgrid,.kgrid.k4,.kgrid.k5{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.tabs{overflow-x:auto}}

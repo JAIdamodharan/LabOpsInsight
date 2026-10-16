@@ -44,7 +44,7 @@ function countUp(node, to, fmt, ms = 800) {
   requestAnimationFrame(tick);
 }
 function spark(vals, sel) {
-  const ns = 'http://www.w3.org/2000/svg', w = 92, h = 24, pad = 3; let last = null;
+  const ns = 'http://www.w3.org/2000/svg', w = 160, h = 36, pad = 3; let last = null;
   const v = vals.map(x => { if (x == null) return last; last = x; return x; }).map(x => x ?? 0);
   const min = Math.min(...v), max = Math.max(...v), rng = (max - min) || 1;
   const pts = v.map((x, i) => [(pad + i * (w - 2 * pad) / Math.max(1, v.length - 1)).toFixed(1), (h - pad - ((x - min) / rng) * (h - 2 * pad)).toFixed(1)]);
@@ -300,15 +300,26 @@ function buildTabs() {
   });
   savePins(); moveInd();
 }
-function moveInd() { const ind = $('#tab-ind'), b = $('#tabs button[aria-selected=true]'); if (!ind || !b) return; ind.style.width = b.offsetWidth + 'px'; ind.style.left = b.offsetLeft + 'px'; }
+function moveInd() {
+  const ind = $('#tab-ind'), tabs = $('#tabs'), b = $('#tabs button[aria-selected=true]');
+  if (!ind || !tabs || !b) return;
+  const tr = tabs.getBoundingClientRect(), br = b.getBoundingClientRect();
+  if (br.width > 0 && br.height > 0) {
+    ind.style.width = br.width + 'px';
+    ind.style.height = br.height + 'px';
+    ind.style.left = (br.left - tr.left + tabs.scrollLeft) + 'px';
+    ind.style.top = (br.top - tr.top + tabs.scrollTop) + 'px';
+  }
+}
 addEventListener('resize', moveInd);
-if (document.fonts && document.fonts.ready) { document.fonts.ready.then(moveInd); }
+window.addEventListener('load', moveInd);
+if (document.fonts && document.fonts.ready) { document.fonts.ready.then(() => { moveInd(); requestAnimationFrame(moveInd); }); }
 const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, analyze: () => { } };
 function showTab(t) {
   S.tab = t;
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   TABS.forEach(x => { $('#tab-' + x).hidden = x !== t; });
-  moveInd(); requestAnimationFrame(moveInd);
+  moveInd(); requestAnimationFrame(moveInd); setTimeout(moveInd, 50); setTimeout(moveInd, 200);
   if (S.shown !== t) { const sec = $('#tab-' + t); sec.classList.remove('tab-in'); void sec.offsetWidth; sec.classList.add('tab-in'); S.shown = t; }
   try { history.replaceState(null, '', '#' + t); } catch { }
   const p = loaders[t](); trackBusy(p); return p;
@@ -426,7 +437,7 @@ function chartBox(title, cls, build) {
 }
 function kc(label, value, cls, sub) { return el('div', { class: 'bcard kcard' }, el('h3', {}, label), el('div', { class: 'kv ' + (cls || '') }, value), sub ? el('div', { class: 'kp' }, sub) : null); }
 function insightRow(i) {
-  const row = el('div', { class: 'insight ' + i.level }, el('span', { class: 'ins-dot ' + i.level }), el('span', {}, i.text));
+  const row = el('div', { class: 'insight ' + i.level }, el('i', { class: 'ins-dot ' + i.level }), el('span', {}, i.text));
   if (i.ask) row.append(el('button', { class: 'link', onclick: () => askAgent(i.ask) }, 'Investigate →'));
   else if (i.goto) row.append(el('button', { class: 'link', onclick: () => showTab(i.goto) }, 'Open Data Review →'));
   return row;
@@ -444,9 +455,10 @@ function kpiCard(k, P, T) {
   const series = { tests: T.tests, oos_rate: T.oos_rate, on_time: T.on_time, tat: T.tat }[k.key];
   const val = el('span', { class: 'val' }); countUp(val, k.value, FMT[k.fmt]);
   const ask = () => askAgent(P.prev_label ? `Why did ${k.label.toLowerCase()} change in ${P.label} compared with ${P.prev_label}?` : `Summarize ${k.label.toLowerCase()} in ${P.label}`);
+  const delta = k.prev == null ? null : el('span', { class: 'dchip ' + cls }, (arrow ? arrow + ' ' : '') + d);
   return el('div', { class: 'bcard kcard click', role: 'button', tabindex: '0', title: 'Click to ask the analyst about this metric', onclick: activate(ask), onkeydown: activate(ask) }, el('h3', {}, k.label),
-    el('div', { class: 'kv' }, val, el('span', { class: 'arrow ' + cls }, arrow)), series ? spark(series, T.selected) : null,
-    el('div', { class: 'kp' }, k.prev == null ? 'no prior period' : `${P.prev_label}: ${FMT[k.fmt](k.prev)} · `, el('b', { class: cls }, k.prev == null ? '' : d)));
+    el('div', { class: 'kv' }, val, delta), el('div', { class: 'kp' }, k.prev == null ? 'no prior period' : `${P.prev_label}: ${FMT[k.fmt](k.prev)}`),
+    series ? spark(series, T.selected) : null);
 }
 const gaugeColor = v => v >= 92 ? '--b-good' : v >= 85 ? '--b-warn' : '--b-bad';
 function gaugeCard(g, prevLabel) {
