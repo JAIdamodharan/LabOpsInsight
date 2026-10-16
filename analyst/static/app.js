@@ -181,7 +181,7 @@ async function initApp() {
 
 /* ---- user menu ---- */
 function paintUser() {
-  const local = !S.config.auth; $('#usermenu').hidden = local; $('#local-badge').hidden = !local; $('#btn-upload').hidden = !can('upload');
+  const local = !S.config.auth; $('#usermenu').hidden = local; $('#local-badge').hidden = !local; $('#local-badge').textContent = S.config.public ? 'Public demo · read only' : 'Local mode · no sign-in'; $('#btn-upload').hidden = !can('upload');
   if (local || !S.user) return;
   const u = S.user; $('#avatar').textContent = u.username[0]; $('#user-name').textContent = u.username; $('#um-name').textContent = u.username;
   const rp = $('#um-role'); rp.textContent = u.role; rp.className = 'rolepill ' + u.role; $('#um-users').hidden = !can('users'); $('#um-audit').hidden = !can('audit');
@@ -1011,12 +1011,16 @@ let storyTimer = null, storyIdx = 0, storyPaused = false;
 function showSlide(i) {
   const slides = $$('#tab-story .s-slide'), dots = $$('#tab-story .s-dots button'); if (!slides.length) return;
   storyIdx = (i + slides.length) % slides.length;
-  slides.forEach((x, k) => x.classList.toggle('on', k === storyIdx)); dots.forEach((x, k) => { x.classList.toggle('on', k === storyIdx); x.setAttribute('aria-current', k === storyIdx ? 'true' : 'false'); });
+  const before = slides.findIndex(x => x.classList.contains('on'));
+  slides.forEach((x, k) => { x.classList.remove('prev'); if (k === before && k !== storyIdx) x.classList.add('prev'); x.classList.toggle('on', k === storyIdx); });
+  setTimeout(() => slides.forEach(x => x.classList.remove('prev')), 2600);
+  dots.forEach((x, k) => { x.classList.toggle('on', k === storyIdx); x.setAttribute('aria-current', k === storyIdx ? 'true' : 'false'); });
   const c = $('#s-credit'); if (c) c.textContent = slides[storyIdx].dataset.credit || '';
 }
 function stopStory() { clearInterval(storyTimer); storyTimer = null; }
 function startStory() {
   stopStory(); showSlide(storyIdx);
+  $$('#tab-story .s-slide').forEach(x => { const m = /url\(([^)]+)\)/.exec(x.getAttribute('style') || ''); if (m) new Image().src = m[1]; });   // preload so a photo never pops in half-loaded
   if (storyPaused) return;                                                    // with reduced motion the photos still change on a timer, but as a plain swap (see CSS); Pause stops it
   storyTimer = setInterval(() => { if (!document.hidden && S.tab === 'story') showSlide(storyIdx + 1); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 8000 : 6000);
 }

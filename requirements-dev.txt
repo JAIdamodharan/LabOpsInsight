@@ -1,0 +1,6 @@
+-r requirements.txt
+pytest>=8
+# only needed by the optional run_python sandbox (python -m analyst.server --sandbox local|docker)
+matplotlib
+# only needed to regenerate brand assets / sample data (scripts/)
+pillow

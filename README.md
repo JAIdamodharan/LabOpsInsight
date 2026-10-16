@@ -33,15 +33,21 @@ It answers three questions a lab-operations analyst gets asked every week:
 | Test started on an instrument that was down | DQ-007 | 20 |
 | Sample due before received | DQ-008 | 15 |
 
-## Run it
+## Quick start
 ```bash
-python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-.venv/bin/python -m scripts.make_data                      # builds the synthetic lab database
-.venv/bin/python -m analyst.server --demo --sandbox local  # open http://127.0.0.1:8000, no API key needed
-.venv/bin/python -m pytest                                 # 120+ tests, no API key needed
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+python scripts/make_data.py                                # builds the synthetic lab database
+cp .env.example .env                                       # optional: add a free GROQ_API_KEY for real answers
+python -m analyst.server --demo --sandbox local            # http://127.0.0.1:8000
+python -m pytest -q                                        # about 450 tests, no key or network needed
 ```
-Tabs: **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, instrument table, OOS heatmap, 3 themes),
-**Data Review** (rule results + downloadable query list per rule), **Analyze** (the agent, with Copy answer / Download report), **Data** (raw table browser), **Pinned**.
+`--demo` uses the built-in lab data and answers with a real model when a key is found in `.env`, otherwise with a scripted walkthrough (add `--scripted` to force that). Without `--demo` the app starts in private mode with sign-in; the first visit creates the admin account. More in [docs/DEPLOY.md](docs/DEPLOY.md) (GitHub, Vercel, running locally) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**Hosted demo:** the repository deploys to Vercel as a public, read-only demo (no accounts, no uploads). See [docs/DEPLOY.md](docs/DEPLOY.md).
+
+Tabs: **Why LabOps** (the story, with numbers computed from the data), **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, instrument table, OOS heatmap, 3 themes),
+**Data Review** (rule results + downloadable query list per rule), **Predict** (forecasts, late-delivery risk, drift warning), **Analyze** (the agent, with Copy answer / Download report), **Data** (raw table browser), **Pinned**.
 There is a light/dark toggle, and Print gives a clean PDF of any dashboard.
 
 ## Accounts, roles and security
@@ -159,22 +165,32 @@ then open `.env` in your editor and paste the key after `GROQ_API_KEY=` (no quot
 
 ## Known limitations (be honest about these)
 - The built-in data is synthetic: it demonstrates method, not results on real lab data. Uploaded workbooks get the generic Overview / Data Review, but the lab dashboard, the lab rules (DQ-001..010) and the scripted demo are specific to the built-in lab schema; mapping an arbitrary LIMS export onto them would need a column-mapping step that does not exist yet.
-- Uploads are stored unencrypted under `data/uploads` and are visible to anyone with access to this app; there are no user accounts.
+- Uploads are stored unencrypted under `data/uploads`. Each upload is private to the user who made it, but the files are readable by anyone with access to the server's disk.
 - Excel reading: formulas show their last saved value (a formula that was never calculated shows blank); merged cells keep only their top-left value; the first non-empty row is always the header; dates stored as text stay text.
 - DQ-004 only catches scale errors that push a result beyond 3x the upper spec limit; near-zero values slip through.
 - "Utilization" assumes 20 available hours per weekday per instrument; real utilization needs scheduled-time and downtime data.
-- The agent has **not** yet been benchmarked with a real model on the lab question set (the earlier 3B-model baseline was for a retired retail dataset and is
-  intentionally not reported). Run `eval.run_eval` and record the numbers here.
+- The benchmark has not been run in full with a real model. A first run on Groq (`openai/gpt-oss-120b`) passed 16 of 26 questions; 9 of the 10 failures were requests that never completed because of the free tier's 8,000 tokens-per-minute cap (since reduced by sending fewer tokens per call), so they say little about answer quality. Run `eval.run_eval` and record your numbers below.
 - The Docker sandbox path is implemented and unit-tested but its isolation test needs a running Docker daemon.
-- Not validated for regulated (GxP / 21 CFR Part 11) use: no audit trail, e-signatures or access control.
+- Not validated for regulated (GxP / 21 CFR Part 11) use. There is sign-in, roles and an audit log, but no electronic signatures, validation documentation or change control.
+- The hosted Vercel demo is public and read only by design, and its rate limits are per function instance, not global (see [docs/DEPLOY.md](docs/DEPLOY.md)).
 
 ## Layout
-`analyst/` agent, DB guardrails, charts, dashboard, lab data review (`dq.py`), generic profiling and review (`profile.py`), safe Excel/CSV ingest (`ingest.py`), dataset registry (`datasets.py`), LLM adapter, server, UI (`static/index.html`, `style.css`, `app.js`) · `scripts/make_data.py` data generator ·
-`eval/` benchmark · `sandbox/` Docker image for the optional Python tool · `tests/`
+```
+analyst/        the app: agent, DB guardrails, charts, dashboard, data review (dq.py, profile.py), safe ingest, auth and roles,
+                predictions (predict.py), retrieval (rag.py + knowledge/), story page, LLM adapter, server and UI (static/)
+api/            Vercel entrypoint for the public demo
+docs/           DEPLOY.md and ARCHITECTURE.md
+eval/           benchmark (26 questions, graded against golden SQL)
+sandbox/        Docker image for the optional Python tool
+sample_data/    15 synthetic workbooks for trying uploads
+scripts/        data and asset generators
+tests/          about 450 tests
+```
 
 ## Results to fill in after your own runs
 | Model | Accuracy (26 q) | Cost / correct answer | Median latency |
 |---|---|---|---|
+| `openai/gpt-oss-120b` on Groq, first partial run | 16 / 26 (9 failures caused by the token cap) | free | about 30 s |
 | (run `python -m eval.run_eval --provider ...`) | | | |
 
 
@@ -182,7 +198,7 @@ then open `.env` in your editor and paste the key after `GROQ_API_KEY=` (no quot
 
 Banner photos are from Wikimedia Commons and are in the public domain or CC0 (no attribution required; credited here anyway):
 
-- `instrument-scientist.jpg`: [U.S. Department of Energy - Science - 408 041 001](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_408_041_001_(9788226824).jpg), public domain.
+- `instrument-scientist.jpg` and `hero-instrument.jpg`: [U.S. Department of Energy - Science - 408 041 001](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_408_041_001_(9788226824).jpg), public domain.
 - `clean-lab.jpg`: [U.S. Department of Energy - Science - 395 006 004](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_395_006_004_(9735099945).jpg), public domain.
 - `glass-flasks.jpg`: [Birnenkolben.jpg](https://commons.wikimedia.org/wiki/File:Birnenkolben.jpg), CC0.
 - `analyst-instrument.jpg`: [U.S. Department of Energy - Science - 395 014 001](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_395_014_001_(10293874364).jpg), public domain (cropped).
@@ -212,3 +228,8 @@ writes 15 synthetic, anonymised files to `sample_data/` (stability study, HPLC r
 - `--demo` now means "built-in lab data". If a key is found (`ANALYST_PROVIDER`, or the first of `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...) the demo answers with that real model, procedure search included. With no usable key it falls back to the scripted walkthrough (which also cites the procedures). Use `--demo --scripted` to force the scripted version and spend no quota.
 - On the last allowed step the agent is told to stop investigating and write its answer, so a long investigation ends with a written conclusion instead of "max_steps".
 - The "Why LabOps" hero slideshow uses wider crops of the same four photos (`hero-*.jpg`); sources and licences are as listed above.
+
+
+## License
+
+MIT, see [LICENSE](LICENSE). The photographs are separate works (public domain or CC0), credited above. All data in the project is synthetic.

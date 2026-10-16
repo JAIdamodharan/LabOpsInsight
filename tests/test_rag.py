@@ -117,3 +117,8 @@ def test_the_last_allowed_step_forces_a_written_answer_instead_of_stopping_silen
     assert a.last_stats.stop_reason == "answered" and a.last_stats.steps == 3
     assert [s[0] for s in seen] == [True, True, False] and "Do not call any more tools" in seen[-1][1]
     assert next(e for e in ev if e.kind == "answer").data["text"].startswith("Best answer")
+
+
+def test_the_folder_readme_is_not_treated_as_a_procedure(kb):
+    assert all(c.doc_id.upper() != "README.MD" and not c.doc_id.lower().startswith("readme") for c in kb.chunks)
+    assert {c.doc_id for c in kb.chunks} == {"SOP-QC-001", "SOP-QC-012", "SOP-EQ-007", "SOP-EQ-011", "SOP-QC-020", "SOP-QA-003", "SOP-HR-005", "GUIDE-DI-001"}

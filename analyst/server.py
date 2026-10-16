@@ -57,6 +57,7 @@ DEFAULT_LIMITS = dict(api_ip=(240, 60), api_user=(300, 60), login_ip=(12, 60), l
                       ask=(12, 60), upload=(8, 600), password=(5, 900), admin=(60, 60))
 CSP = ("default-src 'self'; script-src 'self' https://cdnjs.cloudflare.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; "
        "font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'")
+PUBLIC_GUEST = dict(id=0, username="guest", role="viewer", disabled=False, must_change=False, created=0, last_login=None, permissions=["read", "ask"])
 LOCAL_ADMIN = dict(id=0, username="local", role="admin", disabled=False, must_change=False, created=0, last_login=None, permissions=sorted(PERMS["admin"]))
 
 
@@ -72,8 +73,8 @@ def _tables(db: Database) -> list[dict]:
 class Guard:
     """Pure-ASGI middleware (so streaming responses are never buffered): cross-site refusal, per-IP limit, security headers."""
 
-    def __init__(self, app, limiter: RateLimiter, limits: dict):
-        self.app, self.limiter, self.limits = app, limiter, limits
+    def __init__(self, app, limiter: RateLimiter, limits: dict, trust_proxy: bool = False):
+        self.app, self.limiter, self.limits, self.trust_proxy = app, limiter, limits, trust_proxy
 
     async def __call__(self, scope, receive, send):
         if scope["type"] != "http":
@@ -81,6 +82,8 @@ class Guard:
         path = scope["path"]
         hdr = {k.decode().lower(): v.decode("latin-1") for k, v in scope["headers"]}
         ip = (scope.get("client") or ("unknown", 0))[0]
+        if self.trust_proxy and hdr.get("x-forwarded-for"):
+            ip = hdr["x-forwarded-for"].split(",")[0].strip() or ip       # only enabled behind a proxy that sets the header itself (Vercel)
         is_api = path.startswith("/api/")
         https = scope.get("scheme") == "https"
 
@@ -110,12 +113,20 @@ class Guard:
 def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifacts_dir: str = "artifacts",
                client=None, model: str | None = None, upload_dir: str | None = None,
                allowed_hosts: tuple = ("localhost", "127.0.0.1", "[::1]", "testserver"),
-               auth: bool | None = None, auth_db: str | None = None, limits: dict | None = None, store: AuthStore | None = None) -> FastAPI:
-    auth_enabled = auth if auth is not None else os.environ.get("LABOPS_AUTH", "1") != "0"
-    L = {**DEFAULT_LIMITS, **(limits or {})}
+               auth: bool | None = None, auth_db: str | None = None, limits: dict | None = None, store: AuthStore | None = None,
+               public: bool | None = None) -> FastAPI:
+    """public=True (or LABOPS_PUBLIC_DEMO=1) is for a shared hosted demo: no accounts, visitors can read and ask but never upload or delete,
+    no code sandbox, limits are per visitor address. The default is the private, signed-in mode."""
+    public = public if public is not None else os.environ.get("LABOPS_PUBLIC_DEMO") == "1"
+    auth_enabled = False if public else (auth if auth is not None else os.environ.get("LABOPS_AUTH", "1") != "0")
+    if public:
+        sandbox = "none"
+    L = {**DEFAULT_LIMITS, **({"ask": (6, 60)} if public else {}), **(limits or {})}
+    extra_hosts = tuple(h.strip() for h in os.environ.get("LABOPS_ALLOWED_HOSTS", "").split(",") if h.strip())
+    allowed_hosts = tuple(allowed_hosts) + extra_hosts + (("*.vercel.app",) if public else ())
     limiter = RateLimiter()
     app = FastAPI(title="LabOps Insight", docs_url=None, redoc_url=None, openapi_url=None)
-    app.add_middleware(Guard, limiter=limiter, limits=L)
+    app.add_middleware(Guard, limiter=limiter, limits=L, trust_proxy=public and os.environ.get("LABOPS_TRUST_PROXY", "1") != "0")
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
     kb = Retriever()                                                  # local search over the synthetic procedure documents (lab data only)
     reg = Registry(db_path, upload_dir or Path(db_path).parent / "uploads")
@@ -125,12 +136,14 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
     make_sb = {"docker": DockerSandbox, "local": LocalSandbox}.get(sandbox)
     slots = threading.BoundedSemaphore(MAX_CONCURRENT)
     upload_slots = threading.BoundedSemaphore(2)
-    busy_users: dict[int, threading.Lock] = {}
+    busy_users: dict = {}
     setup_lock = threading.Lock()
     example = build_example_workbook()
 
     # ------------------------------------------------------------ helpers
     def ip_of(request: Request) -> str:
+        if public and request.headers.get("x-forwarded-for") and os.environ.get("LABOPS_TRUST_PROXY", "1") != "0":
+            return request.headers["x-forwarded-for"].split(",")[0].strip()
         return request.client.host if request.client else "unknown"
 
     def too_many(wait: float, what: str = "requests"):
@@ -146,6 +159,8 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
             raise HTTPException(403, "missing X-Requested-With header")
 
     def session_user(request: Request) -> dict | None:
+        if public:
+            return PUBLIC_GUEST
         if not auth_enabled:
             return LOCAL_ADMIN
         return users.session_user(request.cookies.get(COOKIE, ""))
@@ -366,7 +381,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
     # ------------------------------------------------------------ config + datasets
     @app.get("/api/config")
     def config(user: dict = Depends(require("read"))):
-        return {"demo": demo, "model": "scripted-demo" if demo else (model or MODEL), "python": bool(make_sb), "auth": auth_enabled,
+        return {"demo": demo, "model": "scripted-demo" if demo else (model or MODEL), "python": bool(make_sb), "auth": auth_enabled, "public": public,
                 "max_upload_mb": ingest.MAX_BYTES // 10**6, "formats": [".xlsx", ".csv"], "limits": {"rows": ingest.MAX_ROWS, "columns": ingest.MAX_COLS, "sheets": ingest.MAX_SHEETS}}
 
     @app.get("/api/datasets")
@@ -518,8 +533,9 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
             raise HTTPException(400, f"question must be 1-{MAX_QUESTION} characters")
         db = get_db(dataset, user)
         kind = reg.kind(dataset)
-        limit(f"ask:{user['id']}", L["ask"], "questions")
-        mine = busy_users.setdefault(user["id"], threading.Lock())
+        who = f"ip:{ip_of(request)}" if public else user["id"]          # one shared guest account in public mode, so count per visitor address
+        limit(f"ask:{who}", L["ask"], "questions")
+        mine = busy_users.setdefault(who, threading.Lock())
         if not mine.acquire(blocking=False):
             raise HTTPException(429, "You already have an analysis running. Wait for it to finish or press Stop.", headers={"Retry-After": "5"})
         if not slots.acquire(blocking=False):

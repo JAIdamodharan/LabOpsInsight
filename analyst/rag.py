@@ -39,6 +39,8 @@ class Chunk:
 def load_chunks(folder: Path = KNOWLEDGE) -> list[Chunk]:
     chunks = []
     for f in sorted(folder.glob("*.md")):
+        if f.name.lower().startswith("readme"):
+            continue                                              # documentation for contributors, not a procedure
         raw = f.read_text(encoding="utf-8")
         doc_id = f.name.split("_")[0]
         title = next((l[2:].strip() for l in raw.splitlines() if l.startswith("# ")), doc_id)
