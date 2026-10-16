@@ -519,3 +519,12 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 
 .kcard.click h3{padding-right:62px}
 .kcard.click::after{top:15px}
+
+/* photo banners (public-domain / CC0 images, credited in README) */
+.hero{position:relative;height:132px;border-radius:var(--r);overflow:hidden;margin:0 0 16px;border:1px solid var(--card-line);background:#0b1220 var(--hero) var(--pos,center)/cover no-repeat;display:flex;align-items:flex-end}
+.hero::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,10,22,.88) 0%,rgba(4,10,22,.55) 55%,rgba(4,10,22,.15) 100%)}
+.hero div{position:relative;padding:16px 20px;display:flex;flex-direction:column;gap:2px;color:#fff;max-width:640px}
+.hero b{font-size:19px;letter-spacing:-.01em}
+.hero span{font-size:13px;color:rgba(255,255,255,.82)}
+@media (max-width:640px){.hero{height:104px}.hero span{display:none}}
+@media print{.hero{display:none}}

@@ -176,3 +176,12 @@ then open `.env` in your editor and paste the key after `GROQ_API_KEY=` (no quot
 | Model | Accuracy (26 q) | Cost / correct answer | Median latency |
 |---|---|---|---|
 | (run `python -m eval.run_eval --provider ...`) | | | |
+
+
+## Image credits
+
+Banner photos are from Wikimedia Commons and are in the public domain or CC0 (no attribution required; credited here anyway):
+
+- `instrument-scientist.jpg`: [U.S. Department of Energy - Science - 408 041 001](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_408_041_001_(9788226824).jpg), public domain.
+- `clean-lab.jpg`: [U.S. Department of Energy - Science - 395 006 004](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_395_006_004_(9735099945).jpg), public domain.
+- `glass-flasks.jpg`: [Birnenkolben.jpg](https://commons.wikimedia.org/wiki/File:Birnenkolben.jpg), CC0.
