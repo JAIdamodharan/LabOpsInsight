@@ -32,7 +32,7 @@ const ICON = {
   sheet: '<path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M8 13h8M8 17h8M12 11v10"/>',
   flask: '<path d="M9 3h6M10 3v6l-5 9a2 2 0 0 0 1.8 3h10.4A2 2 0 0 0 19 18l-5-9V3"/><path d="M7.5 15h9"/>',
 };
-const IMG = { bi: 'dashboard', dq: 'market-research', predict: 'lab_operations', analyze: 'analyze', data: 'data', pins: 'pinned', lab: 'lab_operations', custom: 'data' };
+const IMG = { story: 'lab_operations', bi: 'dashboard', dq: 'market-research', predict: 'market-research', analyze: 'analyze', data: 'data', pins: 'pinned', lab: 'lab_operations', custom: 'data' };
 const pic = (name, cls = 'ti', size = 22) => el('img', { class: cls, src: `/static/icons/${name}.png`, alt: '', width: size, height: size, draggable: 'false' });
 const emptyState = (img, title, text) => el('div', { class: 'empty-state' }, pic(img, '', 112), el('b', {}, title), el('span', {}, text));
 const monthLabel = m => new Date(m + '-15').toLocaleString('en', { month: 'short', year: 'numeric' });
@@ -289,8 +289,8 @@ const bc = v => getComputedStyle($('#bi')).getPropertyValue(v).trim();
 const rgba = (rgbVar, a) => `rgba(${bc(rgbVar)},${a})`;
 
 /* ===================== tabs ===================== */
-const TABS = ['bi', 'dq', 'predict', 'analyze', 'data', 'pins'];
-function tabLabel(t) { return { bi: S.kind === 'lab' ? 'Dashboard' : 'Overview', dq: 'Data Review', predict: 'Predict', analyze: 'Analyze', data: 'Data', pins: 'Pinned' }[t]; }
+const TABS = ['story', 'bi', 'dq', 'predict', 'analyze', 'data', 'pins'];
+function tabLabel(t) { return { story: 'Why LabOps', bi: S.kind === 'lab' ? 'Dashboard' : 'Overview', dq: 'Data Review', predict: 'Predict', analyze: 'Analyze', data: 'Data', pins: 'Pinned' }[t]; }
 function buildTabs() {
   $$('#tabs button').forEach(b => {
     const t = b.dataset.tab;
@@ -314,9 +314,9 @@ function moveInd() {
 addEventListener('resize', moveInd);
 window.addEventListener('load', moveInd);
 if (document.fonts && document.fonts.ready) { document.fonts.ready.then(() => { moveInd(); requestAnimationFrame(moveInd); }); }
-const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, predict: loadPredict, analyze: () => { } };
+const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, predict: loadPredict, story: loadStory, analyze: () => { } };
 function showTab(t) {
-  S.tab = t;
+  S.tab = t; if (t === 'story') store.set('story.seen', true);
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   TABS.forEach(x => { $('#tab-' + x).hidden = x !== t; });
   moveInd(); requestAnimationFrame(moveInd); setTimeout(moveInd, 50); setTimeout(moveInd, 200);
@@ -844,7 +844,7 @@ $$('.theme-sel').forEach(s => { s.replaceChildren(...BI_THEMES.map(([v, n]) => e
 (async function init() {
   $('#ico-upload').replaceChildren(icon('upload')); $('#btn-print').replaceChildren(icon('print')); $('#ico-search').replaceChildren(icon('search'));
   applyUiTheme(); const t = store.get('bi.theme2', 'th-glass'); setBiTheme(BI_THEMES.some(x => x[0] === t) ? t : 'th-glass');
-  const hash = location.hash.slice(1); S.tab = TABS.includes(hash) ? hash : 'bi';
+  const hash = location.hash.slice(1); S.tab = TABS.includes(hash) ? hash : (store.get('story.seen', false) ? 'bi' : 'story');
   setState('boot', 'Checking your session…');
   try {
     const st = await api('/api/auth/status');
@@ -986,3 +986,34 @@ async function loadPredict() {
   root.replaceChildren(el('div', { class: 'hint' }, `Data to ${d.as_of}. Intervals are wide on purpose: there are only ${f.months.length} months of history. Planted incidents (e.g. the March HPLC-03 drift) are part of the history, so forecasts treat them as normal variation.`), grid, driftCard(d.drift), riskCard(d.late, d.options));
   stagger(grid);
 }
+
+
+/* ===================== story page ===================== */
+let storyFacts = null;
+const dig = (o, path) => path.split('.').reduce((v, k) => (v == null ? v : v[k]), o);
+const dayLabel = iso => new Date(iso + 'T12:00:00').toLocaleDateString('en', { day: 'numeric', month: 'short' });
+function fillStory(d) {
+  $$('#tab-story [data-k]').forEach(n => { const v = dig(d, n.dataset.k); if (v == null) return; n.textContent = n.dataset.fmt === 'pct' ? v.toFixed(1) + '%' : n.dataset.fmt === 'day' ? dayLabel(v) : String(v); });
+  const s = d.scope, r = d.review;
+  $('#st-stats').replaceChildren(...[[s.tests.toLocaleString(), 'test results analysed'], [`${s.instruments} instruments`, `${s.analysts} analysts, ${s.from} to ${s.to}`],
+    [r.flagged.toLocaleString(), `records the data review flags (${(100 * r.flagged / r.total).toFixed(1)}%)`], [`${r.rules} rules`, 'checked automatically, ALCOA+ tagged']].map(([v, l]) => el('div', { class: 's-stat' }, el('b', {}, v), el('span', {}, l))));
+}
+async function loadStory() {
+  const root = $('#tab-story');
+  if (!root.firstElementChild) {                                    // the story markup is fetched after sign-in, so the public page shell holds no lab wording
+    try { const r = await fetch('/api/story/page', { credentials: 'same-origin' }); if (!r.ok) throw new Error(r.status); root.replaceChildren(...new DOMParser().parseFromString(await r.text(), 'text/html').body.childNodes); }   // fixed markup from our own server; DOMParser never runs scripts
+    catch (e) { return showError(root, 'Could not load this page: ' + e.message, loadStory); }
+  }
+  if (!storyFacts) { try { storyFacts = await api('/api/story'); } catch (e) { $('#st-stats').replaceChildren(); return; } }
+  fillStory(storyFacts);
+}
+$('#tab-story').addEventListener('click', e => {
+  const b = e.target.closest('[data-go],[data-ask],[data-upload]'); if (!b) return;
+  if (b.dataset.upload) return $('#btn-upload').click();
+  if (b.dataset.ask) {
+    if (!can('ask')) return toast(`Your role (${S.user?.role}) cannot run analyses.`, 'warn');
+    if (S.dataset !== 'lab' && S.datasets.some(x => x.id === 'lab')) { S.dataset = 'lab'; store.set('dataset', 'lab'); applyDataset(); }   // the story is about the lab data
+    return askAgent(b.dataset.ask);
+  }
+  showTab(b.dataset.go);
+});

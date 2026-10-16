@@ -73,6 +73,7 @@
 <main>
   <nav class="tabs" role="tablist" id="tabs" aria-label="Sections">
     <span class="ind" id="tab-ind" aria-hidden="true"></span>
+    <button role="tab" data-tab="story"></button>
     <button role="tab" data-tab="bi" aria-selected="true"></button>
     <button role="tab" data-tab="dq"></button>
     <button role="tab" data-tab="predict"></button>
@@ -80,6 +81,9 @@
     <button role="tab" data-tab="data"></button>
     <button role="tab" data-tab="pins"></button>
   </nav>
+
+  <!-- Why LabOps: the story -->
+  <section id="tab-story" role="tabpanel" hidden></section>
 
   <!-- Dashboard (lab) / Overview (uploads) -->
   <section id="tab-bi" role="tabpanel">

@@ -455,6 +455,22 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
                 pred_cache["drift"] = predict.drift(db)
         return predict, pred_cache
 
+    story_cache = {}
+
+    @app.get("/api/story/page", response_class=HTMLResponse)
+    def story_page(user: dict = Depends(require("read"))):
+        return HTMLResponse((Path(__file__).parent / "story.html").read_text(encoding="utf-8"))   # fixed markup, served only to signed-in users
+
+    @app.get("/api/story")
+    def story_facts(user: dict = Depends(require("read"))):
+        from . import predict, story                                  # numbers on the 'Why LabOps' page are computed from the lab data
+        db = lab_only(LAB_ID, "The story page", user)
+        with pred_lock:
+            if "facts" not in story_cache:
+                drift = pred_cache.get("drift") or predict.drift(db)
+                story_cache["facts"] = story.build(db, drift)
+        return story_cache["facts"]
+
     @app.get("/api/predict")
     def predict_all(user: dict = Depends(require("read"))):
         _, c = predictor(user)

@@ -64,7 +64,8 @@ def put(c, name="orders.xlsx", data=SALES):
 
 # ======================================================== unauthenticated access
 PROTECTED_GET = ["/api/config", "/api/datasets", "/api/tables", "/api/profile", "/api/dashboard", "/api/dq", "/api/dq/DQ-001", "/api/schema",
-                 "/api/table/tests", "/api/example.xlsx", "/api/ask?q=hello", "/api/users", "/api/audit", "/artifacts/abcdef12_chart.png"]
+                 "/api/table/tests", "/api/example.xlsx", "/api/ask?q=hello", "/api/users", "/api/audit", "/artifacts/abcdef12_chart.png",
+                 "/api/story", "/api/story/page", "/api/predict", "/api/predict/score?method=a&instrument=b&priority=c"]
 
 
 @pytest.mark.parametrize("url", PROTECTED_GET)

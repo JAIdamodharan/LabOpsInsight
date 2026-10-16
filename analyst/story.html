@@ -1,0 +1,67 @@
+<div class="story">
+      <div class="s-hero">
+        <div class="s-copy">
+          <p class="eyebrow">LabOps Insight</p>
+          <h1>Your lab already holds the answers. Now you can find them in seconds.</h1>
+          <p class="lead">Every test, instrument log, deviation and SOP in your lab tells part of a story. LabOps Insight reads all of it together, shows you what changed, explains why, and points to the procedure that says what to do next.</p>
+          <div class="cta"><button class="btn primary" type="button" data-go="bi">Open the dashboard</button><button class="btn" type="button" data-go="analyze">Ask a question</button></div>
+        </div>
+        <div class="s-photo" aria-hidden="true"></div>
+      </div>
+      <div class="s-stats" id="st-stats" aria-live="polite"></div>
+
+      <h2>Why labs lose hours to their own data</h2>
+      <div class="s-cols">
+        <div class="s-card"><b>It lives in many places</b><p>Results in one export, instrument logs in another, deviations in a third, procedures in PDFs. Joining them by hand takes an afternoon.</p></div>
+        <div class="s-card"><b>Problems hide in averages</b><p>A drifting instrument or a slow queue rarely fails loudly. By the time the monthly report shows it, dozens of results are affected.</p></div>
+        <div class="s-card"><b>Answers need three experts</b><p>The number is with the analyst, the cause with the supervisor and the rule with QA. Everyone waits for everyone else.</p></div>
+      </div>
+
+      <h2>One quarter in the life of a lab</h2>
+      <p class="sub">The demo data contains three real-looking incidents. Here is how each one plays out with LabOps Insight. Every number below is calculated from the data.</p>
+      <ol class="s-chapters">
+        <li><span class="when">February</span>
+          <div><h3>A breakdown nobody sees until reports are late</h3>
+          <p>LC-MS instrument <b data-k="delivery.down.0">LCMS-02</b> was down from <b data-k="delivery.down.1"></b> to <b data-k="delivery.down.2"></b>, so its work queued on a single twin. On-time delivery fell from <b data-k="delivery.jan" data-fmt="pct"></b> in January to <b class="bad" data-k="delivery.feb" data-fmt="pct"></b>.</p>
+          <p class="payoff">With LabOps Insight: the dashboard flags the drop, the Analyze tab traces it to the breakdown and the waiting time, and the procedure on backup instruments is cited next to the answer.</p>
+          <div class="acts"><button class="link" type="button" data-ask="Why did Related Substances on-time delivery drop in Feb 2025?">Ask why it dropped</button><button class="link" type="button" data-go="bi">Open the dashboard</button></div></div></li>
+        <li><span class="when">March</span>
+          <div><h3>A quiet drift that turns into out-of-specification results</h3>
+          <p>From 3 March the detector on <b data-k="drift.instrument">HPLC-03</b> began to drift. By month end <b class="bad" data-k="drift.oos_hplc03" data-fmt="pct"></b> of its Assay results were out of specification, against <b data-k="drift.oos_others" data-fmt="pct"></b> on the other HPLCs. The drift monitor raised its flag on <b data-k="drift.alarm_date" data-fmt="day"></b>, two days after the shift began.</p>
+          <p class="payoff">With LabOps Insight: you see the alarm on a control chart, the agent finds the instrument and the week it started, and the SOP says what to do: stop using it, recalibrate, and review every result since the shift.</p>
+          <div class="acts"><button class="link" type="button" data-go="predict">See the drift chart</button><button class="link" type="button" data-ask="Why was the OOS rate on HPLC-03 so high in Mar 2025?">Ask the analyst</button></div></div></li>
+        <li><span class="when">April</span>
+          <div><h3>A training gap that looks like random error</h3>
+          <p>Six analysts joined in January. From April, Documentation deviations jumped: <b class="bad" data-k="training.new_per_analyst"></b> per new analyst against <b data-k="training.earlier_per_analyst"></b> for earlier hires.</p>
+          <p class="payoff">With LabOps Insight: the pattern is visible by cohort in seconds, and the training procedure it cites tells the supervisor to schedule a refresher within two weeks.</p>
+          <div class="acts"><button class="link" type="button" data-ask="Why did Documentation deviations increase in Apr 2025, and who raised them?">Ask who and why</button></div></div></li>
+      </ol>
+
+      <h2>Built for the people who run the lab</h2>
+      <div class="s-cols s4">
+        <div class="s-card"><span class="role">QC analyst</span><b>Know which instrument to trust</b><p>Drift alerts, specification limits and SOP steps sit next to your results, so you stop second-guessing a run.</p></div>
+        <div class="s-card"><span class="role">Supervisor</span><b>See trouble before the client calls</b><p>Queues, late-delivery risk and who needs a refresher, on one page, with the reason one click away.</p></div>
+        <div class="s-card"><span class="role">QA and data reviewer</span><b>Review the exceptions, not every row</b><p>A ranked query list tagged with ALCOA+ principles replaces scrolling through spreadsheets.</p></div>
+        <div class="s-card"><span class="role">Lab head</span><b>One screen, then the why</b><p>Throughput, right-first-time and turnaround for the month, with a plain-English question box for everything else.</p></div>
+      </div>
+
+      <h2>Everything at your fingertips</h2>
+      <div class="s-feats">
+        <button type="button" class="s-feat" data-go="bi"><b>Dashboard</b><span>KPIs, trends and instrument heatmaps with filters by month, lab and service line.</span></button>
+        <button type="button" class="s-feat" data-go="dq"><b>Data Review</b><span>Rule-based checks with ALCOA+ tags and a downloadable query list. Nothing is changed.</span></button>
+        <button type="button" class="s-feat" data-go="analyze"><b>Ask in plain English</b><span>An analyst agent writes the SQL, shows it, charts the result and cites the procedure.</span></button>
+        <button type="button" class="s-feat" data-go="analyze" data-ask="What does the procedure say about investigating an OOS result?"><b>Search your SOPs</b><span>Ask what a limit or procedure says and get the exact section, not a PDF to read.</span></button>
+        <button type="button" class="s-feat" data-go="predict"><b>Predict</b><span>Forecasts, late-delivery risk and a drift early warning, validated on held-out months.</span></button>
+        <button type="button" class="s-feat" data-upload="1"><b>Bring your own Excel</b><span>Upload a workbook and get a profile, a data review and the same question box.</span></button>
+      </div>
+
+      <h2>Built to be trusted</h2>
+      <ul class="s-trust">
+        <li><b>Read-only.</b> It queries your data and never edits a record.</li>
+        <li><b>Shows its work.</b> Every answer lists the SQL it ran and the procedure it cited.</li>
+        <li><b>Honest about limits.</b> Forecast ranges are wide when history is short, and a model that did not beat chance was removed.</li>
+        <li><b>Access control.</b> Sign-in, roles, an audit log and rate limits protect shared use.</li>
+        <li><b>Synthetic demo data.</b> Nothing here is real company data, and it is free to run.</li>
+      </ul>
+      <div class="s-end"><div><h3>Ready to try it?</h3><p>Start with a question you would normally spend an afternoon on.</p></div><button class="btn primary" type="button" data-go="analyze">Ask your first question</button></div>
+    </div>

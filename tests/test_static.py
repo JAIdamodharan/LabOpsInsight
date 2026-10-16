@@ -43,7 +43,7 @@ def test_every_element_id_the_script_uses_exists_in_the_page():
     html, js = (STATIC / "index.html").read_text(), (STATIC / "app.js").read_text()
     ids_in_html = set(re.findall(r'id="([^"]+)"', html))
     used = set(re.findall(r"\$\('#([A-Za-z0-9_-]+)'\)", js))
-    dynamic = {"pincount", "dq-list", "prog", "boot-retry", "wait-note", "sc-method", "sc-inst", "sc-prio"}                # created at runtime or handled specially
+    dynamic = {"pincount", "dq-list", "prog", "boot-retry", "wait-note", "sc-method", "sc-inst", "sc-prio", "st-stats"}                # created at runtime or handled specially
     assert used - ids_in_html - dynamic == set(), used - ids_in_html - dynamic
 
 
