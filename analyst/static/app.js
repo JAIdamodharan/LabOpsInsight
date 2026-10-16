@@ -279,7 +279,7 @@ function applyUiTheme(t) {
   const dark = (document.documentElement.dataset.theme || (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark')) === 'dark';
   $('#btn-theme').replaceChildren(icon(dark ? 'sun' : 'moon'));
 }
-const BI_THEMES = [['th-glass', 'Glass'], ['th-mint', 'Mint'], ['th-corp', 'Corporate'], ['th-navy', 'Navy']];
+const BI_THEMES = [['th-glass', 'Glass'], ['th-mint', 'Mint'], ['th-corp', 'Corporate']];
 function setBiTheme(t) {
   $$('.bi').forEach(b => { b.className = 'bi ' + t; });
   $$('.theme-sel').forEach(s => { s.value = t; });
@@ -451,7 +451,7 @@ function dirClass(delta, good) { if (delta == null || Math.abs(delta) < 0.05) re
 const activate = fn => e => { if (e.type === 'click' || e.key === 'Enter' || e.key === ' ') { e.preventDefault(); fn(); } };
 function kpiCard(k, P, T) {
   const cls = dirClass(k.delta, k.good), arrow = k.delta == null || Math.abs(k.delta) < 0.05 ? '' : (k.delta > 0 ? '↑' : '↓');
-  const d = k.delta == null ? '—' : `${k.delta > 0 ? '+' : ''}${k.delta.toFixed(1)}${k.delta_kind === 'pp' ? ' pp' : '%'}`;
+  const d = k.delta == null ? '-' : `${k.delta > 0 ? '+' : ''}${k.delta.toFixed(1)}${k.delta_kind === 'pp' ? ' pp' : '%'}`;
   const series = { tests: T.tests, oos_rate: T.oos_rate, on_time: T.on_time, tat: T.tat }[k.key];
   const val = el('span', { class: 'val' }); countUp(val, k.value, FMT[k.fmt]);
   const ask = () => askAgent(P.prev_label ? `Why did ${k.label.toLowerCase()} change in ${P.label} compared with ${P.prev_label}?` : `Summarize ${k.label.toLowerCase()} in ${P.label}`);
@@ -471,7 +471,7 @@ function gaugeCard(g, prevLabel) {
 function renderBI(d) {
   C().bi = d; killCharts();
   const f = d.filters, P = d.period, T = d.trend, sel = T.selected;
-  $('#bi-h').textContent = `Lab Operations — ${P.label}`;
+  $('#bi-h').textContent = `Lab Operations - ${P.label}`;
   $('#bi-sub').textContent = (P.prev_label ? `vs ${P.prev_label}` : 'first month in data') + ` · ${f.lab || 'All labs'} · ${f.service_line || 'All service lines'} · synthetic, anonymised data`;
   $('#bi-ins').replaceChildren(...d.insights.map(i => insightRow({ ...i, goto: i.ask ? null : 'dq' })));
   $('#bi-k').replaceChildren(...d.kpis.map(x => kpiCard(x, P, T)), ...d.gauges.map(x => gaugeCard(x, P.prev_label)));
@@ -491,23 +491,23 @@ function renderBI(d) {
     options: { ...monthClick, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, interaction: { mode: 'index', intersect: false }, plugins: { legend: legend() },
       scales: { x: axisOpts({ ticks: { maxRotation: 55 } }), y: axisOpts({ num: true, fmt: v => v + '%', min: 80, max: 100 }), y1: { position: 'right', ticks: { color: bc('--b-mute'), callback: v => (+v.toFixed(2)) + ' d' }, grid: { drawOnChartArea: false }, border: { display: false } } } } }));
   const cats = d.deviation_categories;
-  const dev = chartBox(`Deviations opened by category — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: cats.map(c => c.label), datasets: [{ label: P.label, data: cats.map(c => c.value), backgroundColor: bc('--b-a1'), borderRadius: 7, borderSkipped: false }, ...(P.prev_label ? [{ label: P.prev_label, data: cats.map(c => c.prev), backgroundColor: bc('--b-mute') + '88', borderRadius: 7, borderSkipped: false }] : [])] },
+  const dev = chartBox(`Deviations opened by category - ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: cats.map(c => c.label), datasets: [{ label: P.label, data: cats.map(c => c.value), backgroundColor: bc('--b-a1'), borderRadius: 7, borderSkipped: false }, ...(P.prev_label ? [{ label: P.prev_label, data: cats.map(c => c.prev), backgroundColor: bc('--b-mute') + '88', borderRadius: 7, borderSkipped: false }] : [])] },
     options: { responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, onHover: hover, onClick: (e, els) => { if (els.length) askAgent(`Why did ${cats[els[0].index].label} deviations ${cats[els[0].index].value >= cats[els[0].index].prev ? 'increase' : 'change'} in ${P.label}, and who raised them?`); }, plugins: { legend: legend() }, scales: { x: axisOpts({}), y: axisOpts({ num: true, fmt: v => Number.isInteger(v) ? v : '' }) } } }));
   const M = d.methods;
-  const meth = chartBox(`Avg turnaround by method (days) — ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: M.map(m => m.label), datasets: [{ data: M.map(m => m.tat), backgroundColor: M.map(m => m.on_time != null && m.on_time < 85 ? bc('--b-bad') : bc('--b-a2')), borderRadius: 7, borderSkipped: false }] },
-    options: { indexAxis: 'y', onHover: hover, onClick: (e, els) => { if (els.length) askAgent(`Why is ${M[els[0].index].label} turnaround ${M[els[0].index].on_time != null && M[els[0].index].on_time < 85 ? 'so slow' : 'what it is'} in ${P.label}? Check on-time delivery.`); }, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x.toFixed(2)} days · ${M[c.dataIndex].on_time ?? '—'}% on time · ${M[c.dataIndex].tests} tests` } } }, scales: { x: axisOpts({ num: true, fmt: v => (+v.toFixed(2)) + ' d' }), y: axisOpts({ noGrid: true }) } } }));
-  const it = el('div', { class: 'bcard s6' }, el('h3', {}, `Instruments — ${P.label}`), el('table', { class: 'btab inst' },
+  const meth = chartBox(`Avg turnaround by method (days) - ${P.label}`, 's6', cv => new Chart(cv, { type: 'bar', data: { labels: M.map(m => m.label), datasets: [{ data: M.map(m => m.tat), backgroundColor: M.map(m => m.on_time != null && m.on_time < 85 ? bc('--b-bad') : bc('--b-a2')), borderRadius: 7, borderSkipped: false }] },
+    options: { indexAxis: 'y', onHover: hover, onClick: (e, els) => { if (els.length) askAgent(`Why is ${M[els[0].index].label} turnaround ${M[els[0].index].on_time != null && M[els[0].index].on_time < 85 ? 'so slow' : 'what it is'} in ${P.label}? Check on-time delivery.`); }, responsive: true, maintainAspectRatio: false, animation: { duration: 600 }, plugins: { legend: { display: false }, tooltip: { callbacks: { label: c => `${c.parsed.x.toFixed(2)} days · ${M[c.dataIndex].on_time ?? '-'}% on time · ${M[c.dataIndex].tests} tests` } } }, scales: { x: axisOpts({ num: true, fmt: v => (+v.toFixed(2)) + ' d' }), y: axisOpts({ noGrid: true }) } } }));
+  const it = el('div', { class: 'bcard s6' }, el('h3', {}, `Instruments - ${P.label}`), el('table', { class: 'btab inst' },
     el('thead', {}, el('tr', {}, ...['Instrument', 'Tests', 'Utilization', 'OOS %', 'Δ pp'].map((h, i) => el('th', { class: i === 1 || i === 3 || i === 4 ? 'num' : '' }, h)))),
     el('tbody', {}, ...d.instruments.map(r => el('tr', { class: 'click', title: 'Click to ask the analyst about this instrument', onclick: () => askAgent(`What happened with ${r.instrument} in ${P.label}? Check its OOS rate and downtime.`) }, el('td', { title: `${r.type} · ${r.lab}` }, r.instrument), el('td', { class: 'num' }, r.tests.toLocaleString()),
       el('td', {}, el('span', { class: 'dtrack' }, el('div', { class: 'dbar', style: `width:${Math.max(2, r.utilization)}%;background:${r.utilization >= 95 ? bc('--b-bad') : bc('--b-a1')}` })), r.utilization.toFixed(0) + '%'),
       el('td', { class: 'num ' + (r.oos_rate >= 10 ? 'bad' : '') }, r.oos_rate.toFixed(1)),
-      el('td', { class: 'num ' + dirClass(r.oos_delta, 'down') }, r.oos_delta == null ? '—' : `${r.oos_delta > 0 ? '+' : ''}${r.oos_delta.toFixed(1)}`))))));
+      el('td', { class: 'num ' + dirClass(r.oos_delta, 'down') }, r.oos_delta == null ? '-' : `${r.oos_delta > 0 ? '+' : ''}${r.oos_delta.toFixed(1)}`))))));
   const H = d.heatmap;
   const heat = el('div', { class: 'bcard s6' }, el('h3', {}, 'OOS rate by instrument, last 6 months (ignores filters)'),
     el('table', { class: 'btab heat' }, el('thead', {}, el('tr', {}, el('th', {}, 'Instrument'), ...H.months.map(m => el('th', { class: 'num' }, m)))),
       el('tbody', {}, ...H.rows.map(row => el('tr', {}, el('td', { title: row.lab }, row.instrument), ...row.cells.map(c => {
         const a = c.rate == null ? 0 : Math.min(c.rate / 25, 1) * .8;
-        return el('td', { class: 'cell' + (c.rate == null ? ' na' : ''), style: c.rate == null ? '' : `background:${rgba('--b-bad-rgb', a.toFixed(2))}`, title: `${c.oos} OOS of ${c.tests} tests` }, c.rate == null ? '—' : c.rate.toFixed(1) + '%');
+        return el('td', { class: 'cell' + (c.rate == null ? ' na' : ''), style: c.rate == null ? '' : `background:${rgba('--b-bad-rgb', a.toFixed(2))}`, title: `${c.oos} OOS of ${c.tests} tests` }, c.rate == null ? '-' : c.rate.toFixed(1) + '%');
       }))))));
   $('#bi-g').replaceChildren(volume, delivery, dev, meth, it, heat); stagger($('#bi-g'));
 }

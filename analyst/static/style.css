@@ -241,7 +241,6 @@ td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
 .bi{--b-bg:#e8f7ec;--b-card:#fff;--b-border:#b9e6c7;--b-title:#1a9a3c;--b-text:#111;--b-mute:#5b6b60;--b-a1:#f5b970;--b-a2:#d19a2f;--b-a3:#d6336c;--b-a4:#5fe0ef;--b-a5:#0d6b7a;--b-good:#16a34a;--b-bad:#ef3b2d;--b-good-rgb:22,163,74;--b-bad-rgb:239,59,45;--b-track:#e5f5ea;--b-head:#1a9a3c;--b-headtext:#fff;--b-alt:#f4fbf6;--b-warn:#d98e04;
  background:var(--b-bg);color:var(--b-text);border-radius:22px;padding:16px}
 .bi.th-corp{--b-bg:#fff;--b-border:#d3dae1;--b-title:#166080;--b-text:#1b2733;--b-mute:#5f6b78;--b-a1:#166080;--b-a2:#6aa84f;--b-a3:#c00000;--b-a4:#9aa3ad;--b-a5:#1f8aa8;--b-good:#2e7d32;--b-bad:#c00000;--b-good-rgb:46,125,50;--b-bad-rgb:192,0,0;--b-track:#e3e8ed;--b-head:#166080;--b-alt:#ffe9e9;--b-warn:#e0a800;border:1px solid #d3dae1}
-.bi.th-navy{--b-bg:linear-gradient(160deg,#0d4560,#08283b);--b-card:rgba(255,255,255,.06);--b-border:rgba(255,255,255,.16);--b-title:#fff;--b-text:#eaf4f8;--b-mute:#9fb8c4;--b-a1:#ffcb66;--b-a2:#ffc0cb;--b-a3:#ff8a2b;--b-a4:#62f5d8;--b-a5:#5b9bff;--b-good:#6ee7a0;--b-bad:#ff7b7b;--b-good-rgb:110,231,160;--b-bad-rgb:255,123,123;--b-track:rgba(255,255,255,.14);--b-head:#2d7384;--b-alt:rgba(255,255,255,.05);--b-warn:#ffcb66}
 /* glass theme: follows the app's light/dark mode and lets the aurora show through */
 .bi.th-glass{--b-bg:transparent;--b-card:var(--glass);--b-border:var(--glass-border);--b-title:var(--accent-t);--b-text:var(--text);--b-mute:var(--mute);
   --b-a1:var(--c1);--b-a2:var(--c2);--b-a3:var(--c4);--b-a4:var(--c3);--b-a5:var(--c5);--b-good:var(--ok);--b-bad:var(--err);--b-good-rgb:0,230,118;--b-bad-rgb:255,82,82;--b-track:rgba(150,165,200,.3);
@@ -517,3 +516,6 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 .dbar{height:6px}
 
 @media (max-width:900px){.kgrid,.kgrid.k4,.kgrid.k5{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}.tabs{overflow-x:auto}}
+
+.kcard.click h3{padding-right:62px}
+.kcard.click::after{top:15px}

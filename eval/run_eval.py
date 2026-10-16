@@ -39,7 +39,7 @@ def report(rows: list[dict], model: str, price_in: float, price_out: float) -> s
     cost = lambda r: (r["in_tok"] * price_in + r["out_tok"] * price_out) / 1e6
     had_err = [r for r in rows if r["sql_errors"] > 0]
     recovered = [r for r in had_err if r["passed"]]
-    L = [f"# Eval report — {model}", "",
+    L = [f"# Eval report - {model}", "",
          f"- **Accuracy:** {acc:.0%} ({sum(r['passed'] for r in rows)}/{n})",
          f"- **Median latency:** {statistics.median(r['latency_s'] for r in rows):.1f}s",
          f"- **Avg steps:** {statistics.mean(r['steps'] for r in rows):.1f}",
