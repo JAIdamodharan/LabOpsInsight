@@ -316,7 +316,7 @@ window.addEventListener('load', moveInd);
 if (document.fonts && document.fonts.ready) { document.fonts.ready.then(() => { moveInd(); requestAnimationFrame(moveInd); }); }
 const loaders = { bi: () => S.kind === 'lab' ? loadBI() : loadOverview(), dq: () => S.kind === 'lab' ? loadDQ() : loadReview(), data: loadTables, pins: renderPins, predict: loadPredict, story: loadStory, analyze: () => { } };
 function showTab(t) {
-  S.tab = t; if (t === 'story') store.set('story.seen', true);
+  S.tab = t; if (t === 'story') store.set('story.seen', true); else stopStory();
   $$('#tabs button').forEach(b => { const on = b.dataset.tab === t; b.setAttribute('aria-selected', on); b.tabIndex = on ? 0 : -1; });
   TABS.forEach(x => { $('#tab-' + x).hidden = x !== t; });
   moveInd(); requestAnimationFrame(moveInd); setTimeout(moveInd, 50); setTimeout(moveInd, 200);
@@ -1005,9 +1005,24 @@ async function loadStory() {
     catch (e) { return showError(root, 'Could not load this page: ' + e.message, loadStory); }
   }
   if (!storyFacts) { try { storyFacts = await api('/api/story'); } catch (e) { $('#st-stats').replaceChildren(); return; } }
-  fillStory(storyFacts);
+  fillStory(storyFacts); startStory();
+}
+let storyTimer = null, storyIdx = 0, storyPaused = false;
+function showSlide(i) {
+  const slides = $$('#tab-story .s-slide'), dots = $$('#tab-story .s-dots button'); if (!slides.length) return;
+  storyIdx = (i + slides.length) % slides.length;
+  slides.forEach((x, k) => x.classList.toggle('on', k === storyIdx)); dots.forEach((x, k) => { x.classList.toggle('on', k === storyIdx); x.setAttribute('aria-current', k === storyIdx ? 'true' : 'false'); });
+  const c = $('#s-credit'); if (c) c.textContent = slides[storyIdx].dataset.credit || '';
+}
+function stopStory() { clearInterval(storyTimer); storyTimer = null; }
+function startStory() {
+  stopStory(); showSlide(storyIdx);
+  if (storyPaused) return;                                                    // with reduced motion the photos still change on a timer, but as a plain swap (see CSS); Pause stops it
+  storyTimer = setInterval(() => { if (!document.hidden && S.tab === 'story') showSlide(storyIdx + 1); }, matchMedia('(prefers-reduced-motion: reduce)').matches ? 8000 : 6000);
 }
 $('#tab-story').addEventListener('click', e => {
+  const pz = e.target.closest('#s-pause'); if (pz) { storyPaused = !storyPaused; pz.setAttribute('aria-pressed', String(storyPaused)); pz.textContent = storyPaused ? 'Play' : 'Pause'; pz.setAttribute('aria-label', storyPaused ? 'Play the photo slideshow' : 'Pause the photo slideshow'); return startStory(); }
+  const dot = e.target.closest('.s-dots button'); if (dot) { showSlide([...dot.parentNode.children].indexOf(dot)); return startStory(); }
   const b = e.target.closest('[data-go],[data-ask],[data-upload]'); if (!b) return;
   if (b.dataset.upload) return $('#btn-upload').click();
   if (b.dataset.ask) {

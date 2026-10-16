@@ -553,15 +553,28 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 .story{max-width:1080px;margin:0 auto;padding-bottom:20px}
 .story h2{font-size:24px;letter-spacing:-.02em;margin:56px 0 14px}
 .story .sub{color:var(--mute);margin:-6px 0 20px;max-width:760px}
-.s-hero{position:relative;display:flex;align-items:center;min-height:340px;border-radius:22px;overflow:hidden;border:1px solid var(--card-line);margin-top:6px;
-  background:linear-gradient(105deg,#081428 0%,#0d2548 55%,#123c70 100%);color:#fff}
-.s-hero::after{content:"";position:absolute;top:0;right:0;bottom:0;width:min(46%,480px);background:url(/static/photos/instrument-scientist.jpg) 20% 30%/cover no-repeat;
-  -webkit-mask-image:linear-gradient(90deg,transparent 0,#000 40%);mask-image:linear-gradient(90deg,transparent 0,#000 40%)}
-.s-copy{position:relative;z-index:1;padding:40px clamp(22px,4vw,48px);max-width:min(640px,64%)}
+.s-hero{position:relative;width:100vw;margin-left:calc(50% - 50vw);margin-top:-2px;min-height:min(560px,72vh);display:flex;align-items:center;overflow:hidden;color:#fff;background:#081428}
+.s-slides,.s-slide,.s-shade{position:absolute;inset:0}
+.s-slide{background:var(--img) center/cover no-repeat;opacity:0;transform:scale(1.04);transition:opacity 1.4s ease,transform 8s ease-out}
+.s-slide.flip{scale:-1 1}
+.s-slide.on{opacity:1;transform:scale(1.12)}
+.s-shade{background:linear-gradient(90deg,rgba(5,12,28,.92) 0%,rgba(5,12,28,.78) 38%,rgba(5,12,28,.25) 72%,rgba(5,12,28,.1) 100%),linear-gradient(0deg,rgba(5,12,28,.55),transparent 35%)}
+.s-inner{position:relative;z-index:1;width:100%;max-width:1080px;margin:0 auto;padding:56px clamp(20px,3vw,32px) 72px}
+.s-copy{max-width:640px}
+.s-foot{position:absolute;z-index:2;left:0;right:0;bottom:0;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px clamp(20px,3vw,32px);max-width:1080px;margin:0 auto}
+.s-credit{margin:0;font-size:11.5px;color:rgba(255,255,255,.62)}
+.s-dots{display:flex;gap:8px}
+.s-dots button{width:34px;height:6px;border-radius:99px;border:0;padding:0;cursor:pointer;background:rgba(255,255,255,.35);transition:background .3s,width .3s}
+.s-dots button.on{background:#fff;width:52px}
+.s-dots button:focus-visible{outline:2px solid #fff;outline-offset:3px}
+@media (prefers-reduced-motion:reduce){.s-slide{transition:none;transform:none!important}}
+.s-ctl{display:flex;align-items:center;gap:14px}
+.s-pause{background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.35);color:#fff;border-radius:99px;padding:3px 12px;font-size:11.5px;font-weight:600;cursor:pointer}
+.s-pause:hover{background:rgba(255,255,255,.26)}
 .eyebrow{margin:0 0 10px;font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7fd8ff}
-.s-hero h1{margin:0 0 14px;font-size:clamp(26px,3.4vw,38px);line-height:1.15;letter-spacing:-.025em}
-.s-hero .lead{margin:0 0 22px;font-size:15.5px;line-height:1.6;color:rgba(255,255,255,.86)}
-.s-hero .btn:not(.primary){background:rgba(255,255,255,.12);color:#fff;border-color:rgba(255,255,255,.35)}
+.s-hero h1{margin:0 0 16px;font-size:clamp(28px,4vw,46px);line-height:1.12;letter-spacing:-.03em}
+.s-hero .lead{margin:0 0 26px;font-size:16.5px;line-height:1.65;color:rgba(255,255,255,.9);max-width:560px}
+.s-hero .btn:not(.primary){background:rgba(255,255,255,.14);color:#fff;border-color:rgba(255,255,255,.4)}
 .cta{display:flex;gap:10px;flex-wrap:wrap}
 .s-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin-top:18px}
 .s-stat{background:var(--card);border:1px solid var(--card-line);border-radius:var(--r);padding:16px 18px;display:flex;flex-direction:column;gap:2px}
@@ -591,5 +604,7 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 .s-end{margin-top:40px;display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;padding:26px 30px;border-radius:20px;color:#fff;
   background:linear-gradient(105deg,#0b2a55,#124a8a)}
 .s-end h3{margin:0 0 4px;font-size:20px}.s-end p{margin:0;color:rgba(255,255,255,.82)}
-@media (max-width:760px){.s-hero{min-height:0}.s-hero::after{display:none}.s-copy{max-width:none}.s-chapters li{grid-template-columns:1fr;gap:6px}}
+@media (max-width:760px){.s-hero{min-height:0}.s-inner{padding:36px 20px 64px}.s-shade{background:rgba(5,12,28,.78)}.s-chapters li{grid-template-columns:1fr;gap:6px}}
 @media print{.story .cta,.story .acts,.s-feat{display:none}}
+
+body{overflow-x:hidden}
