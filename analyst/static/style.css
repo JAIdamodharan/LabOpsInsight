@@ -444,7 +444,7 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 
 /* header: one tidy row, brand and dataset on the left, utilities on the right */
 .top{background:var(--card);border-bottom:1px solid var(--card-line);box-shadow:none}
-.top-in{max-width:1360px;padding:10px var(--gut);justify-content:flex-start;gap:10px;flex-wrap:nowrap}
+.top-in{max-width:1360px;padding:10px var(--gut);justify-content:flex-start;gap:8px 10px;flex-wrap:wrap}
 .brand{margin-right:6px;font-size:16px;white-space:nowrap}
 .logo{width:32px;height:32px;border-radius:9px;box-shadow:none}
 .dsel{height:36px;border-radius:10px;background:transparent;box-shadow:none;border:1px solid var(--card-line)}
@@ -455,7 +455,7 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 .badge{font-size:11px;padding:2px 9px;background:transparent;border-color:var(--card-line)}
 #py{display:none}
 .top .sp{min-width:8px}
-@media (max-width:1000px){.top-in{flex-wrap:wrap}.badge{display:none}}
+@media (max-width:1240px){.badge{display:none}}
 
 /* tabs: underline navigation instead of a boxed pill bar */
 .tabs{background:none;border:0;border-bottom:1px solid var(--card-line);box-shadow:none;-webkit-backdrop-filter:none;backdrop-filter:none;border-radius:0;padding:0;margin:6px 0 18px;justify-content:flex-start;gap:4px;width:100%}
@@ -520,11 +520,13 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 .kcard.click h3{padding-right:62px}
 .kcard.click::after{top:15px}
 
-/* photo banners (public-domain / CC0 images, credited in README) */
-.hero{position:relative;height:132px;border-radius:var(--r);overflow:hidden;margin:0 0 16px;border:1px solid var(--card-line);background:#0b1220 var(--hero) var(--pos,center)/cover no-repeat;display:flex;align-items:flex-end}
-.hero::before{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(4,10,22,.88) 0%,rgba(4,10,22,.55) 55%,rgba(4,10,22,.15) 100%)}
-.hero div{position:relative;padding:16px 20px;display:flex;flex-direction:column;gap:2px;color:#fff;max-width:640px}
-.hero b{font-size:19px;letter-spacing:-.01em}
-.hero span{font-size:13px;color:rgba(255,255,255,.82)}
-@media (max-width:640px){.hero{height:104px}.hero span{display:none}}
+/* photo banners (public-domain / CC0 images, credited in README): text on the left, the whole photo on the right so the subject is never cropped away */
+.top .dsel{flex:0 1 280px;min-width:170px}
+.top .dsel select{max-width:100%;min-width:0;width:100%}
+.hero{position:relative;height:168px;border-radius:var(--r);overflow:hidden;margin:0 0 16px;border:1px solid var(--card-line);background:linear-gradient(100deg,#0a1830 0%,#0f2a52 60%,#12396e 100%);display:flex;align-items:center}
+.hero::after{content:"";position:absolute;top:0;right:0;bottom:0;width:min(46%,420px);background:var(--hero) var(--pos,center)/cover no-repeat;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 38%);mask-image:linear-gradient(90deg,transparent 0,#000 38%)}
+.hero div{position:relative;z-index:1;padding:18px 24px;display:flex;flex-direction:column;gap:4px;color:#fff;max-width:min(560px,58%)}
+.hero b{font-size:20px;letter-spacing:-.01em}
+.hero span{font-size:13.5px;color:rgba(255,255,255,.85)}
+@media (max-width:640px){.hero{height:auto}.hero::after{display:none}.hero div{max-width:none}}
 @media print{.hero{display:none}}
