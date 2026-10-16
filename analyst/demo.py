@@ -55,6 +55,12 @@ DQ_MONTHLY = """SELECT strftime(completed_date,'%Y-%m') AS month, count(*) FILTE
        count(*) FILTER (result_value IS NULL) AS missing_result FROM tests GROUP BY 1 ORDER BY 1"""
 
 
+from .rag import Retriever
+
+KB = Retriever()
+DOC_WORDS = ("sop", "procedure", "policy", "spec limit", "specification", "what does", "limit for", "how long", "timeline", "capa", "alcoa", "due date", "requirement", "what should", "what must")
+
+
 def _tu(i, name, **inp):
     return NS(type="tool_use", id=f"demo{i}", name=name, input=inp)
 
@@ -72,6 +78,8 @@ class DemoClient:
         t = question.lower()
         has = lambda *w: any(x in t for x in w)
         named = set(OTHER_INSTRUMENT.findall(t))
+        if has(*DOC_WORDS) and not has("why", "increase", "change", "compared", "records need"):
+            return self._procedures(question)
         if has("data quality", "data-quality", "duplicate", "data review", "integrity", "clean", "records need") and not has("deviation"):
             return self._dq()
         if has("deviation", "documentation", "training"):
@@ -88,15 +96,28 @@ class DemoClient:
             return self._oos()
         return [], lambda: UNSUPPORTED
 
+    def _procedures(self, question):
+        self.scope = "the synthetic procedure documents (no data queries)"
+        plan = [("search_docs", dict(query=question))]
+
+        def final():
+            hits = KB.search(question, 2)
+            if not hits:
+                return "**The procedure documents do not cover this.** I will not invent a policy. Try asking about specification limits, OOS investigation, calibration, deviations and CAPA, turnaround, training or ALCOA+."
+            body = "\n\n".join(f"- **[{h['doc']} section {h['section']}]** {h['title']}: " + " ".join(h["text"].split())[:420] for h in hits)
+            return f"**What the procedures say:**\n\n{body}\n\n*(Demo mode: scripted model, real queries.)*"
+        return plan, final
+
     def _oos(self):
         self.scope = "HPLC-03 in March 2025"
+        self.cite = "OOS investigation instrument drift calibration"
         plan = [("get_schema", {}), ("run_sql", dict(sql=OOS_MONTHLY)),
                 ("chart", dict(type="line", title="Monthly OOS rate (%)", sql=OOS_MONTHLY, x="month", y="oos_rate_pct")),
                 ("run_sql", dict(sql=OOS_BY_INST)),
                 ("chart", dict(type="hbar", title="March 2025 OOS rate by instrument (%)", sql=OOS_BY_INST, x="instrument_id", y="oos_rate_pct")),
                 ("run_sql", dict(sql=OOS_WEEKLY)),
                 ("chart", dict(type="line", title="Weekly mean Assay result: HPLC-03 vs other HPLCs (spec 95-105 %)", sql=OOS_WEEKLY, x="week", y="mean_assay_pct", series="instrument_group")),
-                ("run_sql", dict(sql=OOS_EVENTS)), ("data_quality", {})]
+                ("run_sql", dict(sql=OOS_EVENTS)), ("search_docs", dict(query="OOS investigation instrument drift calibration")), ("data_quality", {})]
 
         def final():
             m = dict(self.q("SELECT strftime(completed_date,'%Y-%m'), round(100.0*avg((status='OOS')::int),2) FROM tests GROUP BY 1"))
@@ -196,5 +217,10 @@ class DemoClient:
         if i < len(self.plan):
             name, args = self.plan[i]
             return NS(stop_reason="tool_use", content=[_tu(i, name, **args)], usage=usage)
-        text = self.final().replace("*(Demo mode: scripted model, real queries.)*", f"*(Demo mode: scripted model, real queries. Scope of this walkthrough: {self.scope}.)*")
+        text = self.final()
+        cite = getattr(self, "cite", None)
+        if cite:
+            refs = "; ".join(f"[{h['doc']} section {h['section']}] {h['title']}" for h in KB.search(cite, 2))
+            text = text.replace("*(Demo mode:", f"**Procedure references:** {refs}.\n\n*(Demo mode:", 1)
+        text = text.replace("*(Demo mode: scripted model, real queries.)*", f"*(Demo mode: scripted model, real queries. Scope of this walkthrough: {self.scope}.)*")
         return NS(stop_reason="end_turn", content=[NS(type="text", text=text)], usage=usage)

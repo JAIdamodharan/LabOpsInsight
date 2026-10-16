@@ -4,6 +4,7 @@ import sys
 
 from .agent import Analyst
 from .db import Database
+from .rag import Retriever
 from .llm import add_cli_args, make_client
 from .sandbox import DockerSandbox, LocalSandbox
 
@@ -19,7 +20,7 @@ def main() -> None:
     client, model = make_client(args.provider, args.model, args.base_url)
 
     sandbox = {"docker": DockerSandbox, "local": LocalSandbox, "none": None}[args.sandbox]
-    agent = Analyst(Database(args.db), client=client, model=model, sandbox=sandbox(args.db) if sandbox else None)
+    agent = Analyst(Database(args.db), client=client, model=model, sandbox=sandbox(args.db) if sandbox else None, knowledge=Retriever())
     for ev in agent.run(args.question):
         if ev.kind == "tool_call":
             print(f"\n\033[36m> {ev.data['name']}\033[0m {ev.data['input'].get('sql') or ev.data['input'].get('code', '')}")

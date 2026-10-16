@@ -36,7 +36,8 @@ from .datasets import LAB_ID, DatasetError, Registry
 from .db import Database
 from .demo import DemoClient
 from .example import build_example_workbook
-from .llm import add_cli_args, load_dotenv, make_client
+from .llm import add_cli_args, detect_provider, load_dotenv, make_client
+from .rag import Retriever
 from .ratelimit import RateLimiter
 from .sandbox import DockerSandbox, LocalSandbox
 
@@ -116,6 +117,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
     app = FastAPI(title="LabOps Insight", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(Guard, limiter=limiter, limits=L)
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
+    kb = Retriever()                                                  # local search over the synthetic procedure documents (lab data only)
     reg = Registry(db_path, upload_dir or Path(db_path).parent / "uploads")
     users = (store or AuthStore(auth_db or Path(db_path).parent / "auth.db")) if auth_enabled else None
     Path(artifacts_dir).mkdir(exist_ok=True)
@@ -533,7 +535,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
                         return
                     sb = make_sb(reg.path(dataset), artifacts_dir) if make_sb else None
                     c = client or (DemoClient(db, bool(sb)) if demo else None)
-                    agent = Analyst(db, client=c, model=model or MODEL, sandbox=sb, domain=kind)
+                    agent = Analyst(db, client=c, model=model or MODEL, sandbox=sb, domain=kind, knowledge=kb)
                     c = agent.client                                  # hooks for clients that can wait on a rate-limited provider
                     c.on_wait = lambda secs, attempt, of, status: put.put(("raw", {"kind": "waiting", "seconds": round(secs), "attempt": attempt, "of": of, "status": status}))
                     c.cancel = cancel
@@ -582,15 +584,29 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--db", default="data/labops.duckdb")
     ap.add_argument("--port", type=int, default=8000)
-    ap.add_argument("--demo", action="store_true", help="scripted model for the built-in lab data; no API key needed")
+    ap.add_argument("--demo", action="store_true", help="built-in lab data; answers come from a real model when an API key is found (Groq etc.), otherwise from a scripted walkthrough")
+    ap.add_argument("--scripted", action="store_true", help="with --demo: never call a model, always use the scripted walkthrough")
     ap.add_argument("--sandbox", choices=["docker", "local", "none"], default="none")
     ap.add_argument("--no-auth", action="store_true", help="disable accounts (single-user local use only; everyone is an admin)")
     ap.add_argument("--auth-db", default=None, help="path of the users/sessions/audit SQLite file (default: next to --db)")
     add_cli_args(ap)
     a = ap.parse_args()
     load_dotenv()
-    client, model = (None, None) if a.demo else make_client(a.provider, a.model, a.base_url)
-    uvicorn.run(create_app(a.db, a.demo, a.sandbox, client=client, model=model, auth=(False if a.no_auth else None), auth_db=a.auth_db), host="127.0.0.1", port=a.port)
+    client, model, demo = None, None, a.demo
+    if a.demo and not a.scripted:
+        chosen = detect_provider()
+        try:
+            if chosen:
+                client, model = make_client(chosen, a.model, a.base_url)
+                demo = False                                          # real answers over the demo data: no 'scripted' badge
+                print(f"demo: answering with {chosen} ({model}) over the built-in lab data")
+        except SystemExit as e:
+            print(f"demo: {e}")
+        if client is None:
+            print("demo: no usable API key found, using the scripted walkthrough (add GROQ_API_KEY to .env for real answers)")
+    elif not a.demo:
+        client, model = make_client(a.provider, a.model, a.base_url)
+    uvicorn.run(create_app(a.db, demo, a.sandbox, client=client, model=model, auth=(False if a.no_auth else None), auth_db=a.auth_db), host="127.0.0.1", port=a.port)
 
 
 if __name__ == "__main__":

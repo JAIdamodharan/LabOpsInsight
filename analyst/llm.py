@@ -136,10 +136,12 @@ class OpenAICompatClient:
         ids = [m["id"] for m in r.json().get("data", []) if isinstance(m, dict) and "id" in m and not any(w in m["id"].lower() for w in NON_CHAT)]
         return next((m for m in PREFERRED if m in ids), None) or next((m for m in sorted(ids) if any(w in m.lower() for w in ("gpt-oss", "llama", "qwen", "instruct"))), None)
 
-    def _create(self, *, model, max_tokens, system, tools, messages, **_):
+    def _create(self, *, model, max_tokens, system, messages, tools=None, **_):
         model = self.model_used or model
         body = {"model": model, "max_tokens": max_tokens, "temperature": 0,
-                "messages": to_openai_messages(system, messages), "tools": to_openai_tools(tools)}
+                "messages": to_openai_messages(system, messages)}
+        if tools:
+            body["tools"] = to_openai_tools(tools)
         for attempt in range(self.max_retries + 1):
             r = self.http.post("/chat/completions", json=body)
             if r.status_code in (429, 500, 502, 503) and attempt < self.max_retries:
@@ -174,7 +176,7 @@ class OpenAICompatClient:
                     continue
             if r.status_code >= 400:
                 raise RuntimeError(f"{r.status_code} from {self.http.base_url}: {r.text[:300]}")
-            return from_openai_response(r.json(), [t["name"] for t in tools])
+            return from_openai_response(r.json(), [t["name"] for t in tools or []])
 
 
 ENV_ALLOWED = {"ANALYST_PROVIDER", "ANALYST_MODEL", "LABOPS_AUTH"}
@@ -231,6 +233,21 @@ def make_client(provider: str = "anthropic", model: str | None = None, base_url:
                          f"and run: export {key_env}=\"<the real key>\"")
     chosen = model or (p.model if p else None)
     return OpenAICompatClient(url, key, auto_model=not model and bool(chosen)), chosen or _need_model()
+
+
+def detect_provider() -> str | None:
+    """The provider to use when none was chosen: ANALYST_PROVIDER, else the first free-tier provider with a real-looking key set."""
+    load_dotenv()
+    chosen = os.environ.get("ANALYST_PROVIDER")
+    if chosen:
+        return chosen
+    for name in ("groq", "gemini", "openrouter", "xai", "openai"):
+        p = PRESETS.get(name)
+        key = os.environ.get(p.key_env) if p and p.key_env else None
+        if key and not looks_like_placeholder(key):
+            return name
+    key = os.environ.get("ANTHROPIC_API_KEY")
+    return "anthropic" if key and not looks_like_placeholder(key) else None
 
 
 def _need_model():

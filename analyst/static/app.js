@@ -83,7 +83,7 @@ const S = { config: {}, datasets: [], dataset: 'lab', kind: 'lab', tab: 'bi', ca
 const C = () => (S.cache[S.dataset] ??= {});
 const meta = () => S.datasets.find(d => d.id === S.dataset) || {};
 const qs = (path, extra = {}) => `${path}?${new URLSearchParams({ dataset: S.dataset, ...extra })}`;
-const LAB_EXAMPLES = ['Why was the OOS rate on HPLC-03 so high in Mar 2025?', 'Why did Related Substances on-time delivery drop in Feb 2025?', 'Why did Documentation deviations increase in Apr 2025, and who raised them?', 'Which records need data review?'];
+const LAB_EXAMPLES = ['Why was the OOS rate on HPLC-03 so high in Mar 2025?', 'Why did Related Substances on-time delivery drop in Feb 2025?', 'Why did Documentation deviations increase in Apr 2025, and who raised them?', 'Which records need data review?', 'What does the procedure say about investigating an OOS result?'];
 
 
 /* ===================== authentication, loading screens, RBAC ===================== */
@@ -666,10 +666,10 @@ function md(s) {
   const h = esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').replace(/`(.+?)`/g, '<code>$1</code>');
   return h.split(/\n{2,}/).map(p => /^\s*- /m.test(p) ? '<ul>' + p.split('\n').filter(x => x.trim()).map(x => `<li>${x.replace(/^\s*- /, '')}</li>`).join('') + '</ul>' : `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 }
-const LABELS = { get_schema: 'Schema', run_sql: 'SQL', run_python: 'Python', chart: 'Chart', data_quality: 'Data review' };
+const LABELS = { get_schema: 'Schema', run_sql: 'SQL', run_python: 'Python', chart: 'Chart', data_quality: 'Data review', search_docs: 'Procedures' };
 function addStep(ev) {
   const code = ev.input.sql || ev.input.code || '';
-  const head = ev.name === 'chart' ? `${ev.input.type || ''}: ${ev.input.title || ''}` : ev.name === 'data_quality' ? 'run rule-based data review' : code.split('\n')[0] || 'inspect tables';
+  const head = ev.name === 'chart' ? `${ev.input.type || ''}: ${ev.input.title || ''}` : ev.name === 'data_quality' ? 'run rule-based data review' : ev.name === 'search_docs' ? `search procedures: ${ev.input.query || ''}` : code.split('\n')[0] || 'inspect tables';
   const d = el('details', { class: 'step', open: '' }, el('summary', {}, el('span', { class: 'tag' }, LABELS[ev.name] || ev.name), el('span', { class: 'sum' }, head), el('span', { class: 'spin' })), el('div', { class: 'body' }, code ? el('pre', {}, code) : null, el('div', { class: 'res' })));
   $('#log').append(d); d.scrollIntoView({ block: 'nearest' }); return d;
 }

@@ -32,9 +32,9 @@ METHOD = """Method:
 8. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats and recommended next verification steps."""
 
 
-def build_system(domain: str = "lab") -> str:
+def build_system(domain: str = "lab", docs: bool = False) -> str:
     intro = "You are an autonomous senior data analyst. Answer the user's question by investigating the database with the run_sql tool."
-    return "\n\n".join([intro, LAB_GLOSSARY if domain == "lab" else GENERIC_NOTES, METHOD])
+    return "\n\n".join([intro, LAB_GLOSSARY if domain == "lab" else GENERIC_NOTES, METHOD] + ([DOCS_NOTE] if docs else []))
 
 
 SYSTEM = build_system("lab")
@@ -44,6 +44,8 @@ MAX_NUDGES = 2
 REPLY_TOKENS = 2048      # providers count the *requested* reply size against per-minute token limits, so don't ask for more than needed
 KEEP_FULL = 2            # the newest tool-result rounds stay complete; older ones are shortened before being re-sent
 OLD_RESULT_CHARS = 500
+FINAL_NOTE = ("You have used your investigation budget. Do not call any more tools. Write the final answer now from what you already found: "
+              "a one-line conclusion, the key numbers, and what you could not verify.")
 NUDGE = ("Your last tool call failed and you have not resolved it. Do not answer yet: call the tool again with a corrected "
          "query (use the tool-calling interface, not a code block) and get real results first.")
 
@@ -94,6 +96,17 @@ PYTHON_TOOL = {
 }
 
 
+DOCS_TOOL = {
+    "name": "search_docs",
+    "description": "Search the lab's written procedures (specifications, OOS investigation, calibration, deviation/CAPA, turnaround policy, training, data integrity). "
+                   "Use it when the question needs what a limit, rule or procedure says, or to explain a finding. Returns up to 3 passages tagged [DOC section N].",
+    "input_schema": {"type": "object", "properties": {"query": {"type": "string", "description": "keywords or a short question"}}, "required": ["query"]},
+}
+DOCS_NOTE = ("Procedure documents: call search_docs when you need what a specification, rule or procedure says (limits, investigation steps, timelines, "
+             "policies). Cite what you use as [DOC-ID section N]. Numbers about the data always come from SQL, never from the documents. "
+             "If the documents do not cover something, say so; never invent a policy.")
+
+
 @dataclass
 class Event:
     kind: str  # "tool_call" | "tool_result" | "answer" | "stopped"
@@ -131,22 +144,25 @@ def compact(messages: list) -> list:
 
 class Analyst:
     def __init__(self, db: Database, client=None, model: str = MODEL,
-                 max_steps: int = 15, max_tokens_budget: int = 150_000, sandbox=None, domain: str = "lab"):
+                 max_steps: int = 15, max_tokens_budget: int = 150_000, sandbox=None, domain: str = "lab", knowledge=None):
         self.db = db
         self.client = client or anthropic.Anthropic()
         self.model = model
         self.max_steps = max_steps
         self.max_tokens_budget = max_tokens_budget
         self.sandbox = sandbox
-        self.system = build_system(domain)
+        self.knowledge = knowledge if domain == "lab" else None      # procedure documents only make sense for the lab data
+        self.system = build_system(domain, docs=self.knowledge is not None)
         self.quality = dq.as_text if domain == "lab" else profile.as_text
-        self.tools = TOOLS + [DQ_TOOL, CHART_TOOL] + ([PYTHON_TOOL] if sandbox else [])
+        self.tools = TOOLS + [DQ_TOOL, CHART_TOOL] + ([DOCS_TOOL] if self.knowledge is not None else []) + ([PYTHON_TOOL] if sandbox else [])
         self._extra: dict = {}
 
     def _execute(self, name: str, args: dict, stats: RunStats) -> tuple[str, bool]:
         self._extra = {}
         if name == "get_schema":
             return self.db.schema(), False
+        if name == "search_docs" and self.knowledge is not None:
+            return self.knowledge.as_text(str(args.get("query", ""))[:300]), False
         if name == "data_quality":
             return self.quality(self.db), False
         if name == "chart":
@@ -204,8 +220,10 @@ class Analyst:
                 return
 
             stats.steps += 1
+            last_call = stats.steps >= self.max_steps                      # the final allowed step: no tools, just answer with what was found
+            send = compact(messages) + ([{"role": "user", "content": FINAL_NOTE}] if last_call else [])
             resp = self.client.messages.create(
-                model=self.model, max_tokens=REPLY_TOKENS, system=self.system, tools=self.tools, messages=compact(messages),
+                model=self.model, max_tokens=REPLY_TOKENS, system=self.system, messages=send, **({} if last_call else {"tools": self.tools}),
             )
             stats.input_tokens += resp.usage.input_tokens
             stats.output_tokens += resp.usage.output_tokens

@@ -204,3 +204,10 @@ Lab dataset only. Everything is trained on the lab data when the tab is first op
 ```
 
 writes 15 synthetic, anonymised files to `sample_data/` (stability study, HPLC run log, sales, HR attrition, clinical vitals, inventory with expiry dates, balance calibration, support tickets, bioassay plates, environmental monitoring, batch release, deviations/CAPA, a deliberately messy file, a 60,000-row sensor CSV, and an 80-column wide file). Upload them with **Upload Excel**. A test checks that every file ingests cleanly.
+
+
+## Procedure documents (RAG) and the demo
+
+- The agent has a `search_docs` tool over eight **synthetic** lab procedures in `analyst/knowledge/` (specification limits, OOS investigation, HPLC calibration and drift, instrument downtime, turnaround policy, deviations and CAPA, analyst training, ALCOA+). Retrieval is local BM25 over document sections (`analyst/rag.py`): no embeddings and no extra API. Passages are tagged `[SOP-QC-012 section 2]` and the model is told to cite them, to take numbers only from SQL, and to say so when the documents do not cover something. A test checks that the specification table in the documents matches the data. These are teaching documents, not any real company's SOPs.
+- `--demo` now means "built-in lab data". If a key is found (`ANALYST_PROVIDER`, or the first of `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...) the demo answers with that real model, procedure search included. With no usable key it falls back to the scripted walkthrough (which also cites the procedures). Use `--demo --scripted` to force the scripted version and spend no quota.
+- On the last allowed step the agent is told to stop investigating and write its answer, so a long investigation ends with a written conclusion instead of "max_steps".
