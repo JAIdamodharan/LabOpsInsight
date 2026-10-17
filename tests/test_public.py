@@ -68,3 +68,9 @@ def test_the_vercel_entrypoint_builds_its_own_database_and_serves(tmp_path, monk
     assert (tmp_path / "labops" / "labops.duckdb").exists()
     c = TestClient(m.app, base_url="http://x.vercel.app")
     assert c.get("/").status_code == 200 and c.get("/api/config").json()["public"] is True
+
+
+def test_the_public_page_keeps_an_upload_button_that_explains_itself():
+    from pathlib import Path
+    js = (Path(__file__).resolve().parent.parent / "analyst" / "static" / "app.js").read_text()
+    assert "PUBLIC_NOTE" in js and "!can('upload') && !S.config.public" in js and "if (!can('upload')) return toast(PUBLIC_NOTE" in js

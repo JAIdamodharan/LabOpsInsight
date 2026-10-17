@@ -181,7 +181,8 @@ async function initApp() {
 
 /* ---- user menu ---- */
 function paintUser() {
-  const local = !S.config.auth; $('#usermenu').hidden = local; $('#local-badge').hidden = !local; $('#local-badge').textContent = S.config.public ? 'Public demo · read only' : 'Local mode · no sign-in'; $('#btn-upload').hidden = !can('upload');
+  const local = !S.config.auth; $('#usermenu').hidden = local; $('#local-badge').hidden = !local; $('#local-badge').textContent = S.config.public ? 'Public demo · read only' : 'Local mode · no sign-in'; $('#btn-upload').hidden = !can('upload') && !S.config.public;   // on the public demo the button stays, and explains itself, instead of vanishing
+  $('#btn-upload').classList.toggle('off', !can('upload')); $('#local-badge').title = S.config.public ? PUBLIC_NOTE : 'Authentication is disabled: everyone using this server is an admin';
   if (local || !S.user) return;
   const u = S.user; $('#avatar').textContent = u.username[0]; $('#user-name').textContent = u.username; $('#um-name').textContent = u.username;
   const rp = $('#um-role'); rp.textContent = u.role; rp.className = 'rolepill ' + u.role; $('#um-users').hidden = !can('users'); $('#um-audit').hidden = !can('audit');
@@ -832,7 +833,9 @@ async function handleFile(file) {
   } catch (e) { upMsg('err', e.message); }
   finally { $('#prog').hidden = true; $('#drop').style.pointerEvents = ''; $('#file').value = ''; }
 }
-function openDialog() { upMsg(); paintDatasetList(); $('#max-mb').textContent = S.config.max_upload_mb || 15; if (!dlg.open) dlg.showModal(); }
+const PUBLIC_NOTE = 'This is a public, read-only demo: sign-in and uploads are switched off so strangers cannot add data or use up the quota. Run it locally to sign in and upload your own Excel (see the README on GitHub).';
+function openDialog() {
+  if (!can('upload')) return toast(PUBLIC_NOTE, 'info', 9000); upMsg(); paintDatasetList(); $('#max-mb').textContent = S.config.max_upload_mb || 15; if (!dlg.open) dlg.showModal(); }
 $('#btn-upload').onclick = openDialog;
 $('#dlg-x').onclick = () => dlg.close();
 dlg.addEventListener('click', e => { if (e.target === dlg) dlg.close(); });
@@ -899,7 +902,7 @@ function palCommands(q) {
   const cmds = [];
   TABS.forEach(t => cmds.push({ label: `Go to ${tabLabel(t)}`, sub: 'Navigate', img: IMG[t], run: () => showTab(t) }));
   S.datasets.filter(d => d.id !== S.dataset).forEach(d => cmds.push({ label: `Switch to ${d.name}`, sub: 'Dataset', img: d.kind === 'lab' ? 'lab_operations' : 'data', run: () => { S.dataset = d.id; $('#ds-select').value = d.id; applyDataset(); } }));
-  if (can('upload')) cmds.push({ label: 'Upload Excel or CSV…', sub: 'Data', svg: 'upload', run: openDialog });
+  if (can('upload') || S.config.public) cmds.push({ label: 'Upload Excel or CSV…', sub: S.config.public ? 'Disabled on the public demo' : 'Data', svg: 'upload', run: openDialog });
   if (S.config.auth) cmds.push({ label: 'Change password', sub: 'Account', svg: 'dq', run: () => openPw(false).catch(() => { }) }, { label: 'Sign out', sub: 'Account', svg: 'moon', run: doLogout });
   if (can('users')) cmds.push({ label: 'Manage users and roles', sub: 'Admin', svg: 'dq', run: openUsers });
   if (can('audit')) cmds.push({ label: 'Audit log', sub: 'Admin', svg: 'dq', run: openAudit });

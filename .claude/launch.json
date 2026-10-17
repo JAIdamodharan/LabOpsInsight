@@ -31,6 +31,20 @@
         "8010"
       ],
       "port": 8010
+    },
+    {
+      "name": "analyst-public",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "-m",
+        "analyst.server",
+        "--demo",
+        "--scripted",
+        "--public",
+        "--port",
+        "8011"
+      ],
+      "port": 8011
     }
   ]
 }

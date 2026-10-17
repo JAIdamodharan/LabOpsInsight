@@ -624,6 +624,7 @@ def main() -> None:
     ap.add_argument("--db", default="data/labops.duckdb")
     ap.add_argument("--port", type=int, default=8000)
     ap.add_argument("--demo", action="store_true", help="built-in lab data; answers come from a real model when an API key is found (Groq etc.), otherwise from a scripted walkthrough")
+    ap.add_argument("--public", action="store_true", help="public demo mode: no accounts, read and ask only, no uploads (what the Vercel deployment runs)")
     ap.add_argument("--scripted", action="store_true", help="with --demo: never call a model, always use the scripted walkthrough")
     ap.add_argument("--sandbox", choices=["docker", "local", "none"], default="none")
     ap.add_argument("--no-auth", action="store_true", help="disable accounts (single-user local use only; everyone is an admin)")
@@ -645,7 +646,7 @@ def main() -> None:
             print("demo: no usable API key found, using the scripted walkthrough (add GROQ_API_KEY to .env for real answers)")
     elif not a.demo:
         client, model = make_client(a.provider, a.model, a.base_url)
-    uvicorn.run(create_app(a.db, demo, a.sandbox, client=client, model=model, auth=(False if a.no_auth else None), auth_db=a.auth_db), host="127.0.0.1", port=a.port)
+    uvicorn.run(create_app(a.db, demo, a.sandbox, client=client, model=model, auth=(False if a.no_auth else None), auth_db=a.auth_db, public=(True if a.public else None)), host="127.0.0.1", port=a.port)
 
 
 if __name__ == "__main__":
