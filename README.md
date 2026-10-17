@@ -1,28 +1,31 @@
 # LabOps Insight
 
-**An analytics platform and AI investigation agent for analytical / QC laboratories.** It turns scattered lab data (test results, instrument logs, deviations, SOPs) into a dashboard, a data-integrity review, ML forecasts, and an agent that answers questions with SQL you can inspect and procedures it cites.
+**I built an analytics platform and AI investigation agent for analytical / QC laboratories.** It pulls scattered lab data (test results, instrument logs, deviations, SOPs) into one place: a dashboard, a data-integrity review, ML forecasts, and an agent that answers questions with SQL you can inspect and procedures it cites.
 
 [![CI](https://github.com/JAIdamodharan/LabOpsInsight/actions/workflows/ci.yml/badge.svg)](https://github.com/JAIdamodharan/LabOpsInsight/actions/workflows/ci.yml)
 ![Python](https://img.shields.io/badge/python-3.12-blue)
 ![License](https://img.shields.io/badge/license-MIT-green)
 [![Live demo](https://img.shields.io/badge/live%20demo-lab--ops--insight.vercel.app-0a5cff)](https://lab-ops-insight.vercel.app)
 
-> **All data is synthetic and anonymised.** Nothing here comes from, or represents, any real company's systems. Incidents and data defects were planted on purpose so every result can be checked against a known answer.
+> **All the data is synthetic and anonymised.** Nothing here comes from, or represents, any real company's systems. I planted incidents and data defects on purpose so that I could check every result against a known answer.
+
+## Why I built it
+
+Lab operations data is spread over results exports, instrument logs, deviation trackers and SOP documents, so simple questions ("why did turnaround slip in February?", "can we trust this data?") take an afternoon of joining things by hand. Worse, a problem like a drifting instrument hides inside a monthly average until dozens of results are affected. I wanted to show how an analyst can make that information available in seconds, and still be honest about what the data does and does not prove.
 
 ## The 60-second version
 
 | | |
 |---|---|
-| **The problem** | In a lab, the answer to "why did turnaround slip?" or "can we trust this data?" sits in five places (results export, instrument logs, deviation tracker, SOP PDFs, email). Problems such as a drifting instrument hide inside monthly averages until dozens of results are affected. |
-| **What I built** | A full-stack app: KPI **dashboard**, a rule-based **data-integrity review** (ALCOA+), **ML forecasts and a drift early-warning**, and a tool-using **LLM agent** with **RAG** over lab procedures. Also safe Excel upload, sign-in with roles, and a public Vercel demo with spending protection. |
-| **How I know it works** | The dataset has three planted incidents and eight planted defects with exact counts. The app finds them, and tests assert it ([results](#results-you-can-verify)). |
-| **Stack** | Python, FastAPI, DuckDB, pandas, scikit-learn, vanilla JavaScript + Chart.js (no build step), Groq / any OpenAI-compatible LLM, Vercel, GitHub Actions |
-| **Size** | about 3,700 lines of Python app code, 1,100 lines of JavaScript, 3,400 lines of tests (**473 tests**, no API key needed), 41 commits |
-| **Try it** | [Live demo](https://lab-ops-insight.vercel.app) (public, read-only) or [run it locally](#run-it) in a few commands |
+| **What I built** | A full-stack app: a KPI **dashboard**, a rule-based **data-integrity review** (ALCOA+), **ML forecasts with a drift early-warning**, and a tool-using **LLM agent** with **RAG** over lab procedures. I also added safe Excel upload, sign-in with roles, and a public Vercel demo with spending protection. |
+| **How I checked it** | My synthetic dataset has three planted incidents and eight planted defects with exact counts. The app has to find them, and my tests assert that it does ([details below](#results-you-can-verify)). |
+| **Stack** | Python, FastAPI, DuckDB, pandas, scikit-learn, vanilla JavaScript + Chart.js (no build step), Groq or any OpenAI-compatible LLM, Vercel, GitHub Actions |
+| **Size** | About 3,700 lines of Python, 1,100 lines of JavaScript and 3,400 lines of tests (**473 tests**, no API key needed), over 40 commits |
+| **Try it** | The [live demo](https://lab-ops-insight.vercel.app) (public, read-only) or [run it locally](#run-it) in a few commands |
 
 ## What it looks like
 
-All screens use the built-in synthetic lab data. Try them live: **https://lab-ops-insight.vercel.app**
+These are screenshots of my app running on its built-in synthetic lab data. You can try it live: **https://lab-ops-insight.vercel.app**
 
 ![Why LabOps story page](docs/screenshots/story.jpg)
 ![Dashboard, dark mode](docs/screenshots/dashboard.jpg)
@@ -44,55 +47,55 @@ All screens use the built-in synthetic lab data. Try them live: **https://lab-op
 
 </details>
 
-## Skills this project demonstrates
+## What I built, and where to look
 
-| Area | What is in the repo | Evidence |
+| Area | What I did | Evidence |
 |---|---|---|
 | **Data analysis and SQL** | KPIs with month-over-month deltas, cohort and root-cause queries, parameterised slicers ([`dashboard.py`](analyst/dashboard.py), [`story.py`](analyst/story.py)) | Every dashboard number is checked against the planted ground truth in tests |
 | **Data quality and integrity** | 10 lab rules tagged with ALCOA+ principles, plus generic checks for uploads ([`dq.py`](analyst/dq.py), [`profile.py`](analyst/profile.py)) | Finds all 8 planted defects with exact counts; a test proves a real OOS spike is *not* "cleaned away" |
-| **Machine learning** | Forecasting, a late-delivery classifier and an EWMA control chart ([`predict.py`](analyst/predict.py)) | Validated on a **time split**: ROC AUC 0.981. A model that scored 0.46 (chance) was **removed, not shipped** |
-| **LLM agents and tool use** | A loop with 6 tools, step and token budgets, a forced final answer, provider adapter with retries and fallback ([`agent.py`](analyst/agent.py), [`llm.py`](analyst/llm.py)) | 26-question benchmark graded against golden SQL, no LLM judge ([`eval/`](eval/)) |
-| **RAG** | Local BM25 over eight SOPs with cited sections ([`rag.py`](analyst/rag.py)) | Retrieval tests; a test checks the SOP specification table equals the data |
-| **Backend engineering** | FastAPI, server-sent events, cancellation that frees locks at once, visible rate-limit waits ([`server.py`](analyst/server.py)) | A regression test reproduces the disconnect-then-ask race |
-| **Security** | scrypt passwords, hashed sessions, roles, audit log, CSP, safe Excel parsing, read-only SQL guardrail ([`auth.py`](analyst/auth.py), [`db.py`](analyst/db.py), [`ingest.py`](analyst/ingest.py)) | About 120 tests for auth and upload safety |
-| **Testing and CI** | 473 tests with fake models (no key, no network), Node-run tests for the answer renderer, GitHub Actions with a secret scan ([`tests/`](tests/), [`ci.yml`](.github/workflows/ci.yml)) | CI badge above |
-| **Deployment and cost control** | Vercel entrypoint, public read-only mode, daily budgets, cost caps, fail-closed fallback ([`api/`](api/), [`quota.py`](analyst/quota.py)) | [Deployment guide](docs/DEPLOY.md); tests for every limit |
-| **Front end and accessibility** | No-build vanilla JS, light/dark, keyboard palette, reduced-motion support, contrast floors enforced by tests ([`static/`](analyst/static/)) | `tests/test_palette.py` fails the build if colours regress |
-| **Communication** | A story page whose numbers come from the data, diagrams, deployment and architecture docs | You are reading it |
+| **Machine learning** | Forecasting, a late-delivery classifier and an EWMA control chart ([`predict.py`](analyst/predict.py)) | Validated on a **time split**: ROC AUC 0.981. A model of mine that scored 0.46 (chance) was **removed, not shipped** |
+| **LLM agents and tool use** | An agent loop with 6 tools, step and token budgets, a forced final answer, and a provider adapter with retries and fallback ([`agent.py`](analyst/agent.py), [`llm.py`](analyst/llm.py)) | A 26-question benchmark graded against golden SQL, with no LLM judge ([`eval/`](eval/)) |
+| **RAG** | Local BM25 retrieval over eight SOPs, with cited sections ([`rag.py`](analyst/rag.py)) | Retrieval tests; one test checks that the SOP specification table equals the data |
+| **Backend engineering** | FastAPI, server-sent events, cancellation that frees locks at once, visible rate-limit waits ([`server.py`](analyst/server.py)) | A regression test reproduces the disconnect-then-ask bug I found |
+| **Security** | scrypt passwords, hashed sessions, roles, audit log, CSP, safe Excel parsing, a read-only SQL guardrail ([`auth.py`](analyst/auth.py), [`db.py`](analyst/db.py), [`ingest.py`](analyst/ingest.py)) | About 120 tests for auth and upload safety |
+| **Testing and CI** | 473 tests with fake models (no key, no network), Node-run tests for the answer renderer, GitHub Actions with a secret scan ([`tests/`](tests/), [`ci.yml`](.github/workflows/ci.yml)) | The CI badge above |
+| **Deployment and cost control** | A Vercel entrypoint, a public read-only mode, daily budgets, cost caps and a fail-closed fallback ([`api/`](api/), [`quota.py`](analyst/quota.py)) | [Deployment guide](docs/DEPLOY.md); tests for every limit |
+| **Front end and accessibility** | No-build vanilla JS, light and dark mode, a keyboard command palette, reduced-motion support, contrast floors enforced by tests ([`static/`](analyst/static/)) | `tests/test_palette.py` fails the build if colours regress |
+| **Communication** | A story page whose numbers come from the data, diagrams, and deployment and architecture docs | You are reading it |
 
 ## Results you can verify
 
-| Claim | How to check it |
+| What I claim | How you can check it |
 |---|---|
-| The HPLC-03 drift (3-23 Mar 2025) is found: the OOS rate on its Assay results is 33% vs 3% on other HPLCs | Dashboard, or `pytest tests/test_story.py` |
-| The drift monitor raises its alarm on 5 Mar, two days after the shift starts, and shows it clearing after recalibration | Predict tab, or `pytest tests/test_predict.py` |
+| The HPLC-03 drift (3-23 Mar 2025) is found: 33% of its Assay results are out of specification vs 3% on the other HPLCs | Dashboard, or `pytest tests/test_story.py` |
+| My drift monitor raises its alarm on 5 Mar, two days after the shift starts, and shows it clearing after recalibration | Predict tab, or `pytest tests/test_predict.py` |
 | All 8 planted data defects are found with exact counts (40 duplicates, 35 impossible dates, 60 missing analysts, ...) | Data Review tab, or `pytest tests/test_dq.py` |
-| The late-delivery model reaches ROC AUC 0.981 on months it never saw (top 10% riskiest tests are late 43.5% of the time vs a 4.5% base rate) | Predict tab, or `pytest tests/test_predict.py` |
-| A test-level OOS classifier scored 0.46 AUC and was dropped; the drift monitor replaced it | [Predict section](#predict-machine-learning) |
-| The agent declines questions the data cannot answer (for example "how are sales?") instead of inventing an answer | Ask it on the live demo with a key, or `pytest tests/test_rag.py` |
+| The late-delivery model reaches ROC AUC 0.981 on months it never saw (the 10% riskiest tests are late 43.5% of the time vs a 4.5% base rate) | Predict tab, or `pytest tests/test_predict.py` |
+| A test-level OOS classifier scored 0.46 AUC, so I dropped it and replaced it with the drift monitor | [Predict section](#predict-machine-learning) |
+| The agent declines questions the data cannot answer (for example "how are sales?") instead of inventing an answer | Ask it on the live demo (needs a key), or `pytest tests/test_rag.py` |
 | A first benchmark run with a free Groq model passed 16 of 26 questions; 9 of the 10 failures were requests blocked by a token cap, which I then reduced | [Known limitations](#known-limitations) |
 
-## Engineering decisions and trade-offs
+## Decisions and trade-offs
 
-These are the choices I would walk an interviewer through, including the ones that did not work out.
+These are the choices I would walk you through in an interview, including the ones that did not work out.
 
-| Decision | Why |
+| Decision | Why I made it |
 |---|---|
 | **Guardrails in code, not in the prompt.** One read-only SELECT, 200 rows, 10 s timeout, external file access off | A model can be talked into anything; the database cannot. |
-| **The model never invents numbers.** Charts take SQL and column names, and the code draws them; numbers in answers come from SQL, not from documents | Keeps every figure traceable. |
-| **GxP-style honesty.** Report values as recorded, never silently drop or fix records, separate what the data shows from what it implies | Matches how a lab reviewer would expect an analyst to behave. |
-| **Time-split validation, and deleting a model that did not work** | Shuffled splits flatter time-dependent data. Reporting 0.46 AUC honestly beats shipping a model that looks clever. |
+| **The model never invents numbers.** Charts take SQL and column names and my code draws them; numbers in answers come from SQL, not from documents | Every figure stays traceable. |
+| **GxP-style honesty.** Report values as recorded, never silently drop or fix records, and separate what the data shows from what it implies | It is how a lab reviewer would expect an analyst to behave. |
+| **Time-split validation, and deleting a model that did not work** | Shuffled splits flatter time-dependent data. Reporting 0.46 AUC honestly beats shipping a model that only looks clever. |
 | **Fewer tokens per call** (25 rows to the model, older results shortened, capped replies) | Free tiers limit tokens per minute. This targets latency and token-cap failures; I have not re-run the full benchmark since, so I make no claim about answer quality. |
-| **Release locks on disconnect, show rate-limit waits, cancel for real** | Found by using the app: a Stop click left the server busy for 10 s. Fixed with an async stream and a regression test. |
+| **Release locks on disconnect, show rate-limit waits, cancel for real** | I found this by using the app: pressing Stop left the server busy for about 10 s. I fixed it with an async stream and added a regression test. |
 | **Two run modes** (private with accounts; public read-only) from one codebase | A public link must not allow uploads or accounts; a team tool must. |
-| **Spending protection that fails safe** | If a counter is down or a budget is used up, visitors still get a scripted answer; the paid key is never exposed. |
+| **Spending protection that fails safe** | If a counter is down or a budget is used up, visitors still get a scripted answer and the paid key is never exposed. |
 | **Deterministic evaluation** (golden SQL, no LLM judge) | An LLM grading an LLM hides regressions. |
-| **No front-end build step** | Fewer moving parts; the page is readable in the browser and easy to deploy. |
-| **A real OOS spike must not be "cleaned away".** A test asserts the HPLC-03 drift is not flagged as a data-quality issue | Data review must not hide genuine signals. |
+| **No front-end build step** | Fewer moving parts; the page is easy to read and to deploy. |
+| **A real OOS spike must not be "cleaned away".** A test asserts that the HPLC-03 drift is not flagged as a data-quality issue | Data review must not hide genuine signals. |
 
 ## Architecture
 
-Five diagrams, drawn as code (Mermaid), so GitHub renders them and they stay in sync with the repository. Click a diagram on GitHub to zoom.
+I drew five diagrams as code (Mermaid), so GitHub renders them and they stay in sync with the repository. Click a diagram on GitHub to zoom.
 
 ### 1. System architecture
 
@@ -314,6 +317,8 @@ More detail on design decisions and the request lifecycle: [docs/ARCHITECTURE.md
 
 ## Run it
 
+I wrote it to run with no API key at all, so anyone can try it.
+
 ```bash
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
@@ -365,7 +370,7 @@ Lab dataset only. Everything is trained on the lab data when the tab is first op
 - **Forecasts** (OOS rate, on-time delivery, tests per month, turnaround): the best of three simple models (last value, average, 6-month linear trend), chosen by one-step rolling-origin backtesting, with 80% intervals taken from backtest errors. With about 8 months of history the intervals are wide, and the page says so.
 - **Late-delivery risk model:** logistic regression vs gradient boosting (scikit-learn), validated on a **time split** (train on the earlier 75% of completions, test on the later 25%), reporting ROC AUC, precision-recall AUC and top-decile lift, plus permutation importance and a "what-if" scorer. Features only use information known when a test starts; instrument history looks strictly backwards.
 - **Drift early warning:** an EWMA control chart per instrument and method on robustly standardised results. It flags the planted HPLC-03 Assay drift within days of its start (3 Mar) and shows it clearing after recalibration. A smaller, weaker alarm elsewhere can be a false alarm.
-- **What did not work, and was removed:** a test-level OOS classifier scored ROC AUC about 0.46 on held-out months (no better than chance): OOS results are under 2% and almost all come from one instrument drift that cannot be learned from the earlier months. The drift monitor is the honest replacement.
+- **What did not work, so I removed it:** a test-level OOS classifier scored ROC AUC about 0.46 on held-out months (no better than chance): OOS results are under 2% and almost all come from one instrument drift that cannot be learned from the earlier months. The drift monitor is the honest replacement.
 
 </details>
 
@@ -504,14 +509,14 @@ writes 15 synthetic, anonymised files to `sample_data/` (stability study, HPLC r
 
 ## Known limitations
 
-Stated plainly, because knowing the edges of your own work matters.
+I would rather state these plainly than have a reviewer discover them.
 
 - The built-in data is synthetic: it demonstrates method, not results on real lab data. Uploaded workbooks get the generic Overview / Data Review, but the lab dashboard, the lab rules (DQ-001..010) and the scripted demo are specific to the built-in lab schema; mapping an arbitrary LIMS export onto them would need a column-mapping step that does not exist yet.
 - Uploads are stored unencrypted under `data/uploads`. Each upload is private to the user who made it, but the files are readable by anyone with access to the server's disk.
 - Excel reading: formulas show their last saved value (a formula that was never calculated shows blank); merged cells keep only their top-left value; the first non-empty row is always the header; dates stored as text stay text.
 - DQ-004 only catches scale errors that push a result beyond 3x the upper spec limit; near-zero values slip through.
 - "Utilization" assumes 20 available hours per weekday per instrument; real utilization needs scheduled-time and downtime data.
-- The benchmark has not been run in full with a real model. A first run on Groq (`openai/gpt-oss-120b`) passed 16 of 26 questions; 9 of the 10 failures were requests that never completed because of the free tier's 8,000 tokens-per-minute cap (since reduced by sending fewer tokens per call), so they say little about answer quality. Run `eval.run_eval` and record your numbers below.
+- I have not run the benchmark in full with a real model yet. A first run on Groq (`openai/gpt-oss-120b`) passed 16 of 26 questions; 9 of the 10 failures were requests that never completed because of the free tier's 8,000 tokens-per-minute cap (since reduced by sending fewer tokens per call), so they say little about answer quality. `eval.run_eval` reproduces it, and I record results in the table below.
 - The Docker sandbox path is implemented and unit-tested but its isolation test needs a running Docker daemon.
 - Not validated for regulated (GxP / 21 CFR Part 11) use. There is sign-in, roles and an audit log, but no electronic signatures, validation documentation or change control.
 - The hosted Vercel demo is public and read only by design, and its rate limits are per function instance, not global (see [docs/DEPLOY.md](docs/DEPLOY.md)).
@@ -535,7 +540,7 @@ tests/          473 tests
 | Model | Accuracy (26 q) | Cost / correct answer | Median latency |
 |---|---|---|---|
 | `openai/gpt-oss-120b` on Groq, first partial run | 16 / 26 (9 failures caused by the token cap) | free | about 30 s |
-| (run `python -m eval.run_eval --provider ...`) | | | |
+| (full 26-question run still to do: `python -m eval.run_eval --provider ...`) | | | |
 
 ## Image credits
 
