@@ -1,30 +1,36 @@
-# LabOps Insight: lab operations analytics, data review and an investigation agent
+# LabOps Insight
 
-An end-to-end analytics project for an analytical / QC laboratory (the kind of operation inside a CRO / CDMO).
-It answers three questions a lab-operations analyst gets asked every week:
+**An analytics platform and AI investigation agent for analytical / QC laboratories.** It turns scattered lab data (test results, instrument logs, deviations, SOPs) into a dashboard, a data-integrity review, ML forecasts, and an agent that answers questions with SQL you can inspect and procedures it cites.
 
-1. **How is the lab performing?** OOS rate, on-time delivery, turnaround, instrument utilization and deviations,
-   with slicers, month-over-month deltas and plain-language auto-insights.
-2. **Can we trust the data?** A rule-based data-review engine (the analytics equivalent of clinical-data-management
-   edit checks) that produces a query list, tagged with ALCOA+ data-integrity attributes.
-3. **Why did it change?** A natural-language agent that investigates root causes with SQL, charts and a data-quality
-   tool, and is built to say "the data shows X; an investigator should verify Y" instead of overclaiming.
+[![CI](https://github.com/JAIdamodharan/LabOpsInsight/actions/workflows/ci.yml/badge.svg)](https://github.com/JAIdamodharan/LabOpsInsight/actions/workflows/ci.yml)
+![Python](https://img.shields.io/badge/python-3.12-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+[![Live demo](https://img.shields.io/badge/live%20demo-lab--ops--insight.vercel.app-0a5cff)](https://lab-ops-insight.vercel.app)
 
-> **All data is synthetic and anonymised.** Nothing here comes from, or represents, any real company's systems.
-> The three operational root causes and eight data defects were planted so every result can be verified exactly.
+> **All data is synthetic and anonymised.** Nothing here comes from, or represents, any real company's systems. Incidents and data defects were planted on purpose so every result can be checked against a known answer.
 
-## Screenshots
+## The 60-second version
 
-All screens use the built-in synthetic lab data (demo mode, scripted answers).
+| | |
+|---|---|
+| **The problem** | In a lab, the answer to "why did turnaround slip?" or "can we trust this data?" sits in five places (results export, instrument logs, deviation tracker, SOP PDFs, email). Problems such as a drifting instrument hide inside monthly averages until dozens of results are affected. |
+| **What I built** | A full-stack app: KPI **dashboard**, a rule-based **data-integrity review** (ALCOA+), **ML forecasts and a drift early-warning**, and a tool-using **LLM agent** with **RAG** over lab procedures. Also safe Excel upload, sign-in with roles, and a public Vercel demo with spending protection. |
+| **How I know it works** | The dataset has three planted incidents and eight planted defects with exact counts. The app finds them, and tests assert it ([results](#results-you-can-verify)). |
+| **Stack** | Python, FastAPI, DuckDB, pandas, scikit-learn, vanilla JavaScript + Chart.js (no build step), Groq / any OpenAI-compatible LLM, Vercel, GitHub Actions |
+| **Size** | about 3,700 lines of Python app code, 1,100 lines of JavaScript, 3,400 lines of tests (**473 tests**, no API key needed), 41 commits |
+| **Try it** | [Live demo](https://lab-ops-insight.vercel.app) (public, read-only) or [run it locally](#run-it) in a few commands |
 
-**Why LabOps**: a full-width story page with numbers computed from the data.
+## What it looks like
+
+All screens use the built-in synthetic lab data. Try them live: **https://lab-ops-insight.vercel.app**
+
 ![Why LabOps story page](docs/screenshots/story.jpg)
-
-**Dashboard** (dark and light):
 ![Dashboard, dark mode](docs/screenshots/dashboard.jpg)
-![Dashboard, light mode](docs/screenshots/dashboard-light.jpg)
 
-**Data Review**: rule-based checks tagged with ALCOA+ principles.
+<details>
+<summary><b>More screens: Data Review, Predict, Analyze, light mode</b></summary>
+
+**Data Review**: rule-based checks tagged with ALCOA+ data-integrity principles.
 ![Data Review](docs/screenshots/data-review.jpg)
 
 **Predict**: forecasts with ranges, and the drift early-warning chart that catches the March HPLC-03 incident.
@@ -32,6 +38,57 @@ All screens use the built-in synthetic lab data (demo mode, scripted answers).
 
 **Analyze**: the agent's SQL, chart, cited procedures and final answer.
 ![Analyze](docs/screenshots/analyze.jpg)
+
+**Light mode**
+![Dashboard, light mode](docs/screenshots/dashboard-light.jpg)
+
+</details>
+
+## Skills this project demonstrates
+
+| Area | What is in the repo | Evidence |
+|---|---|---|
+| **Data analysis and SQL** | KPIs with month-over-month deltas, cohort and root-cause queries, parameterised slicers ([`dashboard.py`](analyst/dashboard.py), [`story.py`](analyst/story.py)) | Every dashboard number is checked against the planted ground truth in tests |
+| **Data quality and integrity** | 10 lab rules tagged with ALCOA+ principles, plus generic checks for uploads ([`dq.py`](analyst/dq.py), [`profile.py`](analyst/profile.py)) | Finds all 8 planted defects with exact counts; a test proves a real OOS spike is *not* "cleaned away" |
+| **Machine learning** | Forecasting, a late-delivery classifier and an EWMA control chart ([`predict.py`](analyst/predict.py)) | Validated on a **time split**: ROC AUC 0.981. A model that scored 0.46 (chance) was **removed, not shipped** |
+| **LLM agents and tool use** | A loop with 6 tools, step and token budgets, a forced final answer, provider adapter with retries and fallback ([`agent.py`](analyst/agent.py), [`llm.py`](analyst/llm.py)) | 26-question benchmark graded against golden SQL, no LLM judge ([`eval/`](eval/)) |
+| **RAG** | Local BM25 over eight SOPs with cited sections ([`rag.py`](analyst/rag.py)) | Retrieval tests; a test checks the SOP specification table equals the data |
+| **Backend engineering** | FastAPI, server-sent events, cancellation that frees locks at once, visible rate-limit waits ([`server.py`](analyst/server.py)) | A regression test reproduces the disconnect-then-ask race |
+| **Security** | scrypt passwords, hashed sessions, roles, audit log, CSP, safe Excel parsing, read-only SQL guardrail ([`auth.py`](analyst/auth.py), [`db.py`](analyst/db.py), [`ingest.py`](analyst/ingest.py)) | About 120 tests for auth and upload safety |
+| **Testing and CI** | 473 tests with fake models (no key, no network), Node-run tests for the answer renderer, GitHub Actions with a secret scan ([`tests/`](tests/), [`ci.yml`](.github/workflows/ci.yml)) | CI badge above |
+| **Deployment and cost control** | Vercel entrypoint, public read-only mode, daily budgets, cost caps, fail-closed fallback ([`api/`](api/), [`quota.py`](analyst/quota.py)) | [Deployment guide](docs/DEPLOY.md); tests for every limit |
+| **Front end and accessibility** | No-build vanilla JS, light/dark, keyboard palette, reduced-motion support, contrast floors enforced by tests ([`static/`](analyst/static/)) | `tests/test_palette.py` fails the build if colours regress |
+| **Communication** | A story page whose numbers come from the data, diagrams, deployment and architecture docs | You are reading it |
+
+## Results you can verify
+
+| Claim | How to check it |
+|---|---|
+| The HPLC-03 drift (3-23 Mar 2025) is found: the OOS rate on its Assay results is 33% vs 3% on other HPLCs | Dashboard, or `pytest tests/test_story.py` |
+| The drift monitor raises its alarm on 5 Mar, two days after the shift starts, and shows it clearing after recalibration | Predict tab, or `pytest tests/test_predict.py` |
+| All 8 planted data defects are found with exact counts (40 duplicates, 35 impossible dates, 60 missing analysts, ...) | Data Review tab, or `pytest tests/test_dq.py` |
+| The late-delivery model reaches ROC AUC 0.981 on months it never saw (top 10% riskiest tests are late 43.5% of the time vs a 4.5% base rate) | Predict tab, or `pytest tests/test_predict.py` |
+| A test-level OOS classifier scored 0.46 AUC and was dropped; the drift monitor replaced it | [Predict section](#predict-machine-learning) |
+| The agent declines questions the data cannot answer (for example "how are sales?") instead of inventing an answer | Ask it on the live demo with a key, or `pytest tests/test_rag.py` |
+| A first benchmark run with a free Groq model passed 16 of 26 questions; 9 of the 10 failures were requests blocked by a token cap, which I then reduced | [Known limitations](#known-limitations) |
+
+## Engineering decisions and trade-offs
+
+These are the choices I would walk an interviewer through, including the ones that did not work out.
+
+| Decision | Why |
+|---|---|
+| **Guardrails in code, not in the prompt.** One read-only SELECT, 200 rows, 10 s timeout, external file access off | A model can be talked into anything; the database cannot. |
+| **The model never invents numbers.** Charts take SQL and column names, and the code draws them; numbers in answers come from SQL, not from documents | Keeps every figure traceable. |
+| **GxP-style honesty.** Report values as recorded, never silently drop or fix records, separate what the data shows from what it implies | Matches how a lab reviewer would expect an analyst to behave. |
+| **Time-split validation, and deleting a model that did not work** | Shuffled splits flatter time-dependent data. Reporting 0.46 AUC honestly beats shipping a model that looks clever. |
+| **Fewer tokens per call** (25 rows to the model, older results shortened, capped replies) | Free tiers limit tokens per minute. This targets latency and token-cap failures; I have not re-run the full benchmark since, so I make no claim about answer quality. |
+| **Release locks on disconnect, show rate-limit waits, cancel for real** | Found by using the app: a Stop click left the server busy for 10 s. Fixed with an async stream and a regression test. |
+| **Two run modes** (private with accounts; public read-only) from one codebase | A public link must not allow uploads or accounts; a team tool must. |
+| **Spending protection that fails safe** | If a counter is down or a budget is used up, visitors still get a scripted answer; the paid key is never exposed. |
+| **Deterministic evaluation** (golden SQL, no LLM judge) | An LLM grading an LLM hides regressions. |
+| **No front-end build step** | Fewer moving parts; the page is readable in the browser and easy to deploy. |
+| **A real OOS spike must not be "cleaned away".** A test asserts the HPLC-03 drift is not flagged as a data-quality issue | Data review must not hide genuine signals. |
 
 ## Architecture
 
@@ -255,7 +312,30 @@ flowchart TB
 
 More detail on design decisions and the request lifecycle: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-## What the data contains (and what the project finds)
+## Run it
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements-dev.txt
+python scripts/make_data.py                                # builds the synthetic lab database
+cp .env.example .env                                       # optional: add a free GROQ_API_KEY for real answers
+python -m analyst.server --demo --sandbox local            # http://127.0.0.1:8000
+python -m pytest -q                                        # 473 tests, no key or network needed
+```
+
+`--demo` uses the built-in lab data and answers with a real model when a key is found in `.env`, otherwise with a scripted walkthrough (`--scripted` forces that). Without `--demo` the app starts in private mode with sign-in; the first visit creates the admin account.
+Deploy your own copy to Vercel with Groq answering live, protected by daily budgets: see [docs/DEPLOY.md](docs/DEPLOY.md). Design notes: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+**Tabs:** *Why LabOps* (the story, numbers computed from the data), *Dashboard* (slicers, KPI cards with deltas, gauges, insights, trends, instrument table, OOS heatmap), *Data Review* (rule results and a downloadable query list), *Predict* (forecasts, late-delivery risk, drift warning), *Analyze* (the agent, with Copy answer and Download report), *Data* (table browser), *Pinned*. Light and dark mode, command palette (`Cmd/Ctrl+K`), print to PDF.
+
+<a id="predict-machine-learning"></a>
+## Deep dives
+
+Each section opens on click.
+
+<details>
+<summary><b>What the data contains and what the project finds</b></summary>
+
 `scripts/make_data.py` builds `data/labops.duckdb` (17k tests, 7k samples, 13 instruments, 30 analysts) and `data/ground_truth.json`.
 
 | Planted root cause | What the dashboard / agent surfaces |
@@ -275,24 +355,33 @@ More detail on design decisions and the request lifecycle: [docs/ARCHITECTURE.md
 | Test started on an instrument that was down | DQ-007 | 20 |
 | Sample due before received | DQ-008 | 15 |
 
-## Quick start
-```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements-dev.txt
-python scripts/make_data.py                                # builds the synthetic lab database
-cp .env.example .env                                       # optional: add a free GROQ_API_KEY for real answers
-python -m analyst.server --demo --sandbox local            # http://127.0.0.1:8000
-python -m pytest -q                                        # about 450 tests, no key or network needed
-```
-`--demo` uses the built-in lab data and answers with a real model when a key is found in `.env`, otherwise with a scripted walkthrough (add `--scripted` to force that). Without `--demo` the app starts in private mode with sign-in; the first visit creates the admin account. More in [docs/DEPLOY.md](docs/DEPLOY.md) (GitHub, Vercel, running locally) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+</details>
 
-**Hosted demo:** the repository deploys to Vercel as a public, read-only demo (no accounts, no uploads). It can answer live with Groq, protected by daily budgets, cost caps and optional shared counters. Step-by-step setup is in [docs/DEPLOY.md](docs/DEPLOY.md).
+<details>
+<summary><b>Predict: machine learning details</b></summary>
 
-Tabs: **Why LabOps** (the story, with numbers computed from the data), **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, instrument table, OOS heatmap, 3 themes),
-**Data Review** (rule results + downloadable query list per rule), **Predict** (forecasts, late-delivery risk, drift warning), **Analyze** (the agent, with Copy answer / Download report), **Data** (raw table browser), **Pinned**.
-There is a light/dark toggle, and Print gives a clean PDF of any dashboard.
+Lab dataset only. Everything is trained on the lab data when the tab is first opened (a few seconds) and cached.
 
-## Accounts, roles and security
+- **Forecasts** (OOS rate, on-time delivery, tests per month, turnaround): the best of three simple models (last value, average, 6-month linear trend), chosen by one-step rolling-origin backtesting, with 80% intervals taken from backtest errors. With about 8 months of history the intervals are wide, and the page says so.
+- **Late-delivery risk model:** logistic regression vs gradient boosting (scikit-learn), validated on a **time split** (train on the earlier 75% of completions, test on the later 25%), reporting ROC AUC, precision-recall AUC and top-decile lift, plus permutation importance and a "what-if" scorer. Features only use information known when a test starts; instrument history looks strictly backwards.
+- **Drift early warning:** an EWMA control chart per instrument and method on robustly standardised results. It flags the planted HPLC-03 Assay drift within days of its start (3 Mar) and shows it clearing after recalibration. A smaller, weaker alarm elsewhere can be a false alarm.
+- **What did not work, and was removed:** a test-level OOS classifier scored ROC AUC about 0.46 on held-out months (no better than chance): OOS results are under 2% and almost all come from one instrument drift that cannot be learned from the earlier months. The drift monitor is the honest replacement.
+
+</details>
+
+<details>
+<summary><b>Procedure documents (RAG) and the demo modes</b></summary>
+
+- The agent has a `search_docs` tool over eight **synthetic** lab procedures in `analyst/knowledge/` (specification limits, OOS investigation, HPLC calibration and drift, instrument downtime, turnaround policy, deviations and CAPA, analyst training, ALCOA+). Retrieval is local BM25 over document sections (`analyst/rag.py`): no embeddings and no extra API. Passages are tagged `[SOP-QC-012 section 2]` and the model is told to cite them, to take numbers only from SQL, and to say so when the documents do not cover something. A test checks that the specification table in the documents matches the data. These are teaching documents, not any real company's SOPs.
+- `--demo` now means "built-in lab data". If a key is found (`ANALYST_PROVIDER`, or the first of `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...) the demo answers with that real model, procedure search included. With no usable key it falls back to the scripted walkthrough (which also cites the procedures). Use `--demo --scripted` to force the scripted version and spend no quota.
+- On the last allowed step the agent is told to stop investigating and write its answer, so a long investigation ends with a written conclusion instead of "max_steps".
+- The "Why LabOps" hero slideshow uses wider crops of the same four photos (`hero-*.jpg`); sources and licences are as listed above.
+
+</details>
+
+<details>
+<summary><b>Accounts, roles and security</b></summary>
+
 The app asks you to sign in. **On first run it shows a setup screen that creates the first account, which becomes the admin**; after that, admins add everyone else
 (Menu -> Manage users). Nothing is created for you, so there are no default passwords.
 ```bash
@@ -321,27 +410,11 @@ Uploaded datasets are **private to their owner** (admins can see all); another u
 
 **Honest limits.** The rate limiter and lockout are in memory and per process (a restart resets them; run one process, or move them to Redis for several). There is no MFA, no email-based password reset (an admin resets it), and no account self-registration. The server speaks plain HTTP on `127.0.0.1`: if you ever expose it beyond localhost, put it behind an HTTPS reverse proxy (the cookie then becomes `Secure` automatically; `X-Forwarded-For` is deliberately not trusted, so limits would key on the proxy's address until you configure that). Chart.js is loaded from cdnjs (allowed by the CSP); vendoring it with a Subresource Integrity hash would remove that dependency. This is hardening for a local analytics tool, not a certified system (no 21 CFR Part 11 e-signatures).
 
-## Look and feel
-- **Glass UI.** iOS-style frosted surfaces (`backdrop-filter` blur + saturation, specular edge highlights) over a slow-moving aurora backdrop, in light and dark mode. The dashboard has a **Glass** theme (default) plus the original Mint / Corporate themes. Respects `prefers-reduced-motion`, `prefers-reduced-transparency` and `prefers-contrast` (falls back to solid panels).
-- **Colour.** No purple and no gradient accents: a solid bright accent (cyan with dark text in dark mode, blue with white text in light mode) and a 12-colour chart palette defined once as `--c1..--c12` in `style.css`. Dark-mode series colours are saturated and every one is at least 4.5:1 against its glass card; light-mode ones are deeper and at least 3:1. Lines glow in dark mode and tooltips are always dark with white text. `tests/test_palette.py` enforces all of this (no purple-range colour in CSS/JS/HTML or the logo images, contrast floors, distinguishable series, vivid dark colours), so a later edit that breaks it fails the build.
-- **Loading states.** A full-screen splash (your logo, an animated bar and what it is doing) while the session and workspace load, a thin progress bar at the top while any request is in flight, a blurred overlay for slow views, skeleton cards while charts load, and a spinner with a lockout countdown on the sign-in button.
-- **Icons.** The tab, dataset and empty-state icons are the PNGs in `analyst/static/icons/` (`dashboard`, `market-research`, `analyze`, `data`, `pinned`, `lab_operations`); swap a file to change an icon. Only the small utility glyphs (upload, search, print, light/dark) are inline SVG.
-- **Logo.** `analyst/static/brand/` holds the logo made from a Canva design: `logo-mark.png` (header), `logo.png` / `logo-dark.png` (lockups for light / dark backgrounds), favicons and the app icon, plus the raw Canva export. `scripts/make_brand.py` regenerates them from a new Canva export.
+</details>
 
-### Interactions
-| Do this | Get this |
-|---|---|
-| Click a **KPI card** | the analyst investigates why that metric changed |
-| Click a **point or bar** in the volume / on-time charts | the whole dashboard jumps to that month |
-| Click a **deviation bar**, a **turnaround bar** or an **instrument row** | the analyst investigates it |
-| `Cmd/Ctrl + K` | command palette: jump to tabs, switch dataset or month, change theme, upload, or type a question |
-| `/` | focus the question box from anywhere |
-| Arrow keys on the tab bar | move between tabs |
+<details>
+<summary><b>Use your own Excel data, providers and API keys</b></summary>
 
-KPI numbers count up, cards carry sparklines with the selected month marked, and a soft highlight follows the cursor over glass cards.
-In demo mode every scripted answer states its fixed scope (e.g. "HPLC-03 in March 2025") and questions outside it are declined rather than answered with the wrong story.
-
-## Use your own Excel data
 Click **Upload Excel** (or drop a file anywhere on the page). `.xlsx` and `.csv` are accepted; each sheet becomes a table and the first row is read
 as the column headers. Headers are cleaned to `snake_case`, duplicates are suffixed, and the types are inferred. **Numbers stored as text are kept as text and flagged**,
 not silently converted. Download the example workbook from the dialog to see the format; it contains realistic mistakes (duplicate rows, `N/A` in a numeric column, a price typo...).
@@ -392,20 +465,47 @@ cp .env.example .env && chmod 600 .env
 ```
 then open `.env` in your editor and paste the key after `GROQ_API_KEY=` (no quotes needed). The app reads `.env` from the folder you start it in. Real shell variables still win over the file; only `*_API_KEY` names and a few app settings are loaded (never `PATH`, `LD_PRELOAD` and the like); empty values are ignored; and it warns if the file is readable by other users. `.env` is git-ignored; never paste a key into chat, an issue or a commit. Placeholder text like `paste-your-key-here` is rejected with an explanation.
 
-## Design decisions worth discussing
-- **GxP-style behaviour.** The agent reports numbers as recorded, never silently drops or "fixes" records, runs the data-review
-  check before concluding on result/date metrics, and separates what the data shows from what it infers. The data-review engine
-  is read-only: it raises queries, it never edits.
-- **A real OOS spike must not be "cleaned away".** A test asserts that the HPLC-03 drift is not flagged as a data-quality issue.
-- **Guardrails.** Read-only DuckDB, external file access off, single-statement SELECT allowlist, row cap, timeout, token and step budgets.
-  Dashboard slicer values are validated against the catalog and bound as parameters, never interpolated.
-- **Charts cannot show invented numbers.** The model passes SQL and column names; `analyst/charts.py` validates them and the browser draws.
-- **Deterministic evaluation.** `eval/` grades 26 questions (easy / medium / hard diagnosis / traps that must not be hallucinated)
-  against golden SQL re-run on the live database, with no LLM judge. Reports accuracy by difficulty, cost per correct answer and a failure taxonomy.
-- **Model-agnostic.** The agent speaks one format; `analyst/llm.py` translates to any OpenAI-compatible endpoint, with a rescue parser for
-  tool calls that weak models write as text and a guard against answering over an unresolved error.
+</details>
 
-## Known limitations (be honest about these)
+<details>
+<summary><b>Look and feel and interactions</b></summary>
+
+- **Glass UI.** iOS-style frosted surfaces (`backdrop-filter` blur + saturation, specular edge highlights) over a slow-moving aurora backdrop, in light and dark mode. The dashboard has a **Glass** theme (default) plus the original Mint / Corporate themes. Respects `prefers-reduced-motion`, `prefers-reduced-transparency` and `prefers-contrast` (falls back to solid panels).
+- **Colour.** No purple and no gradient accents: a solid bright accent (cyan with dark text in dark mode, blue with white text in light mode) and a 12-colour chart palette defined once as `--c1..--c12` in `style.css`. Dark-mode series colours are saturated and every one is at least 4.5:1 against its glass card; light-mode ones are deeper and at least 3:1. Lines glow in dark mode and tooltips are always dark with white text. `tests/test_palette.py` enforces all of this (no purple-range colour in CSS/JS/HTML or the logo images, contrast floors, distinguishable series, vivid dark colours), so a later edit that breaks it fails the build.
+- **Loading states.** A full-screen splash (your logo, an animated bar and what it is doing) while the session and workspace load, a thin progress bar at the top while any request is in flight, a blurred overlay for slow views, skeleton cards while charts load, and a spinner with a lockout countdown on the sign-in button.
+- **Icons.** The tab, dataset and empty-state icons are the PNGs in `analyst/static/icons/` (`dashboard`, `market-research`, `analyze`, `data`, `pinned`, `lab_operations`); swap a file to change an icon. Only the small utility glyphs (upload, search, print, light/dark) are inline SVG.
+- **Logo.** `analyst/static/brand/` holds the logo made from a Canva design: `logo-mark.png` (header), `logo.png` / `logo-dark.png` (lockups for light / dark backgrounds), favicons and the app icon, plus the raw Canva export. `scripts/make_brand.py` regenerates them from a new Canva export.
+
+### Interactions
+| Do this | Get this |
+|---|---|
+| Click a **KPI card** | the analyst investigates why that metric changed |
+| Click a **point or bar** in the volume / on-time charts | the whole dashboard jumps to that month |
+| Click a **deviation bar**, a **turnaround bar** or an **instrument row** | the analyst investigates it |
+| `Cmd/Ctrl + K` | command palette: jump to tabs, switch dataset or month, change theme, upload, or type a question |
+| `/` | focus the question box from anywhere |
+| Arrow keys on the tab bar | move between tabs |
+
+KPI numbers count up, cards carry sparklines with the selected month marked, and a soft highlight follows the cursor over glass cards.
+In demo mode every scripted answer states its fixed scope (e.g. "HPLC-03 in March 2025") and questions outside it are declined rather than answered with the wrong story.
+
+</details>
+
+<details>
+<summary><b>Sample datasets for testing uploads</b></summary>
+
+```bash
+.venv/bin/python scripts/make_datasets.py
+```
+
+writes 15 synthetic, anonymised files to `sample_data/` (stability study, HPLC run log, sales, HR attrition, clinical vitals, inventory with expiry dates, balance calibration, support tickets, bioassay plates, environmental monitoring, batch release, deviations/CAPA, a deliberately messy file, a 60,000-row sensor CSV, and an 80-column wide file). Upload them with **Upload Excel**. A test checks that every file ingests cleanly.
+
+</details>
+
+## Known limitations
+
+Stated plainly, because knowing the edges of your own work matters.
+
 - The built-in data is synthetic: it demonstrates method, not results on real lab data. Uploaded workbooks get the generic Overview / Data Review, but the lab dashboard, the lab rules (DQ-001..010) and the scripted demo are specific to the built-in lab schema; mapping an arbitrary LIMS export onto them would need a column-mapping step that does not exist yet.
 - Uploads are stored unencrypted under `data/uploads`. Each upload is private to the user who made it, but the files are readable by anyone with access to the server's disk.
 - Excel reading: formulas show their last saved value (a formula that was never calculated shows blank); merged cells keep only their top-left value; the first non-empty row is always the header; dates stored as text stay text.
@@ -416,7 +516,8 @@ then open `.env` in your editor and paste the key after `GROQ_API_KEY=` (no quot
 - Not validated for regulated (GxP / 21 CFR Part 11) use. There is sign-in, roles and an audit log, but no electronic signatures, validation documentation or change control.
 - The hosted Vercel demo is public and read only by design, and its rate limits are per function instance, not global (see [docs/DEPLOY.md](docs/DEPLOY.md)).
 
-## Layout
+## Repository layout
+
 ```
 analyst/        the app: agent, DB guardrails, charts, dashboard, data review (dq.py, profile.py), safe ingest, auth and roles,
                 predictions (predict.py), retrieval (rag.py + knowledge/), story page, LLM adapter, server and UI (static/)
@@ -426,15 +527,15 @@ eval/           benchmark (26 questions, graded against golden SQL)
 sandbox/        Docker image for the optional Python tool
 sample_data/    15 synthetic workbooks for trying uploads
 scripts/        data and asset generators
-tests/          about 450 tests
+tests/          473 tests
 ```
 
-## Results to fill in after your own runs
+## Benchmark results
+
 | Model | Accuracy (26 q) | Cost / correct answer | Median latency |
 |---|---|---|---|
 | `openai/gpt-oss-120b` on Groq, first partial run | 16 / 26 (9 failures caused by the token cap) | free | about 30 s |
 | (run `python -m eval.run_eval --provider ...`) | | | |
-
 
 ## Image credits
 
@@ -444,33 +545,6 @@ Banner photos are from Wikimedia Commons and are in the public domain or CC0 (no
 - `clean-lab.jpg`: [U.S. Department of Energy - Science - 395 006 004](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_395_006_004_(9735099945).jpg), public domain.
 - `glass-flasks.jpg`: [Birnenkolben.jpg](https://commons.wikimedia.org/wiki/File:Birnenkolben.jpg), CC0.
 - `analyst-instrument.jpg`: [U.S. Department of Energy - Science - 395 014 001](https://commons.wikimedia.org/wiki/File:U.S._Department_of_Energy_-_Science_-_395_014_001_(10293874364).jpg), public domain (cropped).
-
-
-## Predict tab (machine learning)
-
-Lab dataset only. Everything is trained on the lab data when the tab is first opened (a few seconds) and cached.
-
-- **Forecasts** (OOS rate, on-time delivery, tests per month, turnaround): the best of three simple models (last value, average, 6-month linear trend), chosen by one-step rolling-origin backtesting, with 80% intervals taken from backtest errors. With about 8 months of history the intervals are wide, and the page says so.
-- **Late-delivery risk model:** logistic regression vs gradient boosting (scikit-learn), validated on a **time split** (train on the earlier 75% of completions, test on the later 25%), reporting ROC AUC, precision-recall AUC and top-decile lift, plus permutation importance and a "what-if" scorer. Features only use information known when a test starts; instrument history looks strictly backwards.
-- **Drift early warning:** an EWMA control chart per instrument and method on robustly standardised results. It flags the planted HPLC-03 Assay drift within days of its start (3 Mar) and shows it clearing after recalibration. A smaller, weaker alarm elsewhere can be a false alarm.
-- **What did not work, and was removed:** a test-level OOS classifier scored ROC AUC about 0.46 on held-out months (no better than chance): OOS results are under 2% and almost all come from one instrument drift that cannot be learned from the earlier months. The drift monitor is the honest replacement.
-
-## Sample datasets for testing uploads
-
-```bash
-.venv/bin/python scripts/make_datasets.py
-```
-
-writes 15 synthetic, anonymised files to `sample_data/` (stability study, HPLC run log, sales, HR attrition, clinical vitals, inventory with expiry dates, balance calibration, support tickets, bioassay plates, environmental monitoring, batch release, deviations/CAPA, a deliberately messy file, a 60,000-row sensor CSV, and an 80-column wide file). Upload them with **Upload Excel**. A test checks that every file ingests cleanly.
-
-
-## Procedure documents (RAG) and the demo
-
-- The agent has a `search_docs` tool over eight **synthetic** lab procedures in `analyst/knowledge/` (specification limits, OOS investigation, HPLC calibration and drift, instrument downtime, turnaround policy, deviations and CAPA, analyst training, ALCOA+). Retrieval is local BM25 over document sections (`analyst/rag.py`): no embeddings and no extra API. Passages are tagged `[SOP-QC-012 section 2]` and the model is told to cite them, to take numbers only from SQL, and to say so when the documents do not cover something. A test checks that the specification table in the documents matches the data. These are teaching documents, not any real company's SOPs.
-- `--demo` now means "built-in lab data". If a key is found (`ANALYST_PROVIDER`, or the first of `GROQ_API_KEY`, `GEMINI_API_KEY`, `OPENROUTER_API_KEY`, ...) the demo answers with that real model, procedure search included. With no usable key it falls back to the scripted walkthrough (which also cites the procedures). Use `--demo --scripted` to force the scripted version and spend no quota.
-- On the last allowed step the agent is told to stop investigating and write its answer, so a long investigation ends with a written conclusion instead of "max_steps".
-- The "Why LabOps" hero slideshow uses wider crops of the same four photos (`hero-*.jpg`); sources and licences are as listed above.
-
 
 ## License
 
