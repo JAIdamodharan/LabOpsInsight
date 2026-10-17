@@ -27,3 +27,6 @@ eval/results/
 .idea/
 .vscode/
 .claude/settings.local.json
+
+# Personal documents (contain a phone number and email): never commit
+resume/
