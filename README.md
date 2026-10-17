@@ -13,6 +13,26 @@ It answers three questions a lab-operations analyst gets asked every week:
 > **All data is synthetic and anonymised.** Nothing here comes from, or represents, any real company's systems.
 > The three operational root causes and eight data defects were planted so every result can be verified exactly.
 
+## Screenshots
+
+All screens use the built-in synthetic lab data (demo mode, scripted answers).
+
+**Why LabOps**: a full-width story page with numbers computed from the data.
+![Why LabOps story page](docs/screenshots/story.jpg)
+
+**Dashboard** (dark and light):
+![Dashboard, dark mode](docs/screenshots/dashboard.jpg)
+![Dashboard, light mode](docs/screenshots/dashboard-light.jpg)
+
+**Data Review**: rule-based checks tagged with ALCOA+ principles.
+![Data Review](docs/screenshots/data-review.jpg)
+
+**Predict**: forecasts with ranges, and the drift early-warning chart that catches the March HPLC-03 incident.
+![Predict](docs/screenshots/predict.jpg)
+
+**Analyze**: the agent's SQL, chart, cited procedures and final answer.
+![Analyze](docs/screenshots/analyze.jpg)
+
 ## What the data contains (and what the project finds)
 `scripts/make_data.py` builds `data/labops.duckdb` (17k tests, 7k samples, 13 instruments, 30 analysts) and `data/ground_truth.json`.
 
