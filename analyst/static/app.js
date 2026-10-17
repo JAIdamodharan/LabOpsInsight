@@ -662,9 +662,33 @@ async function showTable() {
 $('#clearpins').onclick = () => { pins.length = 0; savePins(); renderPins(); };
 
 /* ===================== analyze ===================== */
-function md(s) {
-  const h = esc(s).replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').replace(/`(.+?)`/g, '<code>$1</code>');
-  return h.split(/\n{2,}/).map(p => /^\s*- /m.test(p) ? '<ul>' + p.split('\n').filter(x => x.trim()).map(x => `<li>${x.replace(/^\s*- /, '')}</li>`).join('') + '</ul>' : `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+function md(s) {                                                    // small, safe markdown: headings, tables, lists, paragraphs, bold, italic, code (all text is escaped first)
+  const inl = t => esc(t).replace(/\\\*/g, '&#42;').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/(^|[^*])\*(?!\s)(.+?)\*(?!\*)/g, '$1<i>$2</i>').replace(/`(.+?)`/g, '<code>$1</code>');
+  const cells = l => l.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim());
+  const isSep = l => /^\s*\|?\s*:?-{2,}:?\s*(\|\s*:?-{2,}:?\s*)*\|?\s*$/.test(l) && l.includes('-');
+  const L = String(s).replace(/\r/g, '').split('\n'), out = [];
+  for (let i = 0; i < L.length;) {
+    const l = L[i];
+    if (!l.trim()) { i++; continue; }
+    if (l.includes('|') && i + 1 < L.length && isSep(L[i + 1]) && cells(l).length > 1) {          // GFM table
+      const head = cells(l), al = cells(L[i + 1]).map(c => (c.startsWith(':') && c.endsWith(':') ? 'center' : c.endsWith(':') ? 'right' : c.startsWith(':') ? 'left' : ''));
+      i += 2; const rows = [];
+      while (i < L.length && L[i].includes('|') && L[i].trim()) rows.push(cells(L[i++]));
+      const num = v => /^[-+]?[\d.,]+\s*(%|d|days|h)?$/.test(v.replace(/\*\*/g, ''));
+      const numCol = head.map((_, k) => rows.length > 0 && rows.filter(r => (r[k] ?? '') !== '').every(r => num(r[k])));      // a column is numeric when every filled cell is a number
+      out.push('<div class="mdtable"><table><thead><tr>' + head.map((h, k) => `<th${al[k] ? ` style="text-align:${al[k]}"` : numCol[k] ? ' class="n"' : ''}>${inl(h)}</th>`).join('') + '</tr></thead><tbody>' +
+        rows.map(r => '<tr>' + head.map((_, k) => { const v = r[k] ?? ''; return `<td class="${numCol[k] && num(v) ? 'n' : ''}"${al[k] ? ` style="text-align:${al[k]}"` : ''}>${inl(v)}</td>`; }).join('') + '</tr>').join('') + '</tbody></table></div>');
+      continue;
+    }
+    const hd = /^(#{1,4})\s+(.*)$/.exec(l);
+    if (hd) { out.push(`<h4>${inl(hd[2])}</h4>`); i++; continue; }
+    if (/^\s*([-*\u2022])\s+/.test(l)) { const it = []; while (i < L.length && /^\s*([-*\u2022])\s+/.test(L[i])) it.push(`<li>${inl(L[i++].replace(/^\s*[-*\u2022]\s+/, ''))}</li>`); out.push('<ul>' + it.join('') + '</ul>'); continue; }
+    if (/^\s*\d+[.)]\s+/.test(l)) { const it = []; while (i < L.length && /^\s*\d+[.)]\s+/.test(L[i])) it.push(`<li>${inl(L[i++].replace(/^\s*\d+[.)]\s+/, ''))}</li>`); out.push('<ol>' + it.join('') + '</ol>'); continue; }
+    if (/^\s*-{3,}\s*$/.test(l)) { out.push('<hr>'); i++; continue; }
+    const para = []; while (i < L.length && L[i].trim() && !/^(#{1,4}\s|\s*([-*\u2022]|\d+[.)])\s)/.test(L[i]) && !(L[i].includes('|') && i + 1 < L.length && isSep(L[i + 1]))) para.push(inl(L[i++]));
+    out.push(`<p>${para.join('<br>')}</p>`);
+  }
+  return out.join('');
 }
 const LABELS = { get_schema: 'Schema', run_sql: 'SQL', run_python: 'Python', chart: 'Chart', data_quality: 'Data review', search_docs: 'Procedures' };
 function addStep(ev) {

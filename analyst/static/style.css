@@ -611,3 +611,18 @@ main{max-width:1360px;padding:8px var(--gut) 80px}
 @media print{.story .cta,.story .acts,.s-feat{display:none}}
 
 body{overflow-x:hidden}
+
+/* answers: readable tables, headings and wrapping */
+.answer{overflow-wrap:anywhere;min-width:0}
+.answer h4{margin:16px 0 6px;font-size:15px}
+.answer ul,.answer ol{margin:6px 0 10px;padding-left:22px}
+.answer li{margin:3px 0}
+.mdtable{overflow-x:auto;margin:10px 0 14px;border:1px solid var(--card-line);border-radius:12px}
+.mdtable table{border-collapse:collapse;width:100%;font-size:13.5px;font-variant-numeric:tabular-nums}
+.mdtable th{background:rgba(var(--accent-rgb),.14);text-align:left;font-weight:700;padding:9px 12px;white-space:nowrap;border-bottom:1px solid var(--card-line)}
+.mdtable td{padding:8px 12px;border-bottom:1px solid var(--card-line)}
+.mdtable tbody tr:nth-child(even){background:rgba(150,165,200,.07)}
+.mdtable tbody tr:last-child td{border-bottom:0}
+.mdtable td.n{text-align:right}
+.answer hr{border:0;border-top:1px solid var(--card-line);margin:14px 0}
+.mdtable th.n{text-align:right}
