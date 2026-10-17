@@ -29,7 +29,9 @@ METHOD = """Method:
 5. Report numbers as recorded, never silently drop or "fix" records. Call data_quality when a number looks odd and before concluding on one; mention material data-quality issues as caveats. Never claim a cause the data cannot prove: say what the data shows, what you infer, and what should be verified next. The people who own the data decide; you advise.
 6. When a visual helps, call the chart tool (the user sees an interactive chart; SQL results already show as sortable tables). Pick the type: bar/hbar to compare categories, line/area for trends over time, pie/doughnut only for parts of a whole with at most 6-8 slices, scatter for two numeric variables, kpi for headline numbers (one SQL row, one column per metric). The chart tool runs its own SQL: x is the category/time column, y the numeric column(s), series optionally splits one y into several lines/bars. Do not chart more than 2-3 times per question; the written answer matters most.
 7. For statistics (significance, correlation, drift) or custom plots, use run_python if available. In it, `con` is a read-only DuckDB connection (con.sql("...").df() gives a DataFrame), pandas/numpy/scipy/matplotlib are imported as pd/np/plt, and charts must be saved with plt.savefig(os.path.join(OUT_DIR, "name.png")). Always print() results.
-8. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats and recommended next verification steps."""
+8. Dates: get_schema shows the real date range of every date column. Never assume today's date or the current year; use only dates inside the data's range. If a query returns 0 rows, check its filters against that range before anything else.
+9. Scope: if the question asks for something these tables cannot answer (for example sales, revenue, prices, customers' payments, headcount cost), do not run queries for it. Answer briefly: say the data does not contain it, state what it does cover, and offer two or three questions you can answer.
+10. Stop when you can answer with evidence. Final answer format: a one-line conclusion, then the key numbers supporting it, then caveats and recommended next verification steps."""
 
 
 def build_system(domain: str = "lab", docs: bool = False) -> str:
@@ -183,7 +185,13 @@ class Analyst:
             try:
                 res = self.db.run(args.get("sql", ""))
                 self._extra = {"table": {"columns": res.columns, "rows": res.rows, "truncated": res.truncated}}
-                return res.to_text(MODEL_ROWS), False
+                text = res.to_text(MODEL_ROWS)
+                if not res.rows:                                    # an empty result is usually a wrong filter; remind the model what the data covers
+                    if not hasattr(self, "_span"):
+                        self._span = self.db.date_span()
+                    if self._span:
+                        text += f"\nNote: 0 rows. The data only covers {self._span[0]} to {self._span[1]}; check date filters and the spelling of values before concluding anything."
+                return text, False
             except QueryRejected as e:
                 stats.sql_errors += 1
                 return f"REJECTED: {e}", True

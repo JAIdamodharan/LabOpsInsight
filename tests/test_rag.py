@@ -122,3 +122,24 @@ def test_the_last_allowed_step_forces_a_written_answer_instead_of_stopping_silen
 def test_the_folder_readme_is_not_treated_as_a_procedure(kb):
     assert all(c.doc_id.upper() != "README.MD" and not c.doc_id.lower().startswith("readme") for c in kb.chunks)
     assert {c.doc_id for c in kb.chunks} == {"SOP-QC-001", "SOP-QC-012", "SOP-EQ-007", "SOP-EQ-011", "SOP-QC-020", "SOP-QA-003", "SOP-HR-005", "GUIDE-DI-001"}
+
+
+def test_schema_shows_the_real_date_range_so_nobody_has_to_guess_it(db):  # noqa: F811
+    sch = db.schema()
+    line = next(l for l in sch.splitlines() if l.startswith("tests "))
+    assert "completed_date DATE [2024-10-02 to 2025-06-" in line
+    assert db.date_span()[0] == "2018-01-01" or db.date_span()[0] <= "2024-10-02"        # install dates are in the data too
+    assert db.date_span()[1] >= "2025-06-27"
+
+
+def test_empty_results_remind_the_model_what_the_data_covers(db):  # noqa: F811
+    sql = "SELECT count(*) FROM tests WHERE completed_date >= DATE '2026-09-01' GROUP BY completed_date"
+    a = Analyst(db, client=FakeClient([msg("tool_use", tool("t1", "run_sql", sql=sql)), msg("end_turn", text("ok"))]))
+    res = next(e for e in a.run("sales?") if e.kind == "tool_result")
+    assert "0 rows" in res.data["text"] and "only covers" in res.data["text"] and "2025-06" in res.data["text"]
+
+
+def test_the_prompt_tells_the_model_not_to_assume_today_and_to_decline_out_of_scope_questions():
+    from analyst.agent import build_system
+    s = build_system("lab")
+    assert "Never assume today's date" in s and "sales, revenue" in s and "do not run queries for it" in s

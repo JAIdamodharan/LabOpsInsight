@@ -69,6 +69,19 @@ class Database:
             cur.close()
         return QueryResult(cols, rows[:MAX_ROWS], len(rows) > MAX_ROWS)
 
+    def date_columns(self) -> list[tuple[str, str]]:
+        return [(t, c) for t, c in self.con.execute(
+            "SELECT table_name, column_name FROM information_schema.columns WHERE table_schema='main' AND data_type IN ('DATE','TIMESTAMP') ORDER BY 1, ordinal_position").fetchall()]
+
+    def date_span(self) -> tuple[str, str] | None:
+        """Earliest and latest date anywhere in the data, so questions can be checked against what the data actually covers."""
+        lo, hi = None, None
+        for t, c in self.date_columns():
+            a, b = self.con.execute(f'SELECT min("{c}"), max("{c}") FROM "{t}"').fetchone()
+            if a is not None:
+                lo, hi = (a if lo is None or a < lo else lo), (b if hi is None or b > hi else hi)
+        return (str(lo)[:10], str(hi)[:10]) if lo is not None else None
+
     def schema(self) -> str:
         out = []
         tables = self.con.execute(
@@ -80,5 +93,13 @@ class Database:
                 "SELECT column_name, data_type FROM information_schema.columns "
                 "WHERE table_name=? ORDER BY ordinal_position", [t]
             ).fetchall()
-            out.append(f"{t} ({n} rows): " + ", ".join(f"{c} {d}" for c, d in cols))
+            parts = []
+            for c, d in cols:
+                extra = ""
+                if d in ("DATE", "TIMESTAMP"):                      # show the real date range so nobody has to guess it
+                    a, b = self.con.execute(f'SELECT min("{c}"), max("{c}") FROM "{t}"').fetchone()
+                    if a is not None:
+                        extra = f" [{str(a)[:10]} to {str(b)[:10]}]"
+                parts.append(f"{c} {d}{extra}")
+            out.append(f"{t} ({n} rows): " + ", ".join(parts))
         return "\n".join(out)
