@@ -36,6 +36,7 @@ from .datasets import LAB_ID, DatasetError, Registry
 from .db import Database
 from .demo import DemoClient
 from .example import build_example_workbook
+from .quota import LivePolicy
 from .llm import add_cli_args, detect_provider, load_dotenv, make_client
 from .rag import Retriever
 from .ratelimit import RateLimiter
@@ -128,6 +129,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
     app = FastAPI(title="LabOps Insight", docs_url=None, redoc_url=None, openapi_url=None)
     app.add_middleware(Guard, limiter=limiter, limits=L, trust_proxy=public and os.environ.get("LABOPS_TRUST_PROXY", "1") != "0")
     app.add_middleware(TrustedHostMiddleware, allowed_hosts=list(allowed_hosts))
+    live = LivePolicy.from_env() if public and client is not None else None     # spending protection for a public site that uses a real model
     kb = Retriever()                                                  # local search over the synthetic procedure documents (lab data only)
     reg = Registry(db_path, upload_dir or Path(db_path).parent / "uploads")
     users = (store or AuthStore(auth_db or Path(db_path).parent / "auth.db")) if auth_enabled else None
@@ -381,7 +383,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
     # ------------------------------------------------------------ config + datasets
     @app.get("/api/config")
     def config(user: dict = Depends(require("read"))):
-        return {"demo": demo, "model": "scripted-demo" if demo else (model or MODEL), "python": bool(make_sb), "auth": auth_enabled, "public": public,
+        return {"demo": demo, "model": "scripted-demo" if demo else (model or MODEL), "python": bool(make_sb), "auth": auth_enabled, "public": public, "live_limits": ({"ip_daily": live.ip_daily, "global_daily": live.global_daily, "shared": bool(getattr(live.store, "shared", False))} if live else None),
                 "max_upload_mb": ingest.MAX_BYTES // 10**6, "formats": [".xlsx", ".csv"], "limits": {"rows": ingest.MAX_ROWS, "columns": ingest.MAX_COLS, "sheets": ingest.MAX_SHEETS}}
 
     @app.get("/api/datasets")
@@ -529,8 +531,9 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
     @app.get("/api/ask")
     def ask(request: Request, q: str, dataset: str = LAB_ID, user: dict = Depends(require("ask"))):
         q = q.strip()
-        if not q or len(q) > MAX_QUESTION:
-            raise HTTPException(400, f"question must be 1-{MAX_QUESTION} characters")
+        cap = min(MAX_QUESTION, live.max_question) if live else MAX_QUESTION
+        if not q or len(q) > cap:
+            raise HTTPException(400, f"question must be 1-{cap} characters")
         db = get_db(dataset, user)
         kind = reg.kind(dataset)
         who = f"ip:{ip_of(request)}" if public else user["id"]          # one shared guest account in public mode, so count per visitor address
@@ -541,6 +544,7 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
         if not slots.acquire(blocking=False):
             mine.release()
             raise HTTPException(429, "The server is busy with other analyses; try again shortly.", headers={"Retry-After": "5"})
+        use_live, why = (live.allow(ip_of(request)) if live else (True, ""))
         audit(user, "ask", f"dataset={dataset} len={len(q)} sha={hashlib.sha256(q.encode()).hexdigest()[:8]}", request)
 
         async def stream():
@@ -561,13 +565,16 @@ def create_app(db_path: str, demo: bool = False, sandbox: str = "none", artifact
 
             def work():
                 try:
-                    if demo and kind != "lab":
+                    if why:
+                        put.put(("raw", {"kind": "notice", "text": why}))
+                    if (demo or not use_live) and kind != "lab":
                         put.put(("raw", {"kind": "answer", "text": DEMO_ONLY_LAB}))
                         put.put(("raw", {"kind": "done", "steps": 0, "sql_calls": 0, "sql_errors": 0, "python_calls": 0, "chart_calls": 0, "in_tok": 0, "out_tok": 0, "stop": "demo_unsupported"}))
                         return
                     sb = make_sb(reg.path(dataset), artifacts_dir) if make_sb else None
-                    c = client or (DemoClient(db, bool(sb)) if demo else None)
-                    agent = Analyst(db, client=c, model=model or MODEL, sandbox=sb, domain=kind, knowledge=kb)
+                    c = (client if use_live else None) or (DemoClient(db, bool(sb)) if (demo or not use_live) else None)
+                    agent = Analyst(db, client=c, model=model or MODEL, sandbox=sb, domain=kind, knowledge=kb,
+                                    **({"max_steps": live.max_steps, "max_tokens_budget": live.token_budget} if live and use_live else {}))
                     c = agent.client                                  # hooks for clients that can wait on a rate-limited provider
                     c.on_wait = lambda secs, attempt, of, status: put.put(("raw", {"kind": "waiting", "seconds": round(secs), "attempt": attempt, "of": of, "status": status}))
                     c.cancel = cancel

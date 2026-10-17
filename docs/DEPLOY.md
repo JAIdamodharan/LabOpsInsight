@@ -21,12 +21,64 @@ git push -u origin main
 
 If a real key was ever committed, rotate it in the provider console. Deleting the file is not enough because git keeps history.
 
-## 2. Deploy the public demo on Vercel
+## 2. Deploy on Vercel with Groq answering live
 
-1. In Vercel choose **Add New, Project**, import the GitHub repository, and keep the defaults. `vercel.json` and `api/index.py` are detected automatically (framework preset: Other).
-2. Deploy. The first request builds the synthetic lab database in `/tmp` (about a second) and trains the Predict models (about 10 seconds), so the first Predict visit after a cold start is slow.
-3. Optional, to let visitors ask free-form questions with a real model: under **Settings, Environment Variables** add `GROQ_API_KEY` and `LABOPS_DEMO_LIVE=1`. Without them the demo answers with the scripted walkthrough and spends no quota.
-4. Optional custom domain: add it in Vercel and set `LABOPS_ALLOWED_HOSTS=your.domain` so the app accepts that Host name (`*.vercel.app` is already accepted).
+You need three things: this GitHub repository, a Vercel account (the free Hobby plan works), and a Groq key from https://console.groq.com (free, no card). Use a key made just for this site so you can revoke it on its own.
+
+### Step by step
+
+1. On vercel.com choose **Add New, Project**, pick the GitHub repository and click **Import**. Leave the framework as **Other** and the build settings empty. `vercel.json` and `api/index.py` are picked up automatically.
+2. Before the first deploy open **Environment Variables** and add these (apply to Production):
+
+   | Name | Value | Why |
+   |---|---|---|
+   | `GROQ_API_KEY` | your key | the model provider |
+   | `LABOPS_DEMO_LIVE` | `1` | turn on real answers (without it the site stays scripted) |
+   | `ANALYST_PROVIDER` | `groq` | be explicit about the provider |
+   | `ANALYST_MODEL` | `openai/gpt-oss-120b` | or a smaller model to stretch the free quota |
+
+3. Click **Deploy**. When it finishes, open the URL and ask a question: the top-right badge shows the model name instead of "DEMO · scripted model" when live answers are on.
+4. Add shared counters (strongly recommended, see "Protection" below): **Storage, Create Database, Upstash for Redis (free)**, connect it to the project, then **Redeploy**. The integration adds `UPSTASH_REDIS_REST_URL` and `UPSTASH_REDIS_REST_TOKEN` for you; nothing else to configure.
+5. Turn on Vercel's own protection (see below), then share the link.
+
+Command-line alternative to the steps above (after `npm i -g vercel`):
+
+```bash
+vercel login
+vercel link
+vercel env add GROQ_API_KEY production
+vercel env add LABOPS_DEMO_LIVE production
+vercel --prod
+```
+
+Every `git push` to `main` redeploys automatically once the project is linked. Optional custom domain: add it in Vercel and set `LABOPS_ALLOWED_HOSTS=your.domain` (`*.vercel.app` is already accepted).
+
+### Protection against abuse (so strangers cannot use up your quota)
+
+The key is the asset. A visitor cannot read it (it only exists in Vercel's server environment), but a visitor can spend it, so there are layers, and each one fails safe by falling back to the scripted walkthrough instead of taking the site down.
+
+| Layer | What it does | Where |
+|---|---|---|
+| Daily budget per visitor | 6 live answers per address per day, 3 per minute (set with `LABOPS_LIVE_IP_DAILY`, `LABOPS_LIVE_IP_MINUTE`) | `analyst/quota.py` |
+| Global daily budget | 200 live answers per day for everyone (`LABOPS_LIVE_GLOBAL_DAILY`). This caps the worst case no matter how many addresses an attacker uses | `analyst/quota.py` |
+| Cost cap per answer | at most 6 agent steps, 40,000 tokens and 300 characters per question | `analyst/quota.py` |
+| Shared counters | with Upstash the counters are the same for every serverless instance. Without it they are per instance, so the real limit can be several times higher | `analyst/quota.py` |
+| Fail closed | if the counter store cannot be reached, live answers pause and the scripted demo answers | `analyst/quota.py` |
+| Read only | no accounts, uploads, sandbox or anything that writes | `create_app(public=True)` |
+| Per-address API limit and one analysis at a time | blunts scripts that hammer the site | `Guard`, `server.py` |
+| Cross-site refusal, security headers, CSP | stops other websites from making your visitors' browsers spend your quota | `Guard` |
+
+A visitor who runs out of live answers sees a short notice and still gets the scripted walkthrough for that question.
+
+Worst case per day with the defaults: 200 answers at no more than 40,000 tokens each. On Groq's free tier you cannot be billed at all (the limit is simply reached); if you move to a paid tier, set a spending limit in the Groq console as well.
+
+Add Vercel's protection in the dashboard (these happen before your code runs, so they also stop floods that would otherwise cost function time):
+
+1. **Firewall, Bot Protection / Attack Challenge Mode:** turn on the challenge for suspicious traffic (available on the Hobby plan).
+2. **Firewall, Custom Rules:** add a rate-limit rule for the path `/api/ask`, for example 10 requests per minute per IP, action "Deny" or "Challenge" (rule limits depend on your plan).
+3. **Settings, Deployment Protection:** leave production public, and keep preview deployments protected so strangers cannot reach your test builds.
+
+Rotate the Groq key right away if you ever see unexpected usage: create a new key in the Groq console, change `GROQ_API_KEY` in Vercel and redeploy. To switch live answers off without touching code, set `LABOPS_DEMO_LIVE` to `0` and redeploy.
 
 ### What the hosted demo is, and is not
 
@@ -36,17 +88,17 @@ If a real key was ever committed, rotate it in the provider console. Deleting th
 | Sign-in, roles, audit log | no (public, read only) | yes |
 | Upload your own Excel | no | yes |
 | `run_python` sandbox | no | yes (`--sandbox local` or Docker) |
-| Free-form questions | scripted unless `LABOPS_DEMO_LIVE=1` and a key are set | yes with any provider |
-| Per-visitor limits | yes, by forwarded address (6 questions per minute) | per signed-in user |
+| Free-form questions | live with `LABOPS_DEMO_LIVE=1` and a key, within the budgets above; otherwise scripted | yes with any provider |
 
-Why these limits: a Vercel function has a read-only disk (only `/tmp`, which is wiped between cold starts), no long-lived memory, and anyone with the link can use it. Accounts, uploads and a code sandbox would either not survive or be unsafe on a public link, so the public mode switches them off by design (`create_app(public=True)`). For private team use, run the full app locally or in a container (`sandbox/Dockerfile`).
+Why the limits: a Vercel function has a read-only disk (only `/tmp`, which is wiped between cold starts), no long-lived memory, and anyone with the link can use it. Accounts, uploads and a code sandbox would either not survive or be unsafe on a public link, so the public mode switches them off by design. For private team use, run the full app locally or in a container (`sandbox/Dockerfile`).
 
 ### Things to know
 
-- The rate limiter lives in memory, so it is per function instance, not global. It stops casual abuse, not a determined attacker. If you enable the live mode, set a spending or rate cap on the provider key.
-- The function limit is 60 seconds (`maxDuration` in `vercel.json`). A long investigation on a slow free model can hit it; the page then shows the error and you can ask again.
+- The function limit is 60 seconds (`maxDuration` in `vercel.json`). A long investigation on a slow model can hit it; the page then shows the error and you can ask again.
+- The first Predict visit after an idle period trains the models (about 10 seconds), because the function starts cold.
 - The bundle is about 330 MB uncompressed (numpy, pandas, scipy, scikit-learn, DuckDB). That fits Vercel's Python limit but not by a wide margin, so avoid adding heavy dependencies to `requirements.txt`.
-- I could not run an actual Vercel build from this repository's development environment. The entrypoint was tested locally with the same environment (`LABOPS_TMP`, public mode, a real server); check the first deployment's build log and function logs.
+- An address behind a shared network (a school, an office) shares one visitor budget. Raise `LABOPS_LIVE_IP_DAILY` if that matters for your audience.
+- I could not run an actual Vercel build from this repository's development environment. The entrypoint was tested locally; check the first deployment's build log and function logs.
 
 ## 3. Run it locally instead
 

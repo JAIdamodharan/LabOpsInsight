@@ -237,6 +237,7 @@ flowchart TB
   V4 --> V5["Read and ask only:<br/>no accounts, uploads or sandbox"]
   V4 --> V6["Scripted answers by default;<br/>real model only with LABOPS_DEMO_LIVE=1<br/>and a key set in Vercel"]
   V4 --> V7["Limits per visitor address<br/>(6 questions per minute)"]
+  V6 --> V8["Live answers are budgeted:<br/>per visitor and global daily caps,<br/>cost caps per answer, shared Upstash counters,<br/>fallback to the scripted demo when used up"]
 
   classDef a fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
   classDef b fill:#fef3c7,stroke:#b45309,color:#78350f
@@ -244,7 +245,7 @@ flowchart TB
   classDef head font-weight:bold,fill:#0369a1,stroke:#0369a1,color:#ffffff
   classDef headb font-weight:bold,fill:#b45309,stroke:#b45309,color:#ffffff
   class P1,P2,P3,P4,P5,P6 a
-  class V1,V2,V3,V4,V5,V6,V7 b
+  class V1,V2,V3,V4,V5,V6,V7,V8 b
   class GH c
   class P0 head
   class V0 headb
@@ -285,7 +286,7 @@ python -m pytest -q                                        # about 450 tests, no
 ```
 `--demo` uses the built-in lab data and answers with a real model when a key is found in `.env`, otherwise with a scripted walkthrough (add `--scripted` to force that). Without `--demo` the app starts in private mode with sign-in; the first visit creates the admin account. More in [docs/DEPLOY.md](docs/DEPLOY.md) (GitHub, Vercel, running locally) and [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
-**Hosted demo:** the repository deploys to Vercel as a public, read-only demo (no accounts, no uploads). See [docs/DEPLOY.md](docs/DEPLOY.md).
+**Hosted demo:** the repository deploys to Vercel as a public, read-only demo (no accounts, no uploads). It can answer live with Groq, protected by daily budgets, cost caps and optional shared counters. Step-by-step setup is in [docs/DEPLOY.md](docs/DEPLOY.md).
 
 Tabs: **Why LabOps** (the story, with numbers computed from the data), **Dashboard** (slicers, KPI cards with deltas, gauges, insights, trends, instrument table, OOS heatmap, 3 themes),
 **Data Review** (rule results + downloadable query list per rule), **Predict** (forecasts, late-delivery risk, drift warning), **Analyze** (the agent, with Copy answer / Download report), **Data** (raw table browser), **Pinned**.

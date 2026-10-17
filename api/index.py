@@ -3,7 +3,8 @@
 Vercel functions have a read-only disk (only /tmp is writable) and no long-lived state, so this entrypoint:
   * builds the synthetic lab database into /tmp on a cold start (about a second),
   * runs the app in public mode (no accounts, no uploads, no code sandbox, limits per visitor address),
-  * answers with the scripted walkthrough unless LABOPS_DEMO_LIVE=1 and a provider key (e.g. GROQ_API_KEY) is set in the project settings.
+  * answers with the scripted walkthrough unless LABOPS_DEMO_LIVE=1 and a provider key (e.g. GROQ_API_KEY) is set in the project settings;
+    live answers are then protected by analyst/quota.py (daily budgets per visitor and overall, cost caps, optional shared Upstash counters).
 """
 import importlib.util
 import os
@@ -31,7 +32,7 @@ if os.environ.get("LABOPS_DEMO_LIVE") == "1":
     provider = detect_provider()
     if provider:
         try:
-            client, model = make_client(provider)
+            client, model = make_client(provider, os.environ.get("ANALYST_MODEL") or None)
         except SystemExit as e:                                       # a bad key must not take the whole site down
             print(f"live demo disabled: {e}")
 

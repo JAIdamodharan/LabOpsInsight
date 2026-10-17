@@ -737,6 +737,7 @@ async function runQuestion(q) {
   let cur = null; const ctl = S.abort = new AbortController();
   const handle = ev => {
     if (ev.kind === 'waiting') return showWait(ev);
+    if (ev.kind === 'notice') { log.append(el('div', { class: 'banner' }, ev.text)); return; }
     clearWait(); run.events.push(ev);
     if (ev.kind === 'tool_call') cur = addStep(ev);
     else if (ev.kind === 'tool_result' && cur) finishStep(cur, ev);
