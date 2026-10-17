@@ -6,5 +6,5 @@
       "includeFiles": "{analyst,scripts}/**"
     }
   },
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }]
+  "routes": [{ "src": "/(.*)", "dest": "/api/index.py" }]
 }
