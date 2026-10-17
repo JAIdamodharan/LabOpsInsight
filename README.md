@@ -33,6 +33,227 @@ All screens use the built-in synthetic lab data (demo mode, scripted answers).
 **Analyze**: the agent's SQL, chart, cited procedures and final answer.
 ![Analyze](docs/screenshots/analyze.jpg)
 
+## Architecture
+
+Five diagrams, drawn as code (Mermaid), so GitHub renders them and they stay in sync with the repository. Click a diagram on GitHub to zoom.
+
+### 1. System architecture
+
+```mermaid
+flowchart TB
+  UI["Browser<br/>vanilla JS + Chart.js, no build step<br/>tabs: Why LabOps, Dashboard, Data Review, Predict, Analyze, Data, Pinned"]
+
+  subgraph S["FastAPI server (analyst/server.py)"]
+    direction LR
+    G["Guard<br/>cross-site refusal, per-IP limit,<br/>CSP and security headers"] --> A["Access<br/>private: sign-in, roles, audit, lockout<br/>public demo: read and ask only"] --> R["API routes<br/>dashboard, dq, predict, story,<br/>ask, datasets, table"]
+  end
+
+  subgraph E["Analytics engines (no language model needed)"]
+    direction LR
+    DASH["dashboard.py<br/>KPIs, trends, insights"]
+    DQ["dq.py, profile.py<br/>10 lab rules tagged ALCOA+,<br/>generic review for uploads"]
+    PRED["predict.py<br/>forecasts, late-delivery model,<br/>EWMA drift monitor"]
+    STORY["story.py<br/>facts for the story page"]
+    ING["ingest.py, datasets.py<br/>safe Excel and CSV upload"]
+  end
+
+  subgraph AG["Investigation agent (agent.py)"]
+    direction TB
+    LOOP["Tool-using loop<br/>step and token budgets, forced final answer"]
+    TS["SQL tools<br/>get_schema, run_sql, chart, data_quality"]
+    TD["search_docs"]
+    TP["run_python"]
+    LOOP --> TS & TD & TP
+  end
+
+  subgraph M["Model access"]
+    direction LR
+    LLM["llm.py adapter<br/>retries, visible rate-limit waits, model fallback"] --> PROV["Providers<br/>Groq, Gemini, OpenRouter, xAI,<br/>Anthropic, Ollama, OpenAI-compatible"]
+    DEMO["demo.py<br/>scripted model, no key needed"]
+  end
+
+  GUARD["db.py guardrail<br/>one read-only SELECT, 200 rows,<br/>10 s timeout, no file access"]
+  RAG["rag.py<br/>BM25 retrieval, cited sections"]
+  SB["sandbox.py<br/>Docker or local<br/>(private mode only)"]
+
+  subgraph D["Data and knowledge"]
+    direction LR
+    LAB[("Lab DuckDB<br/>17k tests, 7k samples")]
+    UP[("Per-user upload<br/>DuckDB files")]
+    AUTHDB[("SQLite auth.db<br/>users, sessions, audit")]
+    KB["knowledge/*.md<br/>8 synthetic SOPs"]
+  end
+
+  UI -- "JSON and server-sent events" --> S
+  R --> E
+  R -- "/api/ask" --> LOOP
+  LOOP --> LLM
+  LOOP -. "no key found" .-> DEMO
+  E --> GUARD
+  TS --> GUARD
+  GUARD --> LAB
+  GUARD --> UP
+  ING --> UP
+  TD --> RAG --> KB
+  TP --> SB
+  A --> AUTHDB
+
+  classDef ui fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+  classDef srv fill:#ede9fe,stroke:#6d28d9,color:#3b0764
+  classDef eng fill:#dcfce7,stroke:#15803d,color:#14532d
+  classDef agt fill:#fef3c7,stroke:#b45309,color:#78350f
+  classDef mdl fill:#fce7f3,stroke:#be185d,color:#831843
+  classDef dat fill:#f1f5f9,stroke:#475569,color:#0f172a
+  class UI ui
+  class G,A,R srv
+  class DASH,DQ,PRED,STORY,ING eng
+  class LOOP,TS,TD,TP agt
+  class LLM,DEMO,PROV mdl
+  class LAB,UP,AUTHDB,KB,GUARD,RAG,SB dat
+```
+
+**How to read it.** Everything the browser asks goes through the Guard and the access layer first. Fixed questions (dashboard, data review, predictions, the story page) are answered by the analytics engines directly from the data and need no language model. Free-form questions go to the agent, which can only act through six tools; every database tool passes the read-only guardrail.
+
+### 2. What happens when you ask a question
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as You
+  participant UI as Browser
+  participant S as Server (Guard, access, limits)
+  participant W as Worker thread
+  participant AG as Agent loop
+  participant LLM as Language model
+  participant T as Tools
+
+  U->>UI: type a question or click an example
+  UI->>S: GET /api/ask (fetch + server-sent events)
+  S->>S: cross-site check, rate limit, one analysis per user
+  S->>W: start worker, take the user lock
+  W->>AG: run(question)
+  loop until it can answer, or the last allowed step
+    AG->>LLM: question + tool results so far<br/>(old results shortened, reply capped)
+    LLM-->>AG: a tool call, or the final answer
+    AG->>T: run_sql / chart / data_quality / search_docs / run_python
+    T-->>AG: result (model sees 25 rows, you see all rows)
+    AG-->>UI: step event: SQL, table, chart, cited procedure
+  end
+  Note over AG,LLM: on the last step tools are withheld and the<br/>model must write its conclusion from what it found
+  AG-->>UI: answer + statistics (steps, queries, tokens)
+  alt provider rate limit
+    LLM-->>UI: waiting notice with a countdown, then automatic retry
+  end
+  alt you press Stop or close the page
+    UI->>S: disconnect
+    S->>W: cancel and release the lock immediately
+  end
+```
+
+**How to read it.** The loop is the heart of the agent: the model asks for a tool, the tool runs under guardrails, the result goes back, and every step streams to your screen as it happens. Rate-limit waits are visible, and Stop really cancels the work.
+
+### 3. Predictions: from raw tables to a trustworthy number
+
+```mermaid
+flowchart TD
+  RAW[("tests, samples, projects,<br/>instruments, instrument_events")] --> FRAME["build_frame<br/>join tables, drop duplicate and<br/>impossible-date records"]
+  FRAME --> FEAT["Features known when a test starts<br/>method, instrument, lab, team, priority,<br/>days waiting, weekday, run hours<br/>+ instrument history looking backwards:<br/>OOS rate prior 30 d, load prior 7 d, breakdown flag"]
+  FEAT --> SPLIT{"Time split<br/>train: earlier 75%<br/>test: later 25%"}
+  SPLIT --> M1["Logistic regression"]
+  SPLIT --> M2["Gradient boosting"]
+  M1 & M2 --> EVAL["ROC AUC, PR AUC, top-decile lift<br/>pick the winner"]
+  EVAL --> IMP["Permutation importance<br/>on the held-out period"]
+  EVAL --> FINAL["Refit winner on all data"]
+  FINAL --> SCORE["What-if scorer<br/>and instrument risk table"]
+
+  RAW --> SERIES["Monthly series<br/>OOS rate, on-time, tests, turnaround<br/>incomplete last month dropped"]
+  SERIES --> BT["Rolling-origin backtest of 3 simple models<br/>last value, average, 6-month trend"]
+  BT --> FC["Best model forecasts 3 months<br/>80% range from backtest errors"]
+
+  RAW --> RES["Standardised results<br/>robust median and MAD, clipped"]
+  RES --> EWMA["EWMA control chart per<br/>instrument and method"]
+  EWMA --> ALARM["Alarm when the running average stays beyond<br/>3 sigma for 8 or more tests"]
+
+  classDef n fill:#f1f5f9,stroke:#475569,color:#0f172a
+  classDef ml fill:#dcfce7,stroke:#15803d,color:#14532d
+  classDef out fill:#fef3c7,stroke:#b45309,color:#78350f
+  class RAW,FRAME,SERIES,RES n
+  class FEAT,SPLIT,M1,M2,EVAL,IMP,FINAL,BT,EWMA ml
+  class SCORE,FC,ALARM out
+```
+
+**How to read it.** Three independent tools share the same data. The risk model is judged on later months than it learned from, the forecasts are chosen by backtesting, and the drift monitor needs no training at all. A test-level OOS classifier was tried first and removed because it scored no better than chance on held-out months.
+
+### 4. Safety layers (what protects the data and the user)
+
+```mermaid
+flowchart TD
+  REQ["Incoming request"] --> L1["1. Guard<br/>refuse cross-site calls, per-IP rate limit,<br/>CSP and security headers"]
+  L1 --> L2["2. Host check<br/>only expected host names"]
+  L2 --> L3["3. Access control<br/>private: sign-in, scrypt passwords, hashed session tokens,<br/>roles viewer / analyst / admin, lockout, audit log<br/>public demo: guest who can read and ask only"]
+  L3 --> L4["4. Per-user limits<br/>questions per minute, one analysis at a time,<br/>upload quota"]
+  L4 --> ROUTE{"Which route?"}
+
+  ROUTE -- "question" --> Q1["Agent tools only<br/>no free shell, no free file access"]
+  Q1 --> Q2["Read-only SQL guardrail<br/>single SELECT, 200 rows, 10 s timeout,<br/>external file access disabled"]
+  Q1 --> Q3["Python sandbox<br/>Docker isolation (local mode is development only),<br/>off in the public demo"]
+
+  ROUTE -- "upload" --> U1["Size and zip-bomb checks,<br/>macros and legacy .xls refused"]
+  U1 --> U2["defusedxml parsing,<br/>caps on rows, columns, sheets, cell length"]
+  U2 --> U3["Formulas never evaluated,<br/>numbers stored as text kept and flagged"]
+  U3 --> U4["Written to a private per-user DuckDB file<br/>other users get 404, not 403"]
+
+  classDef g fill:#ede9fe,stroke:#6d28d9,color:#3b0764
+  classDef r fill:#fef3c7,stroke:#b45309,color:#78350f
+  classDef ok fill:#dcfce7,stroke:#15803d,color:#14532d
+  class L1,L2,L3,L4 g
+  class ROUTE r
+  class Q1,Q2,Q3,U1,U2,U3,U4 ok
+```
+
+**How to read it.** Every request passes the same four gates. After that, questions and uploads each have their own checks, so even a confused or manipulated model cannot write to the database or touch files.
+
+### 5. Two ways to run it
+
+```mermaid
+flowchart TB
+  GH["GitHub repository<br/>CI runs the tests and scans for keys"]
+  GH -. "git clone" .-> P0
+  GH -- "import project" --> V0
+
+  P0["PRIVATE MODE<br/>your laptop or a server"]
+  P0 --> P1["python -m analyst.server"]
+  P1 --> P2["Sign-in, roles, audit log"]
+  P2 --> P3["Upload your own Excel"]
+  P2 --> P4["Any provider key in .env<br/>(free Groq tier is enough)"]
+  P2 --> P5["Optional Docker sandbox<br/>for run_python"]
+  P1 --> P6[("data/labops.duckdb<br/>data/auth.db<br/>data/uploads")]
+
+  V0["PUBLIC DEMO<br/>Vercel"]
+  V0 --> V1["Visitor opens the site"]
+  V1 --> V2["vercel.json sends every path<br/>to api/index.py"]
+  V2 --> V3["Cold start: build the synthetic<br/>lab database in /tmp (about 1 s)"]
+  V3 --> V4["create_app with public=True"]
+  V4 --> V5["Read and ask only:<br/>no accounts, uploads or sandbox"]
+  V4 --> V6["Scripted answers by default;<br/>real model only with LABOPS_DEMO_LIVE=1<br/>and a key set in Vercel"]
+  V4 --> V7["Limits per visitor address<br/>(6 questions per minute)"]
+
+  classDef a fill:#e0f2fe,stroke:#0369a1,color:#0c4a6e
+  classDef b fill:#fef3c7,stroke:#b45309,color:#78350f
+  classDef c fill:#f1f5f9,stroke:#475569,color:#0f172a
+  classDef head font-weight:bold,fill:#0369a1,stroke:#0369a1,color:#ffffff
+  classDef headb font-weight:bold,fill:#b45309,stroke:#b45309,color:#ffffff
+  class P1,P2,P3,P4,P5,P6 a
+  class V1,V2,V3,V4,V5,V6,V7 b
+  class GH c
+  class P0 head
+  class V0 headb
+```
+
+**How to read it.** The same code runs in both modes. The hosted demo is read only on purpose, because a public link must not allow uploads or accounts and a serverless disk is wiped between runs.
+
+More detail on design decisions and the request lifecycle: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
 ## What the data contains (and what the project finds)
 `scripts/make_data.py` builds `data/labops.duckdb` (17k tests, 7k samples, 13 instruments, 30 analysts) and `data/ground_truth.json`.
 

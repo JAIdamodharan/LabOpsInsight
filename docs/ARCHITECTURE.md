@@ -1,20 +1,19 @@
 # Architecture
 
-```
-browser (vanilla JS, Chart.js)  <--SSE/JSON-->  FastAPI app (analyst/server.py)
-                                                 |-- Guard middleware: cross-site refusal, per-IP limit, security headers, CSP
-                                                 |-- auth.py: scrypt passwords, hashed server-side sessions, RBAC, audit log (SQLite)
-                                                 |-- datasets.py + ingest.py: safe Excel/CSV upload -> per-user DuckDB files
-                                                 |-- dashboard.py / dq.py / profile.py: KPIs, data-review rules, upload profiling
-                                                 |-- predict.py: forecasts, late-delivery model, EWMA drift monitor (scikit-learn)
-                                                 |-- story.py: facts for the "Why LabOps" page, computed from the data
-                                                 `-- agent.py: tool-using LLM loop
-                                                       tools: get_schema, run_sql, chart, data_quality, search_docs, run_python
-                                                       |-- db.py: read-only, single-statement SELECT guard, row cap, timeout
-                                                       |-- rag.py + knowledge/*.md: local BM25 over synthetic SOPs
-                                                       |-- sandbox.py: optional isolated Python (Docker, or local for development)
-                                                       `-- llm.py: one adapter for Anthropic and any OpenAI-compatible API (Groq, Gemini, ...)
-```
+The system diagram, the question sequence, the prediction pipeline, the safety layers and the deployment modes are drawn in the [README](../README.md#architecture).
+
+Module map:
+
+| Module | Role |
+|---|---|
+| `server.py` | FastAPI app, Guard middleware, routes, private and public modes |
+| `auth.py`, `ratelimit.py` | accounts, sessions, roles, audit, limits |
+| `agent.py`, `llm.py`, `demo.py` | the tool-using loop, provider adapter, scripted model |
+| `db.py`, `sandbox.py` | read-only SQL guardrail, optional Python sandbox |
+| `dashboard.py`, `dq.py`, `profile.py`, `charts.py` | KPIs, data-review rules, upload profiling, chart specs |
+| `predict.py`, `story.py`, `rag.py` | forecasts and models, story facts, procedure retrieval |
+| `ingest.py`, `datasets.py` | safe upload and per-user datasets |
+
 
 ## Key decisions
 
