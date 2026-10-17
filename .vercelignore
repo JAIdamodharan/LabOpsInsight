@@ -10,7 +10,5 @@ data/
 sample_data/
 artifacts/
 docs/
-*.md
-!README.md
 .env
 .env.*
