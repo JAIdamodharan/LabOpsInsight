@@ -509,8 +509,6 @@ writes 15 synthetic, anonymised files to `sample_data/` (stability study, HPLC r
 
 ## Known limitations
 
-I would rather state these plainly than have a reviewer discover them.
-
 - The built-in data is synthetic: it demonstrates method, not results on real lab data. Uploaded workbooks get the generic Overview / Data Review, but the lab dashboard, the lab rules (DQ-001..010) and the scripted demo are specific to the built-in lab schema; mapping an arbitrary LIMS export onto them would need a column-mapping step that does not exist yet.
 - Uploads are stored unencrypted under `data/uploads`. Each upload is private to the user who made it, but the files are readable by anyone with access to the server's disk.
 - Excel reading: formulas show their last saved value (a formula that was never calculated shows blank); merged cells keep only their top-left value; the first non-empty row is always the header; dates stored as text stay text.
